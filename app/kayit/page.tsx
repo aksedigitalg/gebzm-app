@@ -81,7 +81,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-[100svh] flex-col px-6 pt-4 pb-8">
+    <div className="flex min-h-[100svh] flex-col px-6 pt-5 pb-6">
       <div className="flex items-center justify-between">
         <button
           onClick={step === "phone" ? () => router.push("/giris") : goBack}

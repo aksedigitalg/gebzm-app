@@ -44,7 +44,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-[100svh] flex-col px-6 pt-12 pb-safe">
+    <div className="flex min-h-[100svh] flex-col px-6 pt-8 pb-6">
       <div className="flex items-center justify-between">
         <StepIndicator total={slides.length} current={step} />
         <button
@@ -73,7 +73,7 @@ export default function OnboardingPage() {
         </p>
       </div>
 
-      <div className="mt-8 flex flex-col gap-3 pb-8">
+      <div className="mt-8 flex flex-col gap-3">
         <button
           onClick={next}
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 active:scale-[0.98]"

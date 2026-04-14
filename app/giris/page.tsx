@@ -35,7 +35,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[100svh] flex-col px-6 pt-12">
+    <div className="flex min-h-[100svh] flex-col px-6 pt-10 pb-6">
       <div className="flex flex-col items-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg">
           <Sparkles className="h-8 w-8" />
@@ -86,7 +86,7 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-auto pb-10 pt-8 text-center text-sm">
+      <div className="mt-auto pt-8 text-center text-sm">
         <span className="text-muted-foreground">Hesabın yok mu? </span>
         <Link
           href="/kayit"
