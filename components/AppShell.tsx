@@ -9,14 +9,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const auth = isAuthRoute(pathname);
 
   if (auth) {
-    // Auth sayfalarinda tam ekran, kisitlama yok, alt menu yok
-    return <main className="flex flex-1 flex-col">{children}</main>;
+    // Auth sayfalari: dinamik viewport'u tam doldurur, alt menu yok
+    return (
+      <main className="flex min-h-[100dvh] flex-1 flex-col">{children}</main>
+    );
   }
 
-  // Uygulama sayfalari: alt menuye 15px bosluk birakan padding + nav
+  // Uygulama sayfalari: son icerikle alt menu arasi ~10px (safe-area hassas)
   return (
     <>
-      <main className="flex-1 pb-[90px]">
+      <main
+        className="flex-1"
+        style={{
+          paddingBottom:
+            "calc(76px + env(safe-area-inset-bottom, 0px) + 10px)",
+        }}
+      >
         <div className="mx-auto max-w-3xl">{children}</div>
       </main>
       <BottomNav />

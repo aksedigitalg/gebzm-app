@@ -59,7 +59,7 @@ export default function RootLayout({
       lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-[100dvh] flex flex-col">
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>

@@ -44,7 +44,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-[100svh] flex-col px-6 pt-8 pb-6">
+    <div className="flex min-h-[100dvh] flex-col px-6 pt-8 pb-6">
       <div className="flex items-center justify-between">
         <StepIndicator total={slides.length} current={step} />
         <button
