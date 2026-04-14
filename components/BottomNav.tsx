@@ -21,7 +21,7 @@ const links = [
   { href: "/profil", label: "Profil", icon: UserCircle2 },
 ] as const;
 
-const HIDDEN_PATHS = ["/onboarding", "/giris", "/kayit", "/sifremi-unuttum"];
+const HIDDEN_PATHS = ["/onboarding", "/giris", "/kayit", "/sifremi-unuttum", "/ai"];
 
 export function BottomNav() {
   const pathname = usePathname();

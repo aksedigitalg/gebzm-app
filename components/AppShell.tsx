@@ -7,8 +7,9 @@ import { isAuthRoute } from "@/lib/auth";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const auth = isAuthRoute(pathname);
+  const fullscreen = pathname.startsWith("/ai");
 
-  if (auth) {
+  if (auth || fullscreen) {
     // Auth sayfalari: dinamik viewport'u tam doldurur, alt menu yok
     return (
       <main className="flex h-[100svh] flex-1 flex-col overflow-hidden">

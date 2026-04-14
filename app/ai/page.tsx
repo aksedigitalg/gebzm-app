@@ -59,8 +59,8 @@ export default function AIPage() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-76px-env(safe-area-inset-bottom,0px)-10px)] flex-col">
-      <PageHeader title="Gebzem AI" subtitle="Şehir asistanın" />
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <PageHeader title="Gebzem AI" subtitle="Şehir asistanın" back="/" />
 
       <div
         ref={scrollRef}
