@@ -9,7 +9,7 @@ const items = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/harita", label: "Harita", icon: Map },
   { href: "/gezilecek", label: "Keşfet", icon: Compass },
-  { href: "/menu", label: "Profil", icon: UserCircle2 },
+  { href: "/profil", label: "Profil", icon: UserCircle2 },
 ];
 
 const HIDDEN_PATHS = ["/onboarding", "/giris", "/kayit", "/sifremi-unuttum"];
