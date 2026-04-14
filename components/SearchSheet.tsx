@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -129,10 +129,50 @@ export function SearchSheet({
 }) {
   const [q, setQ] = useState("");
   const results = useMemo(() => search(q), [q]);
+  const [dragY, setDragY] = useState(0);
+  const dragStartY = useRef<number | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen) setQ("");
+    if (!isOpen) {
+      setQ("");
+      setDragY(0);
+    }
   }, [isOpen]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (dragStartY.current == null) return;
+    const delta = e.touches[0].clientY - dragStartY.current;
+    if (delta > 0) setDragY(delta);
+  };
+  const onTouchEnd = () => {
+    if (dragY > 120) {
+      onClose();
+    }
+    setDragY(0);
+    dragStartY.current = null;
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragStartY.current = e.clientY;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragStartY.current == null) return;
+    const delta = e.clientY - dragStartY.current;
+    if (delta > 0) setDragY(delta);
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (dragY > 120) onClose();
+    setDragY(0);
+    dragStartY.current = null;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+  };
 
   // ESC kapatma
   useEffect(() => {
@@ -161,14 +201,31 @@ export function SearchSheet({
 
       {/* Sheet */}
       <div
-        className={`absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-border bg-card shadow-2xl transition-transform duration-300 ease-out ${
-          isOpen ? "translate-y-0" : "translate-y-full"
+        ref={sheetRef}
+        className={`absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-border bg-card shadow-2xl ${
+          dragStartY.current != null
+            ? ""
+            : "transition-transform duration-300 ease-out"
         }`}
-        style={{ height: "95dvh" }}
+        style={{
+          height: "95dvh",
+          transform: isOpen
+            ? `translateY(${dragY}px)`
+            : "translateY(100%)",
+        }}
       >
-        {/* Drag handle */}
-        <div className="flex items-center justify-center pt-3 pb-2">
-          <div className="h-1 w-10 rounded-full bg-muted-foreground/40" />
+        {/* Drag handle — tutup aşağı sürüklenebilir alan */}
+        <div
+          className="flex cursor-grab touch-none items-center justify-center pt-3 pb-3 active:cursor-grabbing"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
+          <div className="h-1.5 w-12 rounded-full bg-muted-foreground/50" />
         </div>
 
         {/* Header */}
