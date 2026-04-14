@@ -8,11 +8,13 @@ import { StepIndicator } from "@/components/StepIndicator";
 import { PhoneInput, isValidPhone } from "@/components/PhoneInput";
 import { PasswordInput } from "@/components/PasswordInput";
 import { OtpInput } from "@/components/OtpInput";
+import { useAuth } from "@/components/AuthProvider";
 
 type Step = "phone" | "otp" | "profile" | "done";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -74,12 +76,6 @@ export default function RegisterPage() {
     }
     setLoading(true);
     await new Promise((r) => setTimeout(r, 800));
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "gebzem_user",
-        JSON.stringify({ phone, firstName, lastName })
-      );
-    }
     setLoading(false);
     setStep("done");
   };
@@ -262,7 +258,10 @@ export default function RegisterPage() {
             Hesabın başarıyla oluşturuldu. Gebze&apos;yi keşfetmeye başlayabilirsin.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => {
+              signIn({ phone, firstName, lastName });
+              router.replace("/");
+            }}
             className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
           >
             Ana sayfaya git

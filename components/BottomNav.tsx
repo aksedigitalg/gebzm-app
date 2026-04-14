@@ -19,7 +19,12 @@ export function BottomNav() {
   const pathname = usePathname();
   if (HIDDEN_PATHS.some((p) => pathname.startsWith(p))) return null;
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-bottom">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      style={{
+        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 10px)`,
+      }}
+    >
       <ul className="mx-auto grid max-w-3xl grid-cols-5">
         {items.map((item) => {
           const Icon = item.icon;
@@ -32,7 +37,7 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-2 py-2.5 text-[11px] font-medium transition-colors",
+                  "flex flex-col items-center gap-1 px-2 pt-2.5 pb-[18px] text-[11px] font-medium transition-colors",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"

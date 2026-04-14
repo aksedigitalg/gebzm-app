@@ -56,6 +56,29 @@ body {
 body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Tüm scrollbar'ları gizle (işlev korunur) */
+html,
+body,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* iOS input zoom engelle (font-size 16px alt sınırı) */
+input,
+textarea,
+select {
+  font-size: 16px;
 }
 
 /* Leaflet map overrides */

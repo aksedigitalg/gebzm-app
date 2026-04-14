@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Compass, MapPin, CalendarHeart, ChevronRight } from "lucide-react";
 import { StepIndicator } from "@/components/StepIndicator";
+import { setOnboarded } from "@/lib/auth";
 
 const slides = [
   {
@@ -36,10 +36,8 @@ export default function OnboardingPage() {
 
   const next = () => {
     if (isLast) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("gebzem_onboarded", "1");
-      }
-      router.push("/giris");
+      setOnboarded();
+      router.replace("/giris");
     } else {
       setStep((s) => s + 1);
     }
@@ -49,12 +47,16 @@ export default function OnboardingPage() {
     <div className="flex min-h-[100svh] flex-col px-6 pt-12 pb-safe">
       <div className="flex items-center justify-between">
         <StepIndicator total={slides.length} current={step} />
-        <Link
-          href="/giris"
+        <button
+          type="button"
+          onClick={() => {
+            setOnboarded();
+            router.replace("/giris");
+          }}
           className="text-xs font-medium text-muted-foreground transition hover:text-foreground"
         >
           Atla
-        </Link>
+        </button>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center text-center">

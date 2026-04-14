@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { PhoneInput, isValidPhone } from "@/components/PhoneInput";
 import { PasswordInput } from "@/components/PasswordInput";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,10 +30,8 @@ export default function LoginPage() {
     setLoading(true);
     // mock: 800ms bekle, sonra ana sayfaya git
     await new Promise((r) => setTimeout(r, 800));
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gebzem_user", JSON.stringify({ phone }));
-    }
-    router.push("/");
+    signIn({ phone });
+    router.replace("/");
   };
 
   return (
