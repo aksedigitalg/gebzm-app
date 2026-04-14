@@ -49,6 +49,7 @@ export default function MapView({ focusSlug }: { focusSlug?: string }) {
       zoom={focused ? 15 : 13}
       scrollWheelZoom
       attributionControl={false}
+      zoomControl={false}
       className="h-full w-full"
     >
       <TileLayer

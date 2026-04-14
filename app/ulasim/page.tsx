@@ -46,7 +46,7 @@ export default function Page() {
         title="Ulaşım"
         subtitle="Marmaray, YHT, otobüs ve feribot"
       />
-      <div className="space-y-6 px-5 pb-10 pt-4">
+      <div className="space-y-6 px-5 pb-6 pt-4">
         {order
           .filter((t) => grouped[t])
           .map((type) => (

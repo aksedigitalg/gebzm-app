@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Map, Calendar, Compass, Menu } from "lucide-react";
+import { Home, Map, Compass, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/harita", label: "Harita", icon: Map },
-  { href: "/etkinlikler", label: "Etkinlik", icon: Calendar },
   { href: "/gezilecek", label: "Keşfet", icon: Compass },
-  { href: "/menu", label: "Menü", icon: Menu },
+  { href: "/menu", label: "Profil", icon: UserCircle2 },
 ];
 
 const HIDDEN_PATHS = ["/onboarding", "/giris", "/kayit", "/sifremi-unuttum"];
@@ -25,7 +24,7 @@ export function BottomNav() {
         paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 10px)`,
       }}
     >
-      <ul className="mx-auto grid max-w-3xl grid-cols-5">
+      <ul className="mx-auto grid max-w-3xl grid-cols-4">
         {items.map((item) => {
           const Icon = item.icon;
           const active =

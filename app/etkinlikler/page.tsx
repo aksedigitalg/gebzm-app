@@ -16,7 +16,7 @@ export default function Page() {
         title="Etkinlikler"
         subtitle={`${sorted.length} yaklaşan etkinlik`}
       />
-      <div className="px-5 pb-10 pt-4">
+      <div className="px-5 pb-6 pt-4">
         <div className="space-y-3">
           {sorted.map((e) => {
             const date = new Date(e.date);

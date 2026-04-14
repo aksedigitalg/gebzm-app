@@ -12,7 +12,7 @@ export default async function Page({
     <div
       className="fixed inset-x-0 top-0 z-10 bg-card"
       style={{
-        bottom: "calc(76px + env(safe-area-inset-bottom, 0px) + 10px)",
+        bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
       }}
     >
       <MapWrapper focusSlug={yer} />

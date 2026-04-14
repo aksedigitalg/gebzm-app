@@ -31,8 +31,8 @@ export default async function Page({
         title="Gezilecek Yerler"
         subtitle={`${filtered.length} yer listeleniyor`}
       />
-      <div className="px-5 pb-10 pt-4">
-        <div className="-mx-5 mb-4 flex gap-2 overflow-x-auto px-5 pb-1 no-scrollbar">
+      <div className="px-5 pb-6 pt-4">
+        <div className="-mx-5 mb-4 flex gap-2 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-1 no-scrollbar">
           {categories.map((c) => {
             const isActive = active === c;
             const label = c === "all" ? "Tümü" : categoryLabels[c];
@@ -41,7 +41,7 @@ export default async function Page({
               <Link
                 key={c}
                 href={href}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition first:ml-5 last:mr-5 ${
                   isActive
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"

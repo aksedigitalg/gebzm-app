@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="flex-1"
         style={{
           paddingBottom:
-            "calc(76px + env(safe-area-inset-bottom, 0px) + 10px)",
+            "calc(76px + env(safe-area-inset-bottom, 0px) + 5px)",
         }}
       >
         <div className="mx-auto max-w-3xl">{children}</div>
