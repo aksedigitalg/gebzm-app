@@ -48,11 +48,12 @@ export default function MapView({ focusSlug }: { focusSlug?: string }) {
       center={focused?.coordinates ?? GEBZE_CENTER}
       zoom={focused ? 15 : 13}
       scrollWheelZoom
+      attributionControl={false}
       className="h-full w-full"
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        subdomains={["a", "b", "c", "d"]}
       />
       <FocusOnPlace place={focused} />
       {places.map((p) => (
