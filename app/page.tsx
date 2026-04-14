@@ -13,6 +13,7 @@ import {
 import { places } from "@/data/places";
 import { events } from "@/data/events";
 import { formatDateTR } from "@/lib/utils";
+import { HomeHeader } from "@/components/HomeHeader";
 
 const quickLinks = [
   {
@@ -66,7 +67,9 @@ export default function HomePage() {
     .slice(0, 3);
 
   return (
-    <div className="space-y-8 px-5 pb-6 pt-5">
+    <div className="pb-6">
+      <HomeHeader />
+      <div className="mt-5 space-y-7 px-5">
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-secondary p-6 text-primary-foreground shadow-lg">
         <div className="relative z-10">
           <p className="text-xs font-medium uppercase tracking-widest opacity-80">
@@ -206,6 +209,7 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+      </div>
     </div>
   );
 }

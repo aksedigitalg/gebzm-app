@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import { SearchProvider } from "@/components/SearchProvider";
 import { AppShell } from "@/components/AppShell";
+import { ZoomLock } from "@/components/ZoomLock";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,7 +48,9 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -60,8 +64,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-[100dvh] flex flex-col">
+        <ZoomLock />
         <AuthProvider>
-          <AppShell>{children}</AppShell>
+          <SearchProvider>
+            <AppShell>{children}</AppShell>
+          </SearchProvider>
         </AuthProvider>
       </body>
     </html>

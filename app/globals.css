@@ -61,6 +61,12 @@ body {
 html,
 body {
   overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* Leaflet kendi touch-action'ini yonetir — override etme */
+.leaflet-container {
+  touch-action: none;
 }
 
 /* Tüm scrollbar'ları gizle (işlev korunur) */

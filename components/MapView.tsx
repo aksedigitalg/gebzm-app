@@ -32,7 +32,7 @@ const markerIcon = L.divIcon({
 function FocusOnPlace({ place }: { place?: Place }) {
   const map = useMap();
   useEffect(() => {
-    if (place) map.setView(place.coordinates, 15, { animate: true });
+    if (place) map.flyTo(place.coordinates, 16, { duration: 0.8 });
   }, [place, map]);
   return null;
 }
