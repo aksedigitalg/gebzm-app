@@ -11,7 +11,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (auth) {
     // Auth sayfalari: dinamik viewport'u tam doldurur, alt menu yok
     return (
-      <main className="flex min-h-[100dvh] flex-1 flex-col">{children}</main>
+      <main className="flex h-[100svh] flex-1 flex-col overflow-hidden">
+        {children}
+      </main>
     );
   }
 

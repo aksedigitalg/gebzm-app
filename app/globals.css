@@ -56,7 +56,11 @@ body {
 body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior-y: none;
+}
+
+html,
+body {
+  overscroll-behavior: none;
 }
 
 /* Tüm scrollbar'ları gizle (işlev korunur) */

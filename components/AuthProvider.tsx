@@ -15,6 +15,7 @@ import {
   setUser as persistUser,
   clearUser as persistClear,
   isAuthRoute,
+  isOnboarded,
 } from "@/lib/auth";
 
 interface AuthContextValue {
@@ -49,8 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const onAuth = isAuthRoute(pathname);
 
     if (!user && !onAuth) {
-      // Giriş yok → her zaman onboarding ile başla (onaylı akış)
-      router.replace("/onboarding");
+      // Giriş yok: ilk kez → onboarding, önceden görmüşse → giriş
+      router.replace(isOnboarded() ? "/giris" : "/onboarding");
       return;
     }
 
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {shouldRender ? (
         children
       ) : (
-        <div className="flex min-h-[100dvh] items-center justify-center">
+        <div className="flex h-[100svh] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       )}
