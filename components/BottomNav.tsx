@@ -13,8 +13,11 @@ const items = [
   { href: "/menu", label: "Menü", icon: Menu },
 ];
 
+const HIDDEN_PATHS = ["/onboarding", "/giris", "/kayit", "/sifremi-unuttum"];
+
 export function BottomNav() {
   const pathname = usePathname();
+  if (HIDDEN_PATHS.some((p) => pathname.startsWith(p))) return null;
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-bottom">
       <ul className="mx-auto grid max-w-3xl grid-cols-5">

@@ -8,6 +8,8 @@ import {
   Compass,
   Calendar,
   Map,
+  LogIn,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -21,6 +23,8 @@ const items = [
   { href: "/ulasim", label: "Ulaşım", icon: Bus },
   { href: "/rehber", label: "Rehber", icon: Utensils },
   { href: "/acil", label: "Acil Numaralar", icon: PhoneCall },
+  { href: "/onboarding", label: "Tanıtım", icon: Sparkles },
+  { href: "/giris", label: "Giriş / Kayıt", icon: LogIn },
   { href: "/hakkinda", label: "Hakkında", icon: Info },
 ];
 
