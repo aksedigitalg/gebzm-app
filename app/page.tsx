@@ -66,7 +66,7 @@ export default function HomePage() {
     .slice(0, 3);
 
   return (
-    <div className="space-y-8 px-4 pb-10 pt-5">
+    <div className="space-y-8 px-5 pb-10 pt-5">
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-secondary p-6 text-primary-foreground shadow-lg">
         <div className="relative z-10">
           <p className="text-xs font-medium uppercase tracking-widest opacity-80">
@@ -145,7 +145,7 @@ export default function HomePage() {
             Tümünü gör
           </Link>
         </div>
-        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 no-scrollbar">
+        <div className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-2 no-scrollbar">
           {highlights.map((p) => (
             <Link
               key={p.slug}

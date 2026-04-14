@@ -10,7 +10,7 @@ interface Props {
 export function PageHeader({ title, subtitle, back }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-3xl items-center gap-3 px-5 py-3">
         {back && (
           <Link
             href={back}

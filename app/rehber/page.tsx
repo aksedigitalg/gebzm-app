@@ -53,8 +53,8 @@ export default async function Page({
         title="Rehber"
         subtitle={`${filtered.length} mekan listeleniyor`}
       />
-      <div className="px-4 pb-10 pt-4">
-        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
+      <div className="px-5 pb-10 pt-4">
+        <div className="-mx-5 mb-4 flex gap-2 overflow-x-auto px-5 pb-1 no-scrollbar">
           {categories.map((c) => {
             const isActive = active === c;
             const label = c === "all" ? "Tümü" : guideCategoryLabels[c];

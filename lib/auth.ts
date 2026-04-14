@@ -6,6 +6,10 @@ export interface AuthUser {
 
 const USER_KEY = "gebzem_user";
 const ONBOARDED_KEY = "gebzem_onboarded";
+const BUILD_KEY = "gebzem_build_id";
+
+export const CURRENT_BUILD_ID =
+  process.env.NEXT_PUBLIC_BUILD_ID || "dev";
 
 export function getUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
@@ -35,6 +39,20 @@ export function isOnboarded(): boolean {
 export function setOnboarded() {
   if (typeof window === "undefined") return;
   localStorage.setItem(ONBOARDED_KEY, "1");
+}
+
+/**
+ * Yeni bir deploy algilanirsa onboarding bayragini sifirlar.
+ * Boylece her PWA guncellemesinden sonra onboarding 1 kez gosterilir,
+ * sonrasinda (ayni build icinde) giris/cikis yapsa bile tekrar gosterilmez.
+ */
+export function syncBuildVersion(): void {
+  if (typeof window === "undefined") return;
+  const stored = localStorage.getItem(BUILD_KEY);
+  if (stored !== CURRENT_BUILD_ID) {
+    localStorage.removeItem(ONBOARDED_KEY);
+    localStorage.setItem(BUILD_KEY, CURRENT_BUILD_ID);
+  }
 }
 
 export const AUTH_ROUTES = [

@@ -38,7 +38,7 @@ export default function MenuPage() {
   return (
     <>
       <PageHeader title="Menü" subtitle="Tüm bölümlere erişim" />
-      <div className="px-4 pb-10 pt-4">
+      <div className="px-5 pb-10 pt-4">
         <section className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-primary-foreground">
             <UserCircle2 className="h-7 w-7" strokeWidth={1.5} />

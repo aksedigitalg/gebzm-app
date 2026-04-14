@@ -7,7 +7,7 @@ export default function Page() {
   return (
     <>
       <PageHeader title="Hakkında" back="/menu" />
-      <div className="space-y-4 px-4 pb-10 pt-4">
+      <div className="space-y-4 px-5 pb-10 pt-4">
         <section className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />

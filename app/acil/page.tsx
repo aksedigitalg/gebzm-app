@@ -42,7 +42,7 @@ export default function Page() {
         title="Acil Numaralar"
         subtitle="Tek dokunuşla arayabilirsin"
       />
-      <div className="space-y-6 px-4 pb-10 pt-4">
+      <div className="space-y-6 px-5 pb-10 pt-4">
         {order
           .filter((c) => grouped[c])
           .map((cat) => {

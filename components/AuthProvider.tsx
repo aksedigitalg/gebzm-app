@@ -16,6 +16,7 @@ import {
   clearUser as persistClear,
   isAuthRoute,
   isOnboarded,
+  syncBuildVersion,
 } from "@/lib/auth";
 
 interface AuthContextValue {
@@ -38,8 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // İlk yüklemede localStorage'dan oku
+  // İlk yüklemede build ID senkronizasyonu + localStorage'dan oku
   useEffect(() => {
+    // Yeni deploy algılandıysa onboarded bayrağı temizlenir
+    syncBuildVersion();
     setUserState(getUser());
     setReady(true);
   }, []);

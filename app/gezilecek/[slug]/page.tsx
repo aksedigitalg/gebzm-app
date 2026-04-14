@@ -37,7 +37,7 @@ export default async function Page({
         subtitle={categoryLabels[place.category]}
         back="/gezilecek"
       />
-      <article className="px-4 pb-10 pt-4">
+      <article className="px-5 pb-10 pt-4">
         <div className="flex h-48 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 via-secondary/15 to-accent/25">
           <Landmark className="h-16 w-16 text-primary/70" strokeWidth={1.25} />
         </div>

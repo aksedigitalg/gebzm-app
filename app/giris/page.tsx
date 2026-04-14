@@ -36,7 +36,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="flex h-[100svh] flex-col px-6 pt-10"
+      className="flex h-[100svh] flex-col px-5 pt-10"
       style={{
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
       }}
