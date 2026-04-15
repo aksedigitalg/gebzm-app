@@ -75,7 +75,7 @@ export default async function Page({
           })}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
           {filtered.map((g) => {
             const Icon = icons[g.category];
             return (

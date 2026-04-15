@@ -47,7 +47,7 @@ export default async function Page({
         </div>
 
         {/* Restoran listesi */}
-        <div className="space-y-3">
+        <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
           {list.map((r) => (
             <Link
               key={r.slug}

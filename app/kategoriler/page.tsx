@@ -25,7 +25,7 @@ export default function KategorilerPage() {
     <>
       <PageHeader title="Kategoriler" subtitle="Tüm kategoriler tek yerde" />
       <div className="px-5 pb-6 pt-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {homeCategories.map((c) => {
             const Icon = c.icon;
             return (

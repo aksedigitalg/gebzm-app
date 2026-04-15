@@ -63,7 +63,7 @@ export default async function Page({
         <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Hizmet Sağlayıcıları ({filtered.length})
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
           {filtered.map((p) => (
             <Link
               key={p.slug}

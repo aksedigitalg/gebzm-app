@@ -70,17 +70,19 @@ export default function HomePage() {
 
   return (
     <div className="pb-6">
-      <HomeHeader />
-      <div className="mt-5 space-y-7 px-5">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-secondary p-6 text-primary-foreground shadow-lg">
-        <div className="relative z-10">
+      <div className="lg:hidden">
+        <HomeHeader />
+      </div>
+      <div className="mt-5 space-y-7 px-5 lg:mt-4 lg:space-y-10 lg:px-0">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-secondary p-6 text-primary-foreground shadow-lg lg:p-10">
+        <div className="relative z-10 lg:max-w-2xl">
           <p className="text-xs font-medium uppercase tracking-widest opacity-80">
             Hoş geldin
           </p>
-          <h2 className="mt-1 text-2xl font-bold leading-tight">
+          <h2 className="mt-1 text-2xl font-bold leading-tight lg:text-4xl">
             Gebze&apos;yi keşfetmeye hazır mısın?
           </h2>
-          <p className="mt-2 max-w-md text-sm opacity-90">
+          <p className="mt-2 max-w-md text-sm opacity-90 lg:text-base">
             Tarihi mekanlar, doğa rotaları, etkinlikler ve şehir rehberi — hepsi
             tek uygulamada.
           </p>
@@ -113,7 +115,7 @@ export default function HomePage() {
             Hızlı Erişim
           </h3>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (
@@ -145,16 +147,16 @@ export default function HomePage() {
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Hızlı Servisler
         </h3>
-        <div className="-mx-5 flex gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-2 no-scrollbar">
+        <div className="-mx-5 flex gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-2 no-scrollbar lg:mx-0 lg:grid lg:grid-cols-8 lg:overflow-visible lg:pb-0">
           {quickServices.map((s, i) => {
             const Icon = s.icon;
             return (
               <Link
                 key={s.label}
                 href={s.href}
-                className={`flex w-[72px] shrink-0 flex-col items-center gap-1.5 ${
-                  i === 0 ? "ml-5" : ""
-                } ${i === quickServices.length - 1 ? "mr-5" : ""}`}
+                className={`flex w-[72px] shrink-0 flex-col items-center gap-1.5 lg:w-auto ${
+                  i === 0 ? "ml-5 lg:ml-0" : ""
+                } ${i === quickServices.length - 1 ? "mr-5 lg:mr-0" : ""}`}
               >
                 <div className="flex h-[60px] w-[60px] items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition hover:shadow-md">
                   <Icon className={`h-6 w-6 ${s.color}`} strokeWidth={1.75} />
@@ -180,12 +182,12 @@ export default function HomePage() {
             Tümünü gör
           </Link>
         </div>
-        <div className="-mx-5 flex snap-x gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-2 no-scrollbar">
+        <div className="-mx-5 flex snap-x gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-2 no-scrollbar lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:pb-0">
           {highlights.map((p) => (
             <Link
               key={p.slug}
               href={`/gezilecek/${p.slug}`}
-              className="group relative flex w-64 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:shadow-md first:ml-5 last:mr-5"
+              className="group relative flex w-64 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:shadow-md first:ml-5 last:mr-5 lg:w-auto lg:first:ml-0 lg:last:mr-0"
             >
               <div className="relative h-32 w-full bg-gradient-to-br from-primary/25 via-secondary/15 to-accent/25">
                 <Landmark

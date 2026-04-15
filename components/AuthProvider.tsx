@@ -19,9 +19,11 @@ import {
   syncBuildVersion,
 } from "@/lib/auth";
 import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
+import { isPWA } from "@/lib/platform";
 
 interface AuthContextValue {
   user: AuthUser | null;
+  guest: boolean; // PWA değil + user yok → guest browsing
   signIn: (user: AuthUser) => void;
   signOut: () => void;
 }
@@ -37,27 +39,29 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
+  const [pwa, setPwa] = useState(false); // client-only
   const pathname = usePathname();
   const router = useRouter();
 
-  // İlk yüklemede build ID senkronizasyonu + localStorage'dan oku
   useEffect(() => {
-    // Yeni deploy algılandıysa onboarded bayrağı temizlenir
     syncBuildVersion();
     setUserState(getUser());
+    setPwa(isPWA());
     setReady(true);
-  }, []);
+  }, [pathname]);
 
   // Rota koruma
   useEffect(() => {
     if (!ready) return;
-    // Admin / işletme panelleri kendi auth sistemini kullanır, burada karışma
     if (isAdminRoute(pathname) || isBusinessRoute(pathname)) return;
 
     const onAuth = isAuthRoute(pathname);
 
     if (!user && !onAuth) {
-      router.replace(isOnboarded() ? "/giris" : "/onboarding");
+      // PWA'da zorunlu login, tarayıcıda serbest browsing
+      if (pwa) {
+        router.replace(isOnboarded() ? "/giris" : "/onboarding");
+      }
       return;
     }
 
@@ -65,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.replace("/");
       return;
     }
-  }, [ready, user, pathname, router]);
+  }, [ready, user, pathname, router, pwa]);
 
   const signIn = useCallback((u: AuthUser) => {
     persistUser(u);
@@ -75,16 +79,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     persistClear();
     setUserState(null);
-    router.replace("/giris");
-  }, [router]);
+    if (pwa) router.replace("/giris");
+  }, [router, pwa]);
 
-  const value = useMemo(() => ({ user, signIn, signOut }), [user, signIn, signOut]);
+  const guest = !user && !pwa; // tarayıcıda giriş yapmamış
 
-  // Hidrasyon tamamlanmadan veya redirect sırasında içerik göstermeyelim (flash önle)
+  const value = useMemo(
+    () => ({ user, guest, signIn, signOut }),
+    [user, guest, signIn, signOut]
+  );
+
   const onAuth = isAuthRoute(pathname);
   const isPanel = isAdminRoute(pathname) || isBusinessRoute(pathname);
+  // Render koşulu: panel / auth sayfası / giriş yapmış / guest (tarayıcı)
   const shouldRender =
-    ready && (isPanel || (user && !onAuth) || (!user && onAuth));
+    ready &&
+    (isPanel || (user && !onAuth) || (!user && onAuth) || (!user && !onAuth && !pwa));
 
   return (
     <AuthContext.Provider value={value}>

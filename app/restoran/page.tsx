@@ -14,7 +14,7 @@ export default function Page() {
         back="/kategoriler"
       />
       <div className="px-5 pb-6 pt-4">
-        <div className="space-y-3">
+        <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
           {dineInRestaurants.map((r) => (
             <Link
               key={r.slug}
