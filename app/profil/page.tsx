@@ -12,6 +12,7 @@ import {
   Info,
   LogOut,
   ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/components/AuthProvider";
@@ -29,6 +30,12 @@ interface Section {
 }
 
 const sections: Section[] = [
+  {
+    title: "Etkileşim",
+    items: [
+      { label: "Mesajlarım", icon: MessageSquare, href: "/profil/mesajlar" },
+    ],
+  },
   {
     title: "Hesap",
     items: [

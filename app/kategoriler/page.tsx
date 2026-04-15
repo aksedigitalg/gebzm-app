@@ -8,9 +8,10 @@ const hints: Record<string, string> = {
   "Gebzem AI": "Şehir asistanına sor",
   "Yemek": "Teslimat yapan restoranlar",
   "Restoran": "Yerinde yemek mekanları",
+  "Market": "Gıda, temizlik, bebek ürünleri",
+  "Alışveriş": "Elektronik, giyim, ev & yaşam",
   "İlanlar": "Emlak, vasıta, eşya",
-  "Hizmetler": "Ustalar ve hizmet sağlayıcıları",
-  "Market": "Yakındaki marketler",
+  "Hizmetler": "Ustalar, doktorlar, kuaförler",
   "Etkinlik": "Yaklaşan etkinlikler",
   "İş Başvurusu": "İş ilanları",
 };

@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Star, MapPin, Phone, Clock, Navigation, CalendarCheck2 } from "lucide-react";
+import { Star, MapPin, Phone, Clock, Navigation } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { dineInRestaurants } from "@/data/restaurants";
+import { BusinessActions } from "@/components/BusinessActions";
 
 export async function generateStaticParams() {
   return dineInRestaurants.map((r) => ({ slug: r.slug }));
@@ -94,26 +95,23 @@ export default async function Page({
             </div>
           </div>
 
-          <div className="mt-5 flex gap-2">
-            <button
-              type="button"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-            >
-              <CalendarCheck2 className="h-4 w-4" />
-              Rezervasyon
-            </button>
-            <Link
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold transition hover:bg-muted"
-            >
-              <Navigation className="h-4 w-4" />
-              Yol Tarifi
-            </Link>
-          </div>
+          <Link
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold transition hover:bg-muted"
+          >
+            <Navigation className="h-4 w-4" />
+            Yol Tarifi
+          </Link>
+          <div className="h-32" />
         </div>
       </div>
+      <BusinessActions
+        businessName={r.name}
+        businessType="Restoran"
+        bookingLabel="Rezervasyon"
+      />
     </>
   );
 }

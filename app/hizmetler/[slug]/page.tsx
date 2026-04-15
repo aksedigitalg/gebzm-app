@@ -1,7 +1,54 @@
 import { notFound } from "next/navigation";
-import { Star, ShieldCheck, Clock, MapPin, CheckCircle2, Phone, MessageCircle } from "lucide-react";
+import { Star, ShieldCheck, Clock, MapPin, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { serviceProviders } from "@/data/providers";
+import { BusinessActions } from "@/components/BusinessActions";
+
+const serviceMenus: Record<string, { id: string; label: string; duration?: string }[]> = {
+  kuafor: [
+    { id: "kesim", label: "Saç Kesimi", duration: "45 dk" },
+    { id: "boya", label: "Saç Boyama", duration: "2 saat" },
+    { id: "fon", label: "Fön & Şekillendirme", duration: "45 dk" },
+    { id: "makyaj", label: "Makyaj", duration: "1 saat" },
+  ],
+  tesisatci: [
+    { id: "tikanikik", label: "Tıkanıklık Açma", duration: "~1 saat" },
+    { id: "armatur", label: "Armatür Değişimi", duration: "~45 dk" },
+    { id: "kacak", label: "Su Kaçağı Tespiti", duration: "1-2 saat" },
+  ],
+  elektrikci: [
+    { id: "elektrik-ariza", label: "Genel Arıza", duration: "~1 saat" },
+    { id: "led-montaj", label: "LED Montaj", duration: "~30 dk" },
+    { id: "sigorta", label: "Sigorta Değişimi", duration: "~30 dk" },
+  ],
+  temizlik: [
+    { id: "ev-temizlik", label: "Ev Temizliği (Genel)", duration: "4 saat" },
+    { id: "ofis-temizlik", label: "Ofis Temizliği", duration: "3 saat" },
+    { id: "insaat", label: "İnşaat Sonrası", duration: "6 saat" },
+  ],
+  nakliye: [
+    { id: "ev-tasima", label: "Ev Taşıma", duration: "1 gün" },
+    { id: "parca", label: "Parça Taşıma" },
+  ],
+  boyaci: [
+    { id: "ic-boya", label: "İç Mekan Boyama" },
+    { id: "dis-boya", label: "Dış Cephe Boyama" },
+  ],
+  klima: [
+    { id: "montaj", label: "Klima Montajı", duration: "2 saat" },
+    { id: "bakim", label: "Klima Bakımı", duration: "1 saat" },
+    { id: "gaz", label: "Gaz Dolumu", duration: "1 saat" },
+  ],
+  bahce: [
+    { id: "cim", label: "Çim Bakımı" },
+    { id: "peyzaj", label: "Peyzaj Düzenleme" },
+  ],
+  doktor: [
+    { id: "muayene", label: "İlk Muayene", duration: "30 dk" },
+    { id: "kontrol", label: "Kontrol", duration: "15 dk" },
+    { id: "online", label: "Online Görüşme", duration: "20 dk" },
+  ],
+};
 
 export async function generateStaticParams() {
   return serviceProviders.map((p) => ({ slug: p.slug }));
@@ -110,30 +157,12 @@ export default async function Page({
         </section>
       </div>
 
-      {/* Sticky CTA */}
-      <div
-        className="fixed inset-x-0 z-30 px-5"
-        style={{
-          bottom: "calc(76px + env(safe-area-inset-bottom, 0px) + 10px)",
-        }}
-      >
-        <div className="mx-auto flex max-w-[600px] gap-2">
-          <button
-            type="button"
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-xl transition hover:opacity-90"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Teklif Al
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold shadow-lg transition hover:bg-muted"
-          >
-            <Phone className="h-4 w-4" />
-            Ara
-          </button>
-        </div>
-      </div>
+      <BusinessActions
+        businessName={p.name}
+        businessType={p.categoryLabel === "Kuaför" ? "Kuaför" : "Hizmet"}
+        bookingLabel="Randevu Al"
+        services={serviceMenus[p.category]}
+      />
     </>
   );
 }
