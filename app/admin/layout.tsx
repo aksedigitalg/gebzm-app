@@ -45,10 +45,12 @@ export default function AdminLayout({
   const [session, setSession] = useState<AdminSession | null>(null);
   const [ready, setReady] = useState(false);
 
+  // Pathname her değiştiğinde session'ı yeniden oku
+  // (login sonrası redirect'te stale state'i önler)
   useEffect(() => {
     setSession(getAdminSession());
     setReady(true);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!ready) return;

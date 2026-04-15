@@ -49,10 +49,11 @@ export default function BusinessLayout({
   const [session, setSession] = useState<BusinessSession | null>(null);
   const [ready, setReady] = useState(false);
 
+  // Pathname her değiştiğinde session'ı yeniden oku
   useEffect(() => {
     setSession(getBusinessSession());
     setReady(true);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!ready) return;
