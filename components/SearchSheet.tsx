@@ -131,47 +131,64 @@ export function SearchSheet({
   const results = useMemo(() => search(q), [q]);
   const [dragY, setDragY] = useState(0);
   const dragStartY = useRef<number | null>(null);
+  const dragCaptured = useRef(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setQ("");
       setDragY(0);
+      dragStartY.current = null;
+      dragCaptured.current = false;
     }
   }, [isOpen]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    dragStartY.current = e.touches[0].clientY;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (dragStartY.current == null) return;
-    const delta = e.touches[0].clientY - dragStartY.current;
-    if (delta > 0) setDragY(delta);
-  };
-  const onTouchEnd = () => {
-    if (dragY > 120) {
-      onClose();
-    }
-    setDragY(0);
-    dragStartY.current = null;
+  // iOS Maps tarzı: her yerden sürükle, içerik scroll edilebiliyorsa native scroll'a izin ver
+  const onPointerDown = (e: React.PointerEvent) => {
+    // Input/button gibi interaktif elementlerden başlatma
+    const target = e.target as HTMLElement;
+    if (target.closest("input, button, a, textarea")) return;
+    dragStartY.current = e.clientY;
+    dragCaptured.current = false;
   };
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    dragStartY.current = e.clientY;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
   const onPointerMove = (e: React.PointerEvent) => {
     if (dragStartY.current == null) return;
     const delta = e.clientY - dragStartY.current;
-    if (delta > 0) setDragY(delta);
+
+    if (delta <= 0) return; // sadece aşağı sürükleme
+
+    // Scroll alanında mı? scrollTop > 0 ise native scroll yap, sheet'i hareket ettirme
+    const content = contentRef.current;
+    const target = e.target as HTMLElement;
+    const inContent = content?.contains(target) ?? false;
+    if (inContent && content && content.scrollTop > 0 && !dragCaptured.current) {
+      // Native scroll çalışsın
+      dragStartY.current = null;
+      return;
+    }
+
+    // Pointer'ı yakala → native scroll'u durdur
+    if (!dragCaptured.current) {
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {}
+      dragCaptured.current = true;
+    }
+    setDragY(delta);
   };
+
   const onPointerUp = (e: React.PointerEvent) => {
+    if (dragCaptured.current) {
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
     if (dragY > 120) onClose();
     setDragY(0);
     dragStartY.current = null;
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {}
+    dragCaptured.current = false;
   };
 
   // ESC kapatma
@@ -199,11 +216,15 @@ export function SearchSheet({
         }`}
       />
 
-      {/* Sheet */}
+      {/* Sheet — her yerden sürüklenebilir */}
       <div
         ref={sheetRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         className={`absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-border bg-card shadow-2xl ${
-          dragStartY.current != null
+          dragCaptured.current
             ? ""
             : "transition-transform duration-300 ease-out"
         }`}
@@ -212,19 +233,11 @@ export function SearchSheet({
           transform: isOpen
             ? `translateY(${dragY}px)`
             : "translateY(100%)",
+          touchAction: "pan-y",
         }}
       >
-        {/* Drag handle — tutup aşağı sürüklenebilir alan */}
-        <div
-          className="flex cursor-grab touch-none items-center justify-center pt-3 pb-3 active:cursor-grabbing"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        >
+        {/* Drag handle (görsel) */}
+        <div className="flex items-center justify-center pt-3 pb-3">
           <div className="h-1.5 w-12 rounded-full bg-muted-foreground/50" />
         </div>
 
@@ -250,7 +263,10 @@ export function SearchSheet({
         </div>
 
         {/* Content */}
-        <div className="h-[calc(95dvh-5.5rem)] overflow-y-auto px-5 pb-10 no-scrollbar">
+        <div
+          ref={contentRef}
+          className="h-[calc(95dvh-5.5rem)] overflow-y-auto px-5 pb-10 no-scrollbar"
+        >
           {q.trim().length === 0 ? (
             <div>
               <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

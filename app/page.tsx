@@ -14,6 +14,7 @@ import { places } from "@/data/places";
 import { events } from "@/data/events";
 import { formatDateTR } from "@/lib/utils";
 import { HomeHeader } from "@/components/HomeHeader";
+import { quickServices, homeCategories } from "@/data/home-sections";
 
 const quickLinks = [
   {
@@ -130,6 +131,58 @@ export default function HomePage() {
                     {link.description}
                   </p>
                 </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Hızlı Servisler */}
+      <section>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Hızlı Servisler
+        </h3>
+        <div className="-mx-5 flex gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-2 no-scrollbar">
+          {quickServices.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <Link
+                key={s.label}
+                href={s.href}
+                className={`flex w-[72px] shrink-0 flex-col items-center gap-1.5 ${
+                  i === 0 ? "ml-5" : ""
+                } ${i === quickServices.length - 1 ? "mr-5" : ""}`}
+              >
+                <div className="flex h-[60px] w-[60px] items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition hover:shadow-md">
+                  <Icon className={`h-6 w-6 ${s.color}`} strokeWidth={1.75} />
+                </div>
+                <span className="line-clamp-1 text-[11px] font-medium text-muted-foreground">
+                  {s.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Kategoriler (pill) */}
+      <section>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Kategoriler
+        </h3>
+        <div className="-mx-5 flex gap-2 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-1 no-scrollbar">
+          {homeCategories.map((c, i) => {
+            const Icon = c.icon;
+            return (
+              <Link
+                key={c.label}
+                href={c.href}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-medium transition hover:bg-muted ${
+                  i === 0 ? "ml-5" : ""
+                } ${i === homeCategories.length - 1 ? "mr-5" : ""}`}
+              >
+                <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} />
+                {c.label}
               </Link>
             );
           })}
