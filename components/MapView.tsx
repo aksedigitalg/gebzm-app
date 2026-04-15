@@ -11,11 +11,10 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
-import { places, categoryLabels, type Place } from "@/data/places";
+import type { MapPoint } from "@/data/services";
 
 const GEBZE_CENTER: [number, number] = [40.8028, 29.4303];
 
-// Custom SVG marker icon (no emoji, teal brand)
 const markerIcon = L.divIcon({
   className: "",
   html: `<div style="position:relative;width:28px;height:36px;">
@@ -29,24 +28,30 @@ const markerIcon = L.divIcon({
   popupAnchor: [0, -32],
 });
 
-function FocusOnPlace({ place }: { place?: Place }) {
+function FocusOnPlace({ point }: { point?: MapPoint }) {
   const map = useMap();
   useEffect(() => {
-    if (place) map.flyTo(place.coordinates, 16, { duration: 0.8 });
-  }, [place, map]);
+    if (point) map.flyTo(point.coordinates, 16, { duration: 0.8 });
+  }, [point, map]);
   return null;
 }
 
-export default function MapView({ focusSlug }: { focusSlug?: string }) {
+export default function MapView({
+  points,
+  focusSlug,
+}: {
+  points: MapPoint[];
+  focusSlug?: string;
+}) {
   const focused = useMemo(
-    () => places.find((p) => p.slug === focusSlug),
-    [focusSlug]
+    () => points.find((p) => p.slug === focusSlug),
+    [points, focusSlug]
   );
 
   return (
     <MapContainer
       center={focused?.coordinates ?? GEBZE_CENTER}
-      zoom={focused ? 15 : 13}
+      zoom={focused ? 16 : 13}
       scrollWheelZoom
       attributionControl={false}
       zoomControl={false}
@@ -56,24 +61,30 @@ export default function MapView({ focusSlug }: { focusSlug?: string }) {
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         subdomains={["a", "b", "c", "d"]}
       />
-      <FocusOnPlace place={focused} />
-      {places.map((p) => (
+      <FocusOnPlace point={focused} />
+      {points.map((p) => (
         <Marker key={p.slug} position={p.coordinates} icon={markerIcon}>
           <Popup>
             <div className="min-w-[180px] font-sans">
               <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                {categoryLabels[p.category]}
+                {p.category}
               </p>
               <p className="mt-1 text-sm font-semibold text-gray-900">
                 {p.name}
               </p>
-              <p className="mt-1 text-xs text-gray-600">{p.shortDescription}</p>
-              <Link
-                href={`/gezilecek/${p.slug}`}
-                className="mt-2 inline-block text-xs font-semibold text-cyan-700 hover:underline"
-              >
-                Detaylara git →
-              </Link>
+              {p.shortDescription && (
+                <p className="mt-1 text-xs text-gray-600">
+                  {p.shortDescription}
+                </p>
+              )}
+              {p.href && (
+                <Link
+                  href={p.href}
+                  className="mt-2 inline-block text-xs font-semibold text-cyan-700 hover:underline"
+                >
+                  Detaylara git →
+                </Link>
+              )}
             </div>
           </Popup>
         </Marker>
