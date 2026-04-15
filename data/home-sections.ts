@@ -42,7 +42,7 @@ export interface HomeCategory {
 }
 
 export const homeCategories: HomeCategory[] = [
-  { label: "Gebzem AI", icon: Sparkles, href: "#" },
+  { label: "Gebzem AI", icon: Sparkles, href: "/ai" },
   { label: "Yemek", icon: Utensils, href: "#" },
   { label: "Restoran", icon: UtensilsCrossed, href: "#" },
   { label: "İlan", icon: Megaphone, href: "#" },

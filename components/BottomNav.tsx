@@ -7,7 +7,7 @@ import {
   Map,
   Compass,
   UserCircle2,
-  Sparkles,
+  LayoutGrid,
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,8 @@ import { useSearch } from "@/components/SearchProvider";
 
 const links = [
   { href: "/", label: "Ana Sayfa", icon: Home },
+  { href: "/kategoriler", label: "Kategoriler", icon: LayoutGrid },
   { href: "/harita", label: "Harita", icon: Map },
-  { href: "/ai", label: "AI", icon: Sparkles },
   { href: "/gezilecek", label: "Keşfet", icon: Compass },
   { href: "/profil", label: "Profil", icon: UserCircle2 },
 ] as const;
@@ -36,7 +36,7 @@ export function BottomNav() {
       }}
     >
       <ul className="mx-auto grid max-w-3xl grid-cols-6">
-        {/* Sıralama: Ana Sayfa, Harita, AI, Ara, Keşfet, Profil */}
+        {/* Sıralama: Ana Sayfa, Kategoriler, Harita, Ara, Keşfet, Profil */}
         <NavLink item={links[0]} pathname={pathname} />
         <NavLink item={links[1]} pathname={pathname} />
         <NavLink item={links[2]} pathname={pathname} />
