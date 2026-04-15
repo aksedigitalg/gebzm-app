@@ -37,21 +37,21 @@ const navGroups: NavGroup[] = [
     label: "Ana",
     items: [
       { href: "/", label: "Ana Sayfa", icon: Home },
-      { href: "/kategoriler", label: "Kategoriler", icon: LayoutGrid },
+      { href: "/kategoriler", label: "Kategori", icon: LayoutGrid },
       { href: "/harita", label: "Harita", icon: Map },
-      { href: "/ai", label: "Gebzem AI", icon: Sparkles },
+      { href: "/ai", label: "AI", icon: Sparkles },
     ],
   },
   {
     label: "Keşfet",
     items: [
-      { href: "/gezilecek", label: "Gezilecek Yerler", icon: Compass },
-      { href: "/etkinlikler", label: "Etkinlikler", icon: Calendar },
+      { href: "/gezilecek", label: "Keşfet", icon: Compass },
+      { href: "/etkinlikler", label: "Etkinlik", icon: Calendar },
       { href: "/ulasim", label: "Ulaşım", icon: Bus },
     ],
   },
   {
-    label: "Hizmetler",
+    label: "Hizmet",
     items: [
       { href: "/yemek", label: "Yemek", icon: Utensils },
       { href: "/restoran", label: "Restoran", icon: UtensilsCrossed },
@@ -59,14 +59,14 @@ const navGroups: NavGroup[] = [
       { href: "/alisveris", label: "Alışveriş", icon: ShoppingBag },
       { href: "/hizmetler", label: "Hizmetler", icon: Wrench },
       { href: "/ilanlar", label: "İlanlar", icon: Megaphone },
-      { href: "/is-basvurusu", label: "İş İlanları", icon: Briefcase },
+      { href: "/is-basvurusu", label: "İş İlanı", icon: Briefcase },
     ],
   },
   {
     label: "Yardım",
     items: [
       { href: "/rehber", label: "Rehber", icon: Compass },
-      { href: "/acil", label: "Acil Numaralar", icon: PhoneCall },
+      { href: "/acil", label: "Acil", icon: PhoneCall },
     ],
   },
 ];
@@ -86,28 +86,26 @@ export function DesktopSidebar() {
       : "GB";
 
   return (
-    <aside className="sticky top-0 flex h-[100dvh] w-60 shrink-0 flex-col border-r border-border bg-card">
+    <aside className="sticky top-0 flex h-[100dvh] w-[104px] shrink-0 flex-col border-r border-border bg-card">
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-3 border-b border-border px-5 py-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-sm">
+      <Link
+        href="/"
+        className="flex flex-col items-center gap-1 border-b border-border py-4"
+      >
+        <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-sm">
           <span className="text-lg font-bold">G</span>
         </div>
-        <div>
-          <p className="text-sm font-bold leading-tight">Gebzem</p>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Şehir Rehberi
-          </p>
-        </div>
+        <span className="text-[10px] font-bold">Gebzem</span>
       </Link>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 no-scrollbar">
-        {navGroups.map((group) => (
-          <div key={group.label} className="mb-5">
-            <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 no-scrollbar">
+        {navGroups.map((group, gi) => (
+          <div key={group.label} className={gi > 0 ? "mt-4" : ""}>
+            <p className="mb-2 text-center text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               {group.label}
             </p>
-            <ul className="space-y-0.5">
+            <ul className="space-y-2.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -115,15 +113,31 @@ export function DesktopSidebar() {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )}
+                      className="group flex flex-col items-center gap-1"
                     >
-                      <Icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
-                      <span className="truncate">{item.label}</span>
+                      <div
+                        className={cn(
+                          "flex h-12 w-12 items-center justify-center rounded-[10px] transition",
+                          active
+                            ? "bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-md"
+                            : "border border-border bg-background text-muted-foreground group-hover:border-primary/30 group-hover:bg-muted group-hover:text-foreground"
+                        )}
+                      >
+                        <Icon
+                          className="h-5 w-5"
+                          strokeWidth={active ? 2.25 : 1.75}
+                        />
+                      </div>
+                      <span
+                        className={cn(
+                          "max-w-full truncate text-center text-[10px] font-medium",
+                          active
+                            ? "text-primary"
+                            : "text-muted-foreground group-hover:text-foreground"
+                        )}
+                      >
+                        {item.label}
+                      </span>
                     </Link>
                   </li>
                 );
@@ -134,43 +148,30 @@ export function DesktopSidebar() {
       </nav>
 
       {/* Kullanıcı / Giriş */}
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-2">
         {user ? (
-          <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-bold text-primary-foreground">
+          <div className="flex flex-col items-center gap-2">
+            <Link
+              href="/profil"
+              className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-gradient-to-br from-primary to-secondary text-xs font-bold text-primary-foreground shadow-sm transition hover:shadow-md"
+            >
               {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold">
-                {user.firstName
-                  ? `${user.firstName} ${user.lastName || ""}`.trim()
-                  : "Kullanıcı"}
-              </p>
-              {user.phone && (
-                <p className="truncate text-[10px] text-muted-foreground">
-                  +90 {user.phone}
-                </p>
-              )}
-            </div>
+            </Link>
+            <p className="max-w-full truncate text-center text-[10px] font-semibold">
+              {user.firstName || "Profil"}
+            </p>
             <div className="flex gap-1">
               <Link
                 href="/profil/mesajlar"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 aria-label="Mesajlarım"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </Link>
-              <Link
-                href="/profil"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
-                aria-label="Profil"
-              >
-                <UserCircle2 className="h-3.5 w-3.5" />
-              </Link>
               <button
                 type="button"
                 onClick={signOut}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background hover:text-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 aria-label="Çıkış"
               >
                 <LogOut className="h-3.5 w-3.5" />
@@ -178,20 +179,17 @@ export function DesktopSidebar() {
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col items-center gap-1.5">
             <Link
               href="/giris"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+              className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-primary text-primary-foreground shadow-sm transition hover:opacity-90"
+              aria-label="Giriş Yap"
             >
-              <LogIn className="h-4 w-4" />
+              <LogIn className="h-5 w-5" strokeWidth={2} />
+            </Link>
+            <span className="text-[10px] font-semibold text-primary">
               Giriş Yap
-            </Link>
-            <Link
-              href="/kayit"
-              className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              Hesabın yok mu? Kayıt Ol
-            </Link>
+            </span>
           </div>
         )}
       </div>
