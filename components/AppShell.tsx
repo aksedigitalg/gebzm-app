@@ -3,14 +3,20 @@
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { isAuthRoute } from "@/lib/auth";
+import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const auth = isAuthRoute(pathname);
   const fullscreen = pathname.startsWith("/ai");
+  const panel = isAdminRoute(pathname) || isBusinessRoute(pathname);
+
+  // Admin / business panelleri: kendi layout'unu kullanır, appshell yok
+  if (panel) {
+    return <>{children}</>;
+  }
 
   if (auth || fullscreen) {
-    // Auth sayfalari: dinamik viewport'u tam doldurur, alt menu yok
     return (
       <main className="flex h-[100svh] flex-1 flex-col overflow-hidden">
         {children}
@@ -18,7 +24,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Uygulama sayfalari: son icerikle alt menu arasi ~10px (safe-area hassas)
   return (
     <>
       <main

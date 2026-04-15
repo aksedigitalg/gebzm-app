@@ -18,6 +18,7 @@ import {
   isOnboarded,
   syncBuildVersion,
 } from "@/lib/auth";
+import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -50,16 +51,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Rota koruma
   useEffect(() => {
     if (!ready) return;
+    // Admin / işletme panelleri kendi auth sistemini kullanır, burada karışma
+    if (isAdminRoute(pathname) || isBusinessRoute(pathname)) return;
+
     const onAuth = isAuthRoute(pathname);
 
     if (!user && !onAuth) {
-      // Giriş yok: ilk kez → onboarding, önceden görmüşse → giriş
       router.replace(isOnboarded() ? "/giris" : "/onboarding");
       return;
     }
 
     if (user && onAuth) {
-      // Zaten giriş yapmış, auth sayfasına geldi → ana sayfa
       router.replace("/");
       return;
     }
@@ -80,8 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Hidrasyon tamamlanmadan veya redirect sırasında içerik göstermeyelim (flash önle)
   const onAuth = isAuthRoute(pathname);
+  const isPanel = isAdminRoute(pathname) || isBusinessRoute(pathname);
   const shouldRender =
-    ready && ((user && !onAuth) || (!user && onAuth));
+    ready && (isPanel || (user && !onAuth) || (!user && onAuth));
 
   return (
     <AuthContext.Provider value={value}>

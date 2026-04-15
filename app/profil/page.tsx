@@ -13,6 +13,7 @@ import {
   LogOut,
   ChevronRight,
   MessageSquare,
+  Store,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/components/AuthProvider";
@@ -135,9 +136,26 @@ export default function ProfilPage() {
         ))}
 
         {/* Çıkış */}
+        {/* İşletme sahipleri için promo kartı */}
+        <Link
+          href="/isletme/giris"
+          className="mt-4 flex items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-secondary p-4 text-primary-foreground shadow-lg transition hover:opacity-95"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
+            <Store className="h-5 w-5" strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">İşletmenizi Ekleyin</p>
+            <p className="mt-0.5 text-[11px] opacity-90">
+              Gebzem&apos;de ücretsiz profil, rezervasyon, mesajlaşma
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </Link>
+
         <button
           onClick={signOut}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3.5 text-sm font-semibold text-red-600 transition hover:bg-red-500/10"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3.5 text-sm font-semibold text-red-600 transition hover:bg-red-500/10"
         >
           <LogOut className="h-4 w-4" />
           Çıkış Yap
