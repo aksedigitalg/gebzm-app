@@ -4,6 +4,21 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { homeCategories } from "@/data/home-sections";
 
+const hints: Record<string, string> = {
+  "Gebzem AI": "Şehir asistanına sor",
+  "Yemek": "Teslimat yapan restoranlar",
+  "Restoran": "Yerinde yemek mekanları",
+  "İlanlar": "Emlak, vasıta, eşya",
+  "Hizmetler": "Ustalar ve hizmet sağlayıcıları",
+  "Market": "Yakındaki marketler",
+  "Etkinlik": "Yaklaşan etkinlikler",
+  "İş Başvurusu": "İş ilanları",
+};
+
+function categoryHint(label: string) {
+  return hints[label] ?? "";
+}
+
 export default function KategorilerPage() {
   return (
     <>
@@ -24,9 +39,7 @@ export default function KategorilerPage() {
                 <div>
                   <p className="text-sm font-semibold">{c.label}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {c.label === "Gebzem AI"
-                      ? "Şehir asistanına sor"
-                      : "Yakında"}
+                    {categoryHint(c.label)}
                   </p>
                 </div>
               </Link>

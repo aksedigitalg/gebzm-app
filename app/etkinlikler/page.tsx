@@ -1,4 +1,5 @@
-import { Calendar, MapPin, Ticket } from "lucide-react";
+import Link from "next/link";
+import { Calendar, MapPin, Ticket, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { events, eventCategoryLabels } from "@/data/events";
 import { formatDateTR } from "@/lib/utils";
@@ -23,9 +24,10 @@ export default function Page() {
             const day = date.toLocaleDateString("tr-TR", { day: "2-digit" });
             const month = date.toLocaleDateString("tr-TR", { month: "short" });
             return (
-              <article
+              <Link
                 key={e.id}
-                className="overflow-hidden rounded-2xl border border-border bg-card p-4 transition hover:shadow-md"
+                href={`/etkinlikler/${e.id}`}
+                className="relative block overflow-hidden rounded-2xl border border-border bg-card p-4 transition hover:shadow-md"
               >
                 <div className="flex gap-4">
                   <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -61,8 +63,9 @@ export default function Page() {
                       )}
                     </div>
                   </div>
+                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
                 </div>
-              </article>
+              </Link>
             );
           })}
         </div>
