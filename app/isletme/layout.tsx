@@ -11,6 +11,7 @@ import {
   Star,
   TrendingUp,
   Settings,
+  Briefcase,
 } from "lucide-react";
 import { PanelShell, type NavItem } from "@/components/panel/PanelShell";
 import {
@@ -24,6 +25,7 @@ const navItems: NavItem[] = [
   { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
   { href: "/isletme/menu", label: "Menü / Ürünler", icon: UtensilsCrossed },
   { href: "/isletme/rezervasyonlar", label: "Rezervasyonlar", icon: CalendarCheck2, badge: 3 },
+  { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase, badge: 2 },
   { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare, badge: 5 },
   { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },
   { href: "/isletme/istatistik", label: "İstatistikler", icon: TrendingUp },
