@@ -8,7 +8,7 @@ export interface AdminSession {
 export interface BusinessSession {
   id: string;
   name: string;
-  type: string; // Restoran, Kuaför, Doktor, vs.
+  type: string; // BusinessTypeId slug (restoran, doktor, vs.)
   email: string;
 }
 

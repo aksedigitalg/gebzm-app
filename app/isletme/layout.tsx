@@ -5,13 +5,11 @@ import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Store,
-  UtensilsCrossed,
-  CalendarCheck2,
+  Briefcase,
   MessageSquare,
   Star,
   TrendingUp,
   Settings,
-  Briefcase,
 } from "lucide-react";
 import { PanelShell, type NavItem } from "@/components/panel/PanelShell";
 import {
@@ -19,18 +17,27 @@ import {
   getBusinessSession,
   type BusinessSession,
 } from "@/lib/panel-auth";
+import { getBusinessType, moduleRegistry } from "@/lib/business-types";
 
-const navItems: NavItem[] = [
-  { href: "/isletme", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
-  { href: "/isletme/menu", label: "Menü / Ürünler", icon: UtensilsCrossed },
-  { href: "/isletme/rezervasyonlar", label: "Rezervasyonlar", icon: CalendarCheck2, badge: 3 },
-  { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase, badge: 2 },
-  { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare, badge: 5 },
-  { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },
-  { href: "/isletme/istatistik", label: "İstatistikler", icon: TrendingUp },
-  { href: "/isletme/ayarlar", label: "Ayarlar", icon: Settings },
-];
+function buildNav(typeId: string | undefined): NavItem[] {
+  const config = getBusinessType(typeId);
+  const typeModules = config.modules.map((m) => ({
+    href: moduleRegistry[m].href,
+    label: moduleRegistry[m].label,
+    icon: moduleRegistry[m].icon,
+  }));
+
+  return [
+    { href: "/isletme", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
+    ...typeModules,
+    { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase, badge: 2 },
+    { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare, badge: 5 },
+    { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },
+    { href: "/isletme/istatistik", label: "İstatistikler", icon: TrendingUp },
+    { href: "/isletme/ayarlar", label: "Ayarlar", icon: Settings },
+  ];
+}
 
 export default function BusinessLayout({
   children,
@@ -66,12 +73,15 @@ export default function BusinessLayout({
     );
   }
 
+  const typeConfig = getBusinessType(session.type);
+  const nav = buildNav(session.type);
+
   return (
     <PanelShell
       brandName={session.name}
-      brandSubtitle={session.type}
-      brandColor="from-primary to-secondary"
-      navItems={navItems}
+      brandSubtitle={typeConfig.label}
+      brandColor={typeConfig.color}
+      navItems={nav}
       userName={session.name}
       userEmail={session.email}
       onSignOut={() => {
