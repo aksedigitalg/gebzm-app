@@ -14,6 +14,7 @@ import { places } from "@/data/places";
 import { events } from "@/data/events";
 import { formatDateTR } from "@/lib/utils";
 import { HomeHeader } from "@/components/HomeHeader";
+import { AdSlider } from "@/components/AdSlider";
 import { quickServices } from "@/data/home-sections";
 
 const quickLinks = [
@@ -103,6 +104,8 @@ export default function HomePage() {
         <div className="pointer-events-none absolute -right-8 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-6 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
       </section>
+
+      <AdSlider placement="home-slider" />
 
       <section>
         <div className="mb-3 flex items-baseline justify-between">

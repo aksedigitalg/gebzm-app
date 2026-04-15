@@ -10,6 +10,7 @@ import {
   Star,
   TrendingUp,
   Settings,
+  Megaphone,
 } from "lucide-react";
 import { PanelShell, type NavItem } from "@/components/panel/PanelShell";
 import {
@@ -31,6 +32,7 @@ function buildNav(typeId: string | undefined): NavItem[] {
     { href: "/isletme", label: "Dashboard", icon: LayoutDashboard },
     { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
     ...typeModules,
+    { href: "/isletme/reklam", label: "Reklamlar", icon: Megaphone },
     { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase, badge: 2 },
     { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare, badge: 5 },
     { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },

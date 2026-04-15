@@ -12,6 +12,7 @@ import {
   MessageSquare,
   MapPin,
   Settings,
+  Target,
 } from "lucide-react";
 import {
   PanelShell,
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { href: "/admin/isletmeler", label: "İşletmeler", icon: Building2, badge: 4 },
   { href: "/admin/kullanicilar", label: "Kullanıcılar", icon: Users },
   { href: "/admin/ilanlar", label: "İlanlar", icon: Megaphone, badge: 2 },
+  { href: "/admin/reklamlar", label: "Reklamlar", icon: Target, badge: 1 },
   { href: "/admin/isler", label: "İş İlanları", icon: Briefcase },
   { href: "/admin/etkinlikler", label: "Etkinlikler", icon: Calendar },
   { href: "/admin/mesajlar", label: "Mesajlar", icon: MessageSquare, badge: 6 },
