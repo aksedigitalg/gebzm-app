@@ -9,6 +9,7 @@ import { PhoneInput, isValidPhone } from "@/components/PhoneInput";
 import { PasswordInput } from "@/components/PasswordInput";
 import { OtpInput } from "@/components/OtpInput";
 import { useAuth } from "@/components/AuthProvider";
+import { api } from "@/lib/api";
 
 type Step = "phone" | "otp" | "profile" | "done";
 
@@ -24,6 +25,8 @@ export default function RegisterPage() {
   const [passwordRepeat, setPasswordRepeat] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState("");
+  const [userId, setUserId] = useState("");
 
   const stepIndex = { phone: 0, otp: 1, profile: 2, done: 2 }[step];
 
@@ -41,9 +44,14 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setLoading(false);
-    setStep("otp");
+    try {
+      await api.auth.sendOTP(phone);
+      setStep("otp");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bir hata oluştu");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const submitOtp = async (e: React.FormEvent) => {
@@ -54,9 +62,16 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setLoading(false);
-    setStep("profile");
+    try {
+      const res = await api.auth.verifyOTP(phone, otp, `${firstName || "Kullanici"}`);
+      setToken(res.token);
+      setUserId(res.user_id);
+      setStep("profile");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kod hatalı veya süresi dolmuş");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const submitProfile = async (e: React.FormEvent) => {
@@ -75,8 +90,20 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1"}/user/me`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: `${firstName} ${lastName}`, email: "" }),
+        }
+      );
+    } catch {
+      // profil güncellemesi zorunlu değil
+    } finally {
+      setLoading(false);
+    }
     setStep("done");
   };
 
@@ -264,7 +291,7 @@ export default function RegisterPage() {
           </p>
           <button
             onClick={() => {
-              signIn({ phone, firstName, lastName });
+              signIn({ phone, firstName, lastName, token, id: userId });
               router.replace("/");
             }}
             className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-primary-foreground transition hover:opacity-90"

@@ -10,6 +10,7 @@ export interface BusinessSession {
   name: string;
   type: string; // BusinessTypeId slug (restoran, doktor, vs.)
   email: string;
+  token?: string;
 }
 
 const ADMIN_KEY = "gebzem_admin";

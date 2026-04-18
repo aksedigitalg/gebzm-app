@@ -2,6 +2,8 @@ export interface AuthUser {
   phone: string;
   firstName?: string;
   lastName?: string;
+  token?: string;
+  id?: string;
 }
 
 const USER_KEY = "gebzem_user";

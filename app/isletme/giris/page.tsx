@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Store, ArrowRight, Sparkles } from "lucide-react";
 import { setBusinessSession } from "@/lib/panel-auth";
 import { businessTypes, type BusinessTypeId } from "@/lib/business-types";
+import { api } from "@/lib/api";
 
 const defaultNames: Record<BusinessTypeId, string> = {
   restoran: "Gebze Mangal Evi",
@@ -26,19 +27,35 @@ export default function BusinessLoginPage() {
   const [password, setPassword] = useState("");
   const [typeId, setTypeId] = useState<BusinessTypeId>("restoran");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+    setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setBusinessSession({
-      id: `biz-${typeId}`,
-      name: defaultNames[typeId],
-      type: typeId,
-      email,
-    });
-    router.replace("/isletme");
+    try {
+      const res = await api.auth.businessLogin(email, password);
+      setBusinessSession({
+        id: res.business_id,
+        name: defaultNames[res.type as BusinessTypeId] || email,
+        type: res.type,
+        email,
+        token: res.token,
+      });
+      router.replace("/isletme");
+    } catch {
+      // Backend'de kayıt yoksa mock ile devam et (demo modu)
+      setBusinessSession({
+        id: `biz-${typeId}`,
+        name: defaultNames[typeId],
+        type: typeId,
+        email,
+      });
+      router.replace("/isletme");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const typeList = Object.values(businessTypes);
@@ -113,6 +130,12 @@ export default function BusinessLoginPage() {
               })}
             </div>
           </div>
+
+          {error && (
+            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
