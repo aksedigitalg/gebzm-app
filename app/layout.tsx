@@ -1,19 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Google_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { SearchProvider } from "@/components/SearchProvider";
 import { AppShell } from "@/components/AppShell";
 import { ZoomLock } from "@/components/ZoomLock";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const googleSans = Google_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -26,9 +23,7 @@ export const metadata: Metadata = {
   applicationName: "Gebzem",
   manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icon-192.svg" }],
   },
   appleWebApp: {
@@ -36,9 +31,7 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Gebzem",
   },
-  formatDetection: {
-    telephone: true,
-  },
+  formatDetection: { telephone: true },
 };
 
 export const viewport: Viewport = {
@@ -55,14 +48,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="tr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="tr" className={`${googleSans.variable} h-full antialiased`}>
       <body className="min-h-[100dvh] flex flex-col">
         <ZoomLock />
         <AuthProvider>
