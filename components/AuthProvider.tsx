@@ -58,10 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const onAuth = isAuthRoute(pathname);
 
     if (!user && !onAuth) {
-      // PWA'da zorunlu login, tarayıcıda serbest browsing
-      if (pwa) {
-        router.replace(isOnboarded() ? "/giris" : "/onboarding");
-      }
+      router.replace(isOnboarded() ? "/giris" : "/onboarding");
       return;
     }
 
@@ -79,10 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     persistClear();
     setUserState(null);
-    if (pwa) router.replace("/giris");
-  }, [router, pwa]);
+    router.replace("/giris");
+  }, [router]);
 
-  const guest = !user && !pwa; // tarayıcıda giriş yapmamış
+  const guest = false;
 
   const value = useMemo(
     () => ({ user, guest, signIn, signOut }),
@@ -91,10 +88,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const onAuth = isAuthRoute(pathname);
   const isPanel = isAdminRoute(pathname) || isBusinessRoute(pathname);
-  // Render koşulu: panel / auth sayfası / giriş yapmış / guest (tarayıcı)
   const shouldRender =
     ready &&
-    (isPanel || (user && !onAuth) || (!user && onAuth) || (!user && !onAuth && !pwa));
+    (isPanel || (user && !onAuth) || (!user && onAuth));
 
   return (
     <AuthContext.Provider value={value}>
