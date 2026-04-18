@@ -52,6 +52,18 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr" className={`${googleSans.variable} h-full antialiased`}>
+      {/* Hydration flash önleme: ilk render'da opacity-0, JS yüklenince kaldır */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            try {
+              var s = localStorage.getItem('gebzem_theme');
+              if (s === 'dark') document.documentElement.classList.add('dark');
+              else if (s === 'light') document.documentElement.classList.remove('dark');
+            } catch(e) {}
+          })();
+        ` }} />
+      </head>
       <body className="min-h-[100dvh] flex flex-col">
         <ZoomLock />
         <PageLoader />
