@@ -58,10 +58,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Sayfa içeriği fade-in */
+/* Sayfa içeriği fade-in — transform KULLANMA (fixed child'ları bozar) */
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Sadece opacity — fixed pozisyon koruyan versiyon */
+@keyframes pageOpacityIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Sayfa geçişi overlay fade-out */
