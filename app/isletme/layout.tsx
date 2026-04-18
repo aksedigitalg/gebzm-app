@@ -50,13 +50,40 @@ const Spinner = () => (
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isPublic = pathname === "/isletme/giris" || pathname === "/isletme/kayit";
+  const isPublic = pathname === "/isletme/giris" || pathname === "/isletme/kayit" || pathname === "/isletme/sifre-sifirla";
 
-  // Sadece bir kez init et — pathname değişince yeniden okuma yapma
   const [session, setSession] = useState<BusinessSession | null>(() =>
     typeof window !== "undefined" ? getBusinessSession() : null
   );
   const [ready, setReady] = useState(false);
+  const [unreadMsgs, setUnreadMsgs] = useState(0);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+
+  // Bildirim ve mesaj sayılarını çek
+  useEffect(() => {
+    const s = getBusinessSession();
+    if (!s?.token) return;
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
+    const headers = { Authorization: `Bearer ${s.token}` };
+
+    const loadCounts = async () => {
+      try {
+        const [convs, notifs] = await Promise.all([
+          fetch(`${API}/business/conversations`, { headers }).then(r => r.json()),
+          fetch(`${API}/business/notifications`, { headers }).then(r => r.json()),
+        ]);
+        if (Array.isArray(convs)) {
+          const fiveMin = Date.now() - 5 * 60 * 1000;
+          setUnreadMsgs(convs.filter((c: { updated_at: string }) => new Date(c.updated_at).getTime() > fiveMin).length);
+        }
+        if (Array.isArray(notifs)) setUnreadNotifs(notifs.filter((n: { is_read: boolean }) => !n.is_read).length);
+      } catch { /* ignore */ }
+    };
+
+    loadCounts();
+    const interval = setInterval(loadCounts, 15000);
+    return () => clearInterval(interval);
+  }, [session?.token]);
 
   useEffect(() => {
     setSession(getBusinessSession());
@@ -79,12 +106,15 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
     if (session?.token && isPublic) { router.replace("/isletme"); return; }
   }, [ready, session, isPublic, router]);
 
-  if (isPublic) return <>{children}</>;
+  if (isPublic || pathname.startsWith("/isletme/sifre")) return <>{children}</>;
 
   if (!ready || !session?.token) return <Spinner />;
 
   const typeConfig = getBusinessType(session.type);
-  const nav = buildNav(session.type);
+  const nav = buildNav(session.type).map((item) => {
+    if (item.href === "/isletme/mesajlar" && unreadMsgs > 0) return { ...item, badge: unreadMsgs };
+    return item;
+  });
 
   return (
     <PanelShell

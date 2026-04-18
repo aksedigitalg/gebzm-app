@@ -89,7 +89,10 @@ export default function BusinessLoginPage() {
           </button>
         </form>
 
-        <div className="mt-5 text-center text-xs text-muted-foreground">
+        <div className="mt-5 space-y-2 text-center text-xs text-muted-foreground">
+          <p>
+            <a href="/isletme/sifre-sifirla" className="font-semibold text-primary hover:underline">Şifremi Unuttum</a>
+          </p>
           <p>Hesabınız yok mu?{" "}
             <a href="/isletme/kayit" className="font-semibold text-primary hover:underline">İşletme Başvurusu</a>
           </p>

@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+
+export const dynamic = "force-dynamic"; // Yeni işletme eklenince cache sorunu olmasın
 import { MapPin, Phone, Scissors, Wrench, Stethoscope } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { BusinessActions } from "@/components/BusinessActions";
