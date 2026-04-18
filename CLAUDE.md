@@ -1014,14 +1014,26 @@ PYEOF
 - Güncelleme: `cd /opt/gebzem-web && git pull && npm run build && pm2 restart gebzem-web`
 
 ### Sonraki Oturumda Devam Noktası
-1. Admin panel API entegrasyonu (işletme onayları, kullanıcı listesi)
-2. Gerçek mesajlaşma akışı — profil/mesajlar sayfasını API'ye bağla
-3. Push notification (FCM) entegrasyonu
-4. Medya upload (R2 presigned URL)
-5. Vercel'den çık (gebzm-app.vercel.app artık kullanılmıyor)
+1. Push notification (FCM) entegrasyonu
+2. Medya upload (fotoğraf yükleme - R2 presigned URL)
+3. Google OAuth entegrasyonu (admin'den toggle ile aç/kapa)
+4. Vercel projesi silinecek (artık DigitalOcean'da)
+5. Netgsm entegrasyonu (ıslak imza sonrası)
+
+### Tamamlanan Sistem Özeti (Son Durum)
+- OTP: Twilio Verify (çalışıyor, gerçek SMS)
+- Email kayıt/giriş: çalışıyor (admin toggle ile aç/kapa)
+- Google OAuth: admin'de toggle var, backend henüz yok
+- Profil: edit + şifre değiştir (API'ye bağlı)
+- Yardım/Gizlilik/Güvenlik sayfaları: var
+- Dark mode: profil sayfasında toggle (localStorage)
+- Admin görünüm: renk/font/hero başlık/toggle'lar
+- İlanlar: 14 ilan (emlak, vasıta, elektronik, mobilya, moda, makine)
+- İş ilanları: 13 ilan
+- Restoranlar: 10 dine-in restoran
 
 ---
 
-**Son Güncelleme:** 2026-04-18 · Backend tam entegre — auth + mesajlar + rezervasyon + systemd + Next.js bağlandı
+**Son Güncelleme:** 2026-04-18 · Sistem tam çalışır durumda — OTP (Twilio Verify), profil düzenle, yardım/gizlilik/güvenlik sayfaları, dark mode toggle, admin görünüm ayarları (renk/font/toggle), daha fazla ilan/iş/restoran verisi
 
 **Bu dosyayı her önemli özellik ekleyişte güncelle.** Özellikle: yeni route, yeni data dosyası, yeni konvansiyon, mimari değişiklik.
