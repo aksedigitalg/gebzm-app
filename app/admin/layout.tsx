@@ -59,7 +59,12 @@ export default function AdminLayout({
   useEffect(() => {
     if (!ready) return;
     const isLogin = pathname === "/admin/giris";
+    // Token yoksa yeniden giriş yap
     if (!session && !isLogin) router.replace("/admin/giris");
+    if (session && !session.token && !isLogin) {
+      clearAdminSession();
+      router.replace("/admin/giris");
+    }
     if (session && isLogin) router.replace("/admin");
   }, [ready, session, pathname, router]);
 
