@@ -62,18 +62,18 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!ready) return;
-    const isLogin = pathname === "/isletme/giris";
-    if (!session && !isLogin) { setRedirecting(true); router.replace("/isletme/giris"); return; }
-    if (session && !session.token && !isLogin) {
+    const isPublic = pathname === "/isletme/giris" || pathname === "/isletme/kayit";
+    if (!session && !isPublic) { setRedirecting(true); router.replace("/isletme/giris"); return; }
+    if (session && !session.token && !isPublic) {
       clearBusinessSession();
       setRedirecting(true);
       router.replace("/isletme/giris");
       return;
     }
-    if (session && isLogin) { setRedirecting(true); router.replace("/isletme"); return; }
+    if (session && isPublic) { setRedirecting(true); router.replace("/isletme"); return; }
   }, [ready, session, pathname, router]);
 
-  if (pathname === "/isletme/giris") return <>{children}</>;
+  if (pathname === "/isletme/giris" || pathname === "/isletme/kayit") return <>{children}</>;
 
   if (!ready || !session || redirecting) return <Spinner />;
 
