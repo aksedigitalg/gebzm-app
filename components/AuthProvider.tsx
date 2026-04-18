@@ -15,15 +15,13 @@ import {
   setUser as persistUser,
   clearUser as persistClear,
   isAuthRoute,
-  isOnboarded,
   syncBuildVersion,
 } from "@/lib/auth";
 import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
-import { isPWA } from "@/lib/platform";
 
 interface AuthContextValue {
   user: AuthUser | null;
-  guest: boolean; // PWA değil + user yok → guest browsing
+  guest: boolean;
   signIn: (user: AuthUser) => void;
   signOut: () => void;
 }
@@ -36,37 +34,47 @@ export function useAuth() {
   return ctx;
 }
 
+// Sadece bu rotalar login gerektirir
+function isProtectedRoute(pathname: string) {
+  return pathname === "/profil" || pathname.startsWith("/profil/");
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
-  const [pwa, setPwa] = useState(false); // client-only
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     syncBuildVersion();
     setUserState(getUser());
-    setPwa(isPWA());
     setReady(true);
   }, [pathname]);
 
-  // Rota koruma
   useEffect(() => {
     if (!ready) return;
     if (isAdminRoute(pathname) || isBusinessRoute(pathname)) return;
 
     const onAuth = isAuthRoute(pathname);
 
-    if (!user && !onAuth) {
-      router.replace(isOnboarded() ? "/giris" : "/onboarding");
+    // Sadece /profil sayfaları login gerektirir
+    if (!user && isProtectedRoute(pathname)) {
+      router.replace("/giris");
       return;
     }
 
+    // Onboarding'i tamamen atla — direkt ana sayfaya
+    if (pathname === "/onboarding") {
+      router.replace(user ? "/" : "/giris");
+      return;
+    }
+
+    // Giriş yapmış kullanıcı auth sayfasındaysa ana sayfaya
     if (user && onAuth) {
       router.replace("/");
       return;
     }
-  }, [ready, user, pathname, router, pwa]);
+  }, [ready, user, pathname, router]);
 
   const signIn = useCallback((u: AuthUser) => {
     persistUser(u);
@@ -76,21 +84,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     persistClear();
     setUserState(null);
-    router.replace("/giris");
+    router.replace("/");
   }, [router]);
 
-  const guest = false;
+  const guest = !user;
 
   const value = useMemo(
     () => ({ user, guest, signIn, signOut }),
     [user, guest, signIn, signOut]
   );
 
-  const onAuth = isAuthRoute(pathname);
   const isPanel = isAdminRoute(pathname) || isBusinessRoute(pathname);
+  const onAuth = isAuthRoute(pathname);
+  const isProtected = isProtectedRoute(pathname);
+
   const shouldRender =
     ready &&
-    (isPanel || (user && !onAuth) || (!user && onAuth));
+    (
+      isPanel ||
+      user ||
+      onAuth ||
+      (!isProtected && !onAuth)
+    );
 
   return (
     <AuthContext.Provider value={value}>
