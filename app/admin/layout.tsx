@@ -41,46 +41,36 @@ const navItems: NavItem[] = [
   { href: "/admin/profil", label: "Profilim", icon: UserCircle },
 ];
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const Spinner = ({ dark = false }: { dark?: boolean }) => (
+  <div className={`fixed inset-0 z-50 flex items-center justify-center ${dark ? "bg-slate-900" : "bg-background"}`}>
+    <div className={`h-8 w-8 animate-spin rounded-full border-2 border-t-transparent ${dark ? "border-rose-500" : "border-primary"}`} />
+  </div>
+);
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<AdminSession | null>(null);
   const [ready, setReady] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
-  // Pathname her değiştiğinde session'ı yeniden oku
-  // (login sonrası redirect'te stale state'i önler)
   useEffect(() => {
     setSession(getAdminSession());
     setReady(true);
+    setRedirecting(false);
   }, [pathname]);
 
   useEffect(() => {
     if (!ready) return;
     const isLogin = pathname === "/admin/giris";
-    // Token yoksa yeniden giriş yap
-    if (!session && !isLogin) router.replace("/admin/giris");
-    if (session && !session.token && !isLogin) {
-      clearAdminSession();
-      router.replace("/admin/giris");
-    }
-    if (session && isLogin) router.replace("/admin");
+    if (!session && !isLogin) { setRedirecting(true); router.replace("/admin/giris"); return; }
+    if (session && !session.token && !isLogin) { clearAdminSession(); setRedirecting(true); router.replace("/admin/giris"); return; }
+    if (session && isLogin) { setRedirecting(true); router.replace("/admin"); return; }
   }, [ready, session, pathname, router]);
 
-  if (pathname === "/admin/giris") {
-    return <>{children}</>;
-  }
+  if (pathname === "/admin/giris") return <>{children}</>;
 
-  if (!ready || !session) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-slate-900">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-rose-500 border-t-transparent" />
-      </div>
-    );
-  }
+  if (!ready || !session || redirecting) return <Spinner dark />;
 
   return (
     <PanelShell
@@ -90,10 +80,7 @@ export default function AdminLayout({
       navItems={navItems}
       userName={session.name}
       userEmail={session.email}
-      onSignOut={() => {
-        clearAdminSession();
-        setSession(null);
-      }}
+      onSignOut={() => { clearAdminSession(); setSession(null); }}
     >
       {children}
     </PanelShell>

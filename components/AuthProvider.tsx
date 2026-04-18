@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -34,51 +35,74 @@ export function useAuth() {
   return ctx;
 }
 
-// Sadece bu rotalar login gerektirir
 function isProtectedRoute(pathname: string) {
   return pathname === "/profil" || pathname.startsWith("/profil/");
 }
 
+// İlk render'da localStorage'ı SYNC oku — flash önlemek için
+function getInitialUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    syncBuildVersion();
+    return getUser();
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
-  const [ready, setReady] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const redirecting = useRef(false);
 
+  // Hydration — sadece bir kez
   useEffect(() => {
-    syncBuildVersion();
+    const u = getInitialUser();
+    setUserState(u);
+    setHydrated(true);
+    redirecting.current = false;
+  }, []);
+
+  // Pathname değişince user'ı güncelle (login/logout sonrası)
+  useEffect(() => {
+    if (!hydrated) return;
     setUserState(getUser());
-    setReady(true);
-  }, [pathname]);
+    redirecting.current = false;
+  }, [pathname, hydrated]);
 
+  // Rota koruması
   useEffect(() => {
-    if (!ready) return;
+    if (!hydrated) return;
     if (isAdminRoute(pathname) || isBusinessRoute(pathname)) return;
+    if (redirecting.current) return;
 
     const onAuth = isAuthRoute(pathname);
 
-    // Sadece /profil sayfaları login gerektirir
     if (!user && isProtectedRoute(pathname)) {
+      redirecting.current = true;
       router.replace("/giris");
       return;
     }
 
-    // Onboarding'i tamamen atla — direkt ana sayfaya
     if (pathname === "/onboarding") {
+      redirecting.current = true;
       router.replace(user ? "/" : "/giris");
       return;
     }
 
-    // Giriş yapmış kullanıcı auth sayfasındaysa ana sayfaya
     if (user && onAuth) {
+      redirecting.current = true;
       router.replace("/");
       return;
     }
-  }, [ready, user, pathname, router]);
+  }, [hydrated, user, pathname, router]);
 
   const signIn = useCallback((u: AuthUser) => {
     persistUser(u);
     setUserState(u);
+    redirecting.current = false;
   }, []);
 
   const signOut = useCallback(() => {
@@ -87,35 +111,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace("/");
   }, [router]);
 
-  const guest = !user;
-
   const value = useMemo(
-    () => ({ user, guest, signIn, signOut }),
-    [user, guest, signIn, signOut]
+    () => ({ user, guest: !user, signIn, signOut }),
+    [user, signIn, signOut]
   );
 
   const isPanel = isAdminRoute(pathname) || isBusinessRoute(pathname);
   const onAuth = isAuthRoute(pathname);
   const isProtected = isProtectedRoute(pathname);
 
-  const shouldRender =
-    ready &&
-    (
-      isPanel ||
-      user ||
-      onAuth ||
-      (!isProtected && !onAuth)
+  // Flash önleme: redirect gerekiyorsa ve hydrate olmadıysa spinner
+  const needsRedirect = hydrated && !isPanel && (
+    (!user && isProtected) ||
+    (user && onAuth) ||
+    pathname === "/onboarding"
+  );
+
+  const shouldShowContent = hydrated && !needsRedirect;
+
+  if (!hydrated || needsRedirect) {
+    return (
+      <AuthContext.Provider value={value}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </AuthContext.Provider>
     );
+  }
 
   return (
     <AuthContext.Provider value={value}>
-      {shouldRender ? (
-        children
-      ) : (
-        <div className="flex h-[100svh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      )}
+      <div
+        className="contents"
+        style={{
+          opacity: shouldShowContent ? 1 : 0,
+          transition: "opacity 0.15s ease",
+        }}
+      >
+        {children}
+      </div>
     </AuthContext.Provider>
   );
 }

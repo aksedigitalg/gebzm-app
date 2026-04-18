@@ -41,46 +41,41 @@ function buildNav(typeId: string | undefined): NavItem[] {
   ];
 }
 
-export default function BusinessLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const Spinner = () => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  </div>
+);
+
+export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<BusinessSession | null>(null);
   const [ready, setReady] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
-  // Pathname her değiştiğinde session'ı yeniden oku
   useEffect(() => {
     setSession(getBusinessSession());
     setReady(true);
+    setRedirecting(false);
   }, [pathname]);
 
   useEffect(() => {
     if (!ready) return;
     const isLogin = pathname === "/isletme/giris";
-    if (!session && !isLogin) router.replace("/isletme/giris");
-    // Token yoksa (eski mock session) çıkış yap ve yeniden giriş
+    if (!session && !isLogin) { setRedirecting(true); router.replace("/isletme/giris"); return; }
     if (session && !session.token && !isLogin) {
       clearBusinessSession();
+      setRedirecting(true);
       router.replace("/isletme/giris");
       return;
     }
-    if (session && isLogin) router.replace("/isletme");
+    if (session && isLogin) { setRedirecting(true); router.replace("/isletme"); return; }
   }, [ready, session, pathname, router]);
 
-  if (pathname === "/isletme/giris") {
-    return <>{children}</>;
-  }
+  if (pathname === "/isletme/giris") return <>{children}</>;
 
-  if (!ready || !session) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (!ready || !session || redirecting) return <Spinner />;
 
   const typeConfig = getBusinessType(session.type);
   const nav = buildNav(session.type);
@@ -93,10 +88,7 @@ export default function BusinessLayout({
       navItems={nav}
       userName={session.name}
       userEmail={session.email}
-      onSignOut={() => {
-        clearBusinessSession();
-        setSession(null);
-      }}
+      onSignOut={() => { clearBusinessSession(); setSession(null); }}
     >
       {children}
     </PanelShell>
