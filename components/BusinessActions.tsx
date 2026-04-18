@@ -46,9 +46,9 @@ export function BusinessActions({ businessName, businessType, bookingLabel = "Re
 
   return (
     <>
-      {/* CTA Bar — fixed, ortada, 20px yukarı */}
-      <div className="fixed bottom-5 left-0 right-0 z-30 flex justify-center px-5">
-        <div className="flex w-full max-w-md gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur">
+      {/* CTA Bar — sayfanın altında sabit, ortada */}
+      <div className="fixed bottom-5 left-1/2 z-30 w-full max-w-md -translate-x-1/2 px-4">
+        <div className="flex gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur">
           <button type="button" onClick={() => setOpenBooking(true)}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
             <CalendarCheck2 className="h-4 w-4" />{bookingLabel}

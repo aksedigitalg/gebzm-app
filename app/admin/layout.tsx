@@ -50,27 +50,32 @@ const Spinner = ({ dark = false }: { dark?: boolean }) => (
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [session, setSession] = useState<AdminSession | null>(null);
+  const isLogin = pathname === "/admin/giris";
+
+  const [session, setSession] = useState<AdminSession | null>(() =>
+    typeof window !== "undefined" ? getAdminSession() : null
+  );
   const [ready, setReady] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     setSession(getAdminSession());
     setReady(true);
-    setRedirecting(false);
-  }, [pathname]);
+  }, []);
+
+  useEffect(() => {
+    if (ready) setSession(getAdminSession());
+  }, [pathname, ready]);
 
   useEffect(() => {
     if (!ready) return;
-    const isLogin = pathname === "/admin/giris";
-    if (!session && !isLogin) { setRedirecting(true); router.replace("/admin/giris"); return; }
-    if (session && !session.token && !isLogin) { clearAdminSession(); setRedirecting(true); router.replace("/admin/giris"); return; }
-    if (session && isLogin) { setRedirecting(true); router.replace("/admin"); return; }
-  }, [ready, session, pathname, router]);
+    if (!session && !isLogin) { router.replace("/admin/giris"); return; }
+    if (session && !session.token && !isLogin) { clearAdminSession(); router.replace("/admin/giris"); return; }
+    if (session?.token && isLogin) { router.replace("/admin"); return; }
+  }, [ready, session, isLogin, router]);
 
-  if (pathname === "/admin/giris") return <>{children}</>;
+  if (isLogin) return <>{children}</>;
 
-  if (!ready || !session || redirecting) return <Spinner dark />;
+  if (!ready || !session?.token) return <Spinner dark />;
 
   return (
     <PanelShell

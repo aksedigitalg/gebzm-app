@@ -50,32 +50,38 @@ const Spinner = () => (
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [session, setSession] = useState<BusinessSession | null>(null);
+  const isPublic = pathname === "/isletme/giris" || pathname === "/isletme/kayit";
+
+  // Sadece bir kez init et — pathname değişince yeniden okuma yapma
+  const [session, setSession] = useState<BusinessSession | null>(() =>
+    typeof window !== "undefined" ? getBusinessSession() : null
+  );
   const [ready, setReady] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     setSession(getBusinessSession());
     setReady(true);
-    setRedirecting(false);
-  }, [pathname]);
+  }, []); // Sadece mount'ta çalış
+
+  // Pathname değişince session'ı güncelle (login/logout sonrası)
+  useEffect(() => {
+    if (ready) setSession(getBusinessSession());
+  }, [pathname, ready]);
 
   useEffect(() => {
     if (!ready) return;
-    const isPublic = pathname === "/isletme/giris" || pathname === "/isletme/kayit";
-    if (!session && !isPublic) { setRedirecting(true); router.replace("/isletme/giris"); return; }
+    if (!session && !isPublic) { router.replace("/isletme/giris"); return; }
     if (session && !session.token && !isPublic) {
       clearBusinessSession();
-      setRedirecting(true);
       router.replace("/isletme/giris");
       return;
     }
-    if (session && isPublic) { setRedirecting(true); router.replace("/isletme"); return; }
-  }, [ready, session, pathname, router]);
+    if (session?.token && isPublic) { router.replace("/isletme"); return; }
+  }, [ready, session, isPublic, router]);
 
-  if (pathname === "/isletme/giris" || pathname === "/isletme/kayit") return <>{children}</>;
+  if (isPublic) return <>{children}</>;
 
-  if (!ready || !session || redirecting) return <Spinner />;
+  if (!ready || !session?.token) return <Spinner />;
 
   const typeConfig = getBusinessType(session.type);
   const nav = buildNav(session.type);
