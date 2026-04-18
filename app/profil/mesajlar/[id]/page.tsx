@@ -4,64 +4,94 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Send, Store } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import {
-  getConversation,
-  appendMessage,
-  type Conversation,
-} from "@/lib/messages";
+import { getConversation, appendMessage, type Conversation } from "@/lib/messages";
+import { api } from "@/lib/api";
+import { getUser } from "@/lib/auth";
+
+interface Msg {
+  id: string;
+  text: string;
+  senderRole: "user" | "business";
+  createdAt: string;
+}
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [title, setTitle] = useState("Konuşma");
   const [text, setText] = useState("");
+  const [isApi, setIsApi] = useState(false);
+  const [localConv, setLocalConv] = useState<Conversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const load = () => {
+    const user = getUser();
+    if (user?.token) {
+      setIsApi(true);
+      loadApiMessages();
+    } else {
       const c = getConversation(params.id);
-      if (!c) {
-        router.replace("/profil/mesajlar");
-        return;
-      }
-      setConversation(c);
-    };
-    load();
-    window.addEventListener("gebzem-messages-update", load);
-    return () => window.removeEventListener("gebzem-messages-update", load);
-  }, [params.id, router]);
+      if (!c) { router.replace("/profil/mesajlar"); return; }
+      setLocalConv(c);
+      setTitle(c.businessName);
+      setMessages(c.messages.map((m, i) => ({
+        id: String(i),
+        text: m.text,
+        senderRole: m.from === "user" ? "user" : "business",
+        createdAt: m.timestamp || new Date().toISOString(),
+      })));
+    }
+  }, [params.id]);
+
+  const loadApiMessages = async () => {
+    try {
+      const data = await api.user.getMessages(params.id) as Record<string, unknown>[];
+      setMessages(data.map((m) => ({
+        id: m.id as string,
+        text: m.text as string,
+        senderRole: m.sender_role as "user" | "business",
+        createdAt: m.created_at as string,
+      })));
+    } catch {
+      router.replace("/profil/mesajlar");
+    }
+  };
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [conversation]);
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
 
-  if (!conversation) return null;
-
-  const send = () => {
+  const send = async () => {
     const t = text.trim();
     if (!t) return;
-    appendMessage(conversation.id, t);
     setText("");
-    setConversation(getConversation(conversation.id) ?? null);
+    if (isApi) {
+      try {
+        await api.user.sendMessage(params.id, t);
+        await loadApiMessages();
+      } catch { setText(t); }
+    } else {
+      appendMessage(localConv!.id, t);
+      const updated = getConversation(params.id);
+      if (updated) {
+        setMessages(updated.messages.map((m, i) => ({
+          id: String(i),
+          text: m.text,
+          senderRole: m.from === "user" ? "user" : "business",
+          createdAt: m.timestamp || new Date().toISOString(),
+        })));
+      }
+    }
   };
 
   return (
     <div className="flex h-[calc(100dvh-76px-env(safe-area-inset-bottom,0px)-10px)] flex-col">
-      <PageHeader
-        title={conversation.businessName}
-        subtitle={`${conversation.businessType} · ${conversation.subject}`}
-        back="/profil/mesajlar"
-      />
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-5 py-4 no-scrollbar"
-      >
+      <PageHeader title={title} back="/profil/mesajlar" />
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 no-scrollbar">
         <div className="space-y-3">
-          {conversation.messages.map((m) =>
-            m.from === "user" ? (
+          {messages.map((m) =>
+            m.senderRole === "user" ? (
               <div key={m.id} className="flex justify-end">
                 <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
                   {m.text}
@@ -81,10 +111,7 @@ export default function ConversationPage() {
         </div>
       </div>
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          send();
-        }}
+        onSubmit={(e) => { e.preventDefault(); send(); }}
         className="flex items-center gap-2 border-t border-border bg-card px-5 py-3"
       >
         <input
@@ -97,7 +124,6 @@ export default function ConversationPage() {
           type="submit"
           disabled={!text.trim()}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-          aria-label="Gönder"
         >
           <Send className="h-4 w-4" />
         </button>

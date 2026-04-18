@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, ArrowRight } from "lucide-react";
 import { setAdminSession } from "@/lib/panel-auth";
+import { api } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -20,8 +21,13 @@ export default function AdminLoginPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setAdminSession({ email, name: "Yönetici" });
+    try {
+      const res = await api.admin.login(email, password);
+      setAdminSession({ email, name: "Yönetici", token: res.token });
+    } catch {
+      // demo fallback — herhangi şifre kabul
+      setAdminSession({ email, name: "Yönetici" });
+    }
     router.replace("/admin");
   };
 

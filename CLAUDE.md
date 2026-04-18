@@ -18,7 +18,7 @@
 
 **Sahibi:** `aksedigitalg <info@aksedigital.com>`
 **Repo:** https://github.com/aksedigitalg/gebzm-app
-**Deploy:** Vercel (otomatik, her `main` push'ta)
+**Deploy:** DigitalOcean (138.68.69.122) — nginx + PM2 + Let's Encrypt, domain: https://gebzem.app
 
 ---
 
@@ -800,6 +800,228 @@ Aslında `BusinessTypeId` olması gerek, ama backward compat için `string` bır
 
 ---
 
-**Son Güncelleme:** 2026-04-15 · Son commit: admin + işletme paneli + 10 tür özel modüller
+---
+
+## 🏗️ Backend Mimari Planı
+
+> Prototip tamamlandı. Sıradaki aşama: gerçek backend. Bu bölüm tüm mimari kararları ve maliyetleri içerir.
+
+### Genel Mimari
+
+```
+Kullanıcılar (Next.js Web + Flutter Mobil)
+      ↓
+Cloudflare (WAF + DDoS koruması + CDN) — ücretsiz
+      ↓
+Hetzner Sunucular (Go API + PostgreSQL + Redis + Meilisearch)
+      ↓
+Cloudflare R2 (Fotoğraflar WebP + Videolar HLS) — egress ücretsiz
+      ↓
+OpenStreetMap API (harita/POI) + Nöbetçi Eczane API + Firebase FCM (bildirim)
+```
+
+### Teknoloji Stack
+
+| Katman | Seçim | Alternatif Neden Değil |
+|---|---|---|
+| Backend API | Go + Fiber | Node.js 50K'da 3x fazla RAM |
+| Veritabanı | PostgreSQL | MySQL — JSONB yok, full-text zayıf |
+| Arama | Meilisearch (self-hosted) | Elasticsearch — çok ağır/pahalı |
+| Cache | Redis | Fiyat karşılaştırma, session, rate limit |
+| Medya storage | Cloudflare R2 | AWS S3 — egress ücretli |
+| Fotoğraf format | WebP (FFmpeg) | JPEG'den %40 küçük |
+| Video format | HLS segmentler (FFmpeg) | MP4 — streaming için uygun değil |
+| Harita | OpenStreetMap + Overpass API | Google Maps — çok pahalı |
+| Push bildirim | Firebase FCM | 50K kullanıcıya tamamen ücretsiz |
+| SMS/OTP | Netgsm | Türkiye'ye özel, ucuz |
+| Ödeme | iyzico | Türkiye'ye özel, kolay entegrasyon |
+| Frontend | Vercel (Next.js) | Mevcut, değiştirilmiyor |
+| Mobil | Flutter | Backend hazır olunca |
+
+### Ölçek Verileri
+
+- 50K aktif kullanıcı, 50K kayıtlı hesap
+- 200K ilan × 50 fotoğraf + 1 video
+- 50K kullanıcı × günde 25 ilan × 50 foto + 1 video görüntüleme
+- 100 market × 500 ürün = 50K ürün, fiyat karşılaştırma
+- 10K kullanıcı × günde 3-5 fiyat karşılaştırma sorgusu
+- 5K+ işletme, günde 1-2 rezervasyon/randevu/teklif
+- Günde 5K+ hizmet talebi bildirimi (kombim bozuldu → ustalara)
+
+### Sunucu Aşamaları (Hetzner)
+
+| Aşama | Kullanıcı | Sunucular | Maliyet |
+|---|---|---|---|
+| Aşama 1 | 0–10K | 1× CPX31 (hepsi bir arada) | €22/ay |
+| Aşama 2 | 10K–30K | CPX41 API + CPX41 DB + CX22 cache | €55/ay |
+| Aşama 3 | 30K–50K | 2× CPX41 API + CPX51 DB + 2× CPX31 | €136/ay |
+
+### Aylık Toplam Maliyet
+
+| Kalem | Aşama 1 | Aşama 2 | Aşama 3 (50K) |
+|---|---|---|---|
+| Hetzner sunucular | $25 | $61 | $150 |
+| Cloudflare R2 storage | $5 | $40 | $83 |
+| Cloudflare R2 ops (okuma) | $2 | $40 | $101 |
+| Vercel Pro | $0 | $20 | $20 |
+| Cloudflare Pro (WAF) | $0 | $20 | $20 |
+| Nöbetçi eczane API | $20 | $20 | $20 |
+| Firebase FCM | $0 | $0 | $0 |
+| Domain | $1 | $1 | $1 |
+| **TOPLAM (AI hariç)** | **~$53/ay** | **~$202/ay** | **~$395/ay** |
+
+> AI (Claude Haiku) sonraki aşamada eklenecek — tahminen +$10-20/ay
+
+### Medya İşleme Akışı
+
+```
+Kullanıcı dosya yükler
+      ↓
+Go API → presigned URL üretir
+      ↓
+Dosya direkt R2'ye yüklenir (Go API'yi bypass eder, bant genişliği kazanır)
+      ↓
+Go worker kuyruğu: FFmpeg ile işleme
+  - Fotoğraf → WebP 1200px max, thumbnail 400px
+  - Video → HLS segmentlere böl (360p + 720p)
+      ↓
+İşlenmiş dosyalar R2'ye taşınır
+Cloudflare CDN otomatik cache'ler (egress ücretsiz)
+```
+
+### Fiyat Karşılaştırma Motoru
+
+- PostgreSQL'de `market_products` tablosu: market_id, product_name, price, updated_at
+- Redis cache: kullanıcı sepetini 30 dakika cache'le (fiyatlar sık değişmez)
+- Sorgu: "Bu listedeki ürünler hangi markette en ucuz?" → GROUP BY market + SUM(price)
+- Sonuç: ilk 5 market sıralaması + ürün bazlı en ucuz market listesi
+
+### Hizmet Talebi Bildirimi (Kombim bozuldu → Ustalara)
+
+- Kullanıcı talep oluşturur → PostgreSQL'e kaydedilir
+- Go worker: ilgili kategori ustalarını sorgular
+- Firebase FCM ile toplu push bildirim gönderilir
+- Usta teklif verir → kullanıcıya bildirim
+
+### Geliştirme Sırası (Backend)
+
+1. **Go projesi kur** — Fiber, PostgreSQL bağlantısı, JWT auth
+2. **Veritabanı şeması** — users, businesses, listings, products, messages, reservations
+3. **Auth API** — kayıt, OTP (Netgsm), giriş, refresh token
+4. **İlan API** — CRUD, fotoğraf/video upload (R2 presigned URL)
+5. **Market/fiyat karşılaştırma API**
+6. **Mesajlaşma API** — WebSocket (Go native)
+7. **Rezervasyon/randevu/teklif API**
+8. **Bildirim sistemi** — FCM entegrasyonu
+9. **Next.js'i backend'e bağla** — localStorage → gerçek API
+10. **Flutter** — aynı API, native mobil
+
+---
+
+---
+
+## 🖥️ Sunucu Bilgileri
+
+| Bilgi | Değer |
+|---|---|
+| Provider | DigitalOcean |
+| Sunucu Adı | gebzem-api |
+| IP | 138.68.69.122 |
+| Bölge | Frankfurt (FRA1) |
+| Plan | Basic $24/mo — 2 vCPU, 2GB RAM, 90GB NVMe |
+| OS | Ubuntu 24.04 LTS |
+| SSH | `ssh root@138.68.69.122` |
+
+### Kurulu Servisler
+- **Go 1.24.2** — `/usr/local/go/bin`
+- **PostgreSQL 16** — kurulu, çalışıyor
+- **Redis** — kurulu
+- **Fiber v2.52.12** — Go web framework
+
+### PostgreSQL Bilgileri
+- Kullanıcı: `gebzem` / Şifre: `gebzem2026`
+- Veritabanı: `gebzem_db`
+- Bağlantı: `postgres://gebzem:gebzem2026@localhost:5432/gebzem_db?sslmode=disable`
+
+### Proje Dizini ve Dosyalar
+```
+/opt/gebzem-api/
+├── main.go          # Fiber app, DB bağlantısı, CORS, logger
+├── .env             # PORT, DB_URL, REDIS_URL, JWT_SECRET
+├── go.mod / go.sum
+├── config/
+│   └── db.go        # ConnectDB() — PostgreSQL bağlantısı
+├── handlers/        # (boş — sıradaki)
+├── middleware/      # (boş)
+├── models/          # (boş)
+└── routes/          # (boş)
+```
+
+### Komutlar
+- `go run main.go` — API başlat (port 8080)
+- `kill %1` — arka plandaki API'yi durdur
+- `ufw allow 8080` — port zaten açık
+
+### Önemli Not: Dosya Yazma Yöntemi
+Terminale heredoc (`<< 'EOF'`) yapıştırınca bozuluyor. **Her zaman Python kullan:**
+```bash
+python3 << 'PYEOF'
+f = open('/opt/gebzem-api/dosya.go', 'w')
+f.write("""...""")
+f.close()
+print("OK")
+PYEOF
+```
+
+### Geliştirme Sırası Durumu
+- [x] DigitalOcean sunucu kuruldu (Frankfurt, $24/mo)
+- [x] Ubuntu 24.04 güncellendi
+- [x] Go 1.24.2 kuruldu (`/usr/local/go/bin`)
+- [x] PostgreSQL + Redis kuruldu
+- [x] Go projesi oluşturuldu (`go mod init gebzem-api`)
+- [x] Bağımlılıklar eklendi (Fiber, JWT, pq, redis, godotenv, crypto)
+- [x] main.go — Fiber app + DB bağlantısı çalışıyor
+- [x] config/db.go — PostgreSQL bağlantısı OK
+- [x] Veritabanı şeması oluşturuldu (users, businesses, conversations, messages, reservations, otp_codes)
+- [x] DB izinleri verildi (`GRANT ALL PRIVILEGES ON ALL TABLES TO gebzem`)
+- [x] handlers/auth.go — SendOTP, VerifyOTP, BusinessRegister, BusinessLogin
+- [x] routes/routes.go — `/api/v1/auth/*` route'ları
+- [x] models/user.go — User, Business struct'ları
+- [x] Auth test edildi — OTP gönder/doğrula/JWT token çalışıyor
+- [x] SSH key kuruldu (Claude Code → sunucu doğrudan bağlanabiliyor)
+- [x] middleware/auth.go — JWT middleware (AuthRequired, BusinessRequired, AdminRequired)
+- [x] handlers/user.go — GetMe, UpdateMe, GetConversations, StartConversation, GetMessages, SendMessage, GetMyReservations, CreateReservation
+- [x] handlers/business.go — GetBusinessMe, UpdateBusinessMe, GetBusinessConversations, BusinessReplyMessage
+- [x] handlers/reservation.go — CreateReservation, GetMyReservations, GetBusinessReservations, UpdateReservationStatus
+- [x] routes/routes.go — /api/v1/user/* + /api/v1/business/* tüm route'lar
+- [x] Systemd service kuruldu (otomatik başlatma, restart on failure)
+- [x] lib/api.ts — Next.js API client (auth + user + business)
+- [x] giris/page.tsx — OTP tabanlı gerçek login
+- [x] kayit/page.tsx — Gerçek OTP + token akışı
+- [x] isletme/giris/page.tsx — Backend login + demo fallback
+- [x] Next.js frontend'i backend'e bağlandı
+
+### SSH Key (Claude Code → Sunucu)
+- Local key: `~/.ssh/gebzem`
+- Bağlantı: `ssh -i ~/.ssh/gebzem root@138.68.69.122`
+- Artık Claude Code direkt sunucuya bağlanıp kod yazabiliyor
+
+### Deploy Bilgisi
+- Frontend: `/opt/gebzem-web` → PM2 (gebzem-web) → port 3000
+- Backend: `/opt/gebzem-api` → systemd (gebzem-api) → port 8080
+- nginx → gebzem.app → / frontend, /api/ backend
+- SSL: Let's Encrypt (otomatik yenileme aktif)
+- Güncelleme: `cd /opt/gebzem-web && git pull && npm run build && pm2 restart gebzem-web`
+
+### Sonraki Oturumda Devam Noktası
+1. Admin panel API entegrasyonu (işletme onayları, kullanıcı listesi)
+2. Gerçek mesajlaşma akışı — profil/mesajlar sayfasını API'ye bağla
+3. Push notification (FCM) entegrasyonu
+4. Medya upload (R2 presigned URL)
+5. Vercel'den çık (gebzm-app.vercel.app artık kullanılmıyor)
+
+---
+
+**Son Güncelleme:** 2026-04-18 · Backend tam entegre — auth + mesajlar + rezervasyon + systemd + Next.js bağlandı
 
 **Bu dosyayı her önemli özellik ekleyişte güncelle.** Özellikle: yeni route, yeni data dosyası, yeni konvansiyon, mimari değişiklik.

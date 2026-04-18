@@ -111,6 +111,35 @@ export const api = {
       request("/user/reservations", { method: "POST", body: JSON.stringify(data) }, getToken()),
   },
 
+  admin: {
+    login: (email: string, password: string) =>
+      request<{ token: string }>("/auth/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      }),
+
+    getStats: (token: string) =>
+      request<Record<string, number>>("/admin/stats", {}, token),
+
+    getUsers: (token: string) =>
+      request<unknown[]>("/admin/users", {}, token),
+
+    toggleUser: (id: string, isActive: boolean, token: string) =>
+      request(`/admin/users/${id}/toggle`, {
+        method: "PUT",
+        body: JSON.stringify({ is_active: isActive }),
+      }, token),
+
+    getBusinesses: (token: string) =>
+      request<unknown[]>("/admin/businesses", {}, token),
+
+    approveBusiness: (id: string, approve: boolean, token: string) =>
+      request(`/admin/businesses/${id}/approve`, {
+        method: "PUT",
+        body: JSON.stringify({ approve }),
+      }, token),
+  },
+
   business: {
     getMe: () => request<Record<string, unknown>>("/business/me", {}, getBusinessToken()),
 

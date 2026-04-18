@@ -4,18 +4,52 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MessageSquare, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { getConversations, type Conversation } from "@/lib/messages";
+import { getConversations as getLocalConversations, type Conversation as LocalConv } from "@/lib/messages";
 import { timeAgoTR } from "@/lib/format";
+import { api } from "@/lib/api";
+import { getUser } from "@/lib/auth";
+
+interface Conv {
+  id: string;
+  businessName: string;
+  businessType: string;
+  lastMessage: string;
+  updatedAt: string;
+  unread?: boolean;
+}
 
 export default function MesajlarPage() {
-  const [list, setList] = useState<Conversation[]>([]);
+  const [list, setList] = useState<Conv[]>([]);
 
   useEffect(() => {
-    setList(getConversations());
-    const onUpdate = () => setList(getConversations());
-    window.addEventListener("gebzem-messages-update", onUpdate);
-    return () => window.removeEventListener("gebzem-messages-update", onUpdate);
+    const user = getUser();
+    if (user?.token) {
+      api.user.getConversations().then((data) => {
+        const convs = (data as Record<string, unknown>[]).map((c) => ({
+          id: c.id as string,
+          businessName: c.business_name as string,
+          businessType: c.business_type as string,
+          lastMessage: (c.last_message as string) || "",
+          updatedAt: c.updated_at as string,
+        }));
+        setList(convs);
+      }).catch(() => loadLocal());
+    } else {
+      loadLocal();
+    }
   }, []);
+
+  const loadLocal = () => {
+    const local = getLocalConversations();
+    setList(local.map((c: LocalConv) => ({
+      id: c.id,
+      businessName: c.businessName,
+      businessType: c.businessType,
+      lastMessage: c.lastMessage,
+      updatedAt: c.updatedAt,
+      unread: c.unread,
+    })));
+  };
 
   return (
     <>
@@ -45,16 +79,10 @@ export default function MesajlarPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{c.businessName}</p>
-                    {c.unread && (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                    )}
+                    {c.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
                   </div>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {c.businessType} · {c.subject}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {c.lastMessage}
-                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground">{c.businessType}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.lastMessage}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className="whitespace-nowrap text-[10px] text-muted-foreground">

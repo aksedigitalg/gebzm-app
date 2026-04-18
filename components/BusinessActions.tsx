@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { addConversation } from "@/lib/messages";
+import { api } from "@/lib/api";
+import { getUser } from "@/lib/auth";
 
 function futureDateOptions(count = 7) {
   const list: { iso: string; label: string }[] = [];
@@ -51,6 +53,7 @@ interface Props {
   businessType: "Restoran" | "Kuaför" | "Doktor" | "Hizmet";
   bookingLabel?: string; // "Rezervasyon" | "Randevu"
   services?: { id: string; label: string; duration?: string }[];
+  businessId?: string; // DB UUID (gerçek işletmeler için)
 }
 
 export function BusinessActions({
@@ -58,6 +61,7 @@ export function BusinessActions({
   businessType,
   bookingLabel = "Rezervasyon",
   services,
+  businessId,
 }: Props) {
   const router = useRouter();
   const [openBooking, setOpenBooking] = useState(false);
@@ -96,15 +100,13 @@ export function BusinessActions({
         open={openBooking}
         onClose={() => {
           setOpenBooking(false);
-          if (done === "booking") {
-            setDone(null);
-            router.push("/profil/mesajlar");
-          }
+          if (done === "booking") { setDone(null); router.push("/profil/mesajlar"); }
         }}
         businessName={businessName}
         businessType={businessType}
         bookingLabel={bookingLabel}
         services={services}
+        businessId={businessId}
         onConfirmed={() => setDone("booking")}
       />
 
@@ -112,13 +114,11 @@ export function BusinessActions({
         open={openQuestion}
         onClose={() => {
           setOpenQuestion(false);
-          if (done === "question") {
-            setDone(null);
-            router.push("/profil/mesajlar");
-          }
+          if (done === "question") { setDone(null); router.push("/profil/mesajlar"); }
         }}
         businessName={businessName}
         businessType={businessType}
+        businessId={businessId}
         onSent={() => setDone("question")}
       />
     </>
@@ -132,6 +132,7 @@ function BookingDialog({
   businessType,
   bookingLabel,
   services,
+  businessId,
   onConfirmed,
 }: {
   open: boolean;
@@ -140,6 +141,7 @@ function BookingDialog({
   businessType: string;
   bookingLabel: string;
   services?: { id: string; label: string; duration?: string }[];
+  businessId?: string;
   onConfirmed: () => void;
 }) {
   const [service, setService] = useState(services?.[0]?.id ?? "");
@@ -149,7 +151,7 @@ function BookingDialog({
   const [note, setNote] = useState("");
   const [confirmed, setConfirmed] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     const svc = services?.find((s) => s.id === service)?.label;
     const parts: string[] = [];
     if (svc) parts.push(svc);
@@ -159,12 +161,27 @@ function BookingDialog({
     if (note) parts.push(`Not: ${note}`);
     const summary = parts.join(" · ");
 
-    addConversation({
-      businessName,
-      businessType,
-      subject: bookingLabel,
-      firstMessage: `${bookingLabel} talebim: ${summary}`,
-    });
+    const user = getUser();
+    if (user?.token && businessId) {
+      try {
+        await api.user.createReservation({
+          business_id: businessId,
+          date,
+          time,
+          note: note || undefined,
+          type: bookingLabel === "Randevu" ? "randevu" : "rezervasyon",
+          party_size: party,
+        });
+        await api.user.startConversation(businessId, `${bookingLabel} talebim: ${summary}`);
+      } catch { /* fallback to local */ }
+    } else {
+      addConversation({
+        businessName,
+        businessType,
+        subject: bookingLabel,
+        firstMessage: `${bookingLabel} talebim: ${summary}`,
+      });
+    }
     setConfirmed(true);
     onConfirmed();
   };
@@ -309,25 +326,29 @@ function QuestionDialog({
   onClose,
   businessName,
   businessType,
+  businessId,
   onSent,
 }: {
   open: boolean;
   onClose: () => void;
   businessName: string;
   businessType: string;
+  businessId?: string;
   onSent: () => void;
 }) {
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     if (!text.trim()) return;
-    addConversation({
-      businessName,
-      businessType,
-      subject: "Soru",
-      firstMessage: text,
-    });
+    const user = getUser();
+    if (user?.token && businessId) {
+      try {
+        await api.user.startConversation(businessId, text);
+      } catch { /* fallback */ }
+    } else {
+      addConversation({ businessName, businessType, subject: "Soru", firstMessage: text });
+    }
     setSent(true);
     onSent();
   };
