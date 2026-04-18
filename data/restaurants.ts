@@ -10,6 +10,7 @@ export interface DineInRestaurant {
   hours: string;
   features: string[]; // Açık hava, Otopark, Rezervasyon vb.
   coverGradient: string;
+  imageUrl?: string;
   coordinates: [number, number];
   description: string;
 }
@@ -27,6 +28,7 @@ export const dineInRestaurants: DineInRestaurant[] = [
     hours: "12:00 - 00:00",
     features: ["Açık Hava", "Rezervasyon", "Otopark", "WiFi"],
     coverGradient: "from-orange-500/60 to-red-700/60",
+    imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=800",
     coordinates: [40.8038, 29.4321],
     description:
       "Gebze'nin köklü mangal evlerinden. Dana kuşbaşı, kuzu pirzola ve ızgara köftesi meşhur. Bahçeli alanı aile gruplarını ağırlamak için ideal.",

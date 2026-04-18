@@ -29,6 +29,7 @@ export interface ServiceProvider {
   responseTime: string;
   verified: boolean;
   photo: string; // initials / gradient
+  imageUrl?: string;
   description: string;
   features: string[];
   location: string;
@@ -59,6 +60,7 @@ export const serviceProviders: ServiceProvider[] = [
     responseTime: "~ 1 saat",
     verified: true,
     photo: "MU",
+    imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400",
     description: "15 yıllık deneyim, 7/24 hizmet. Tıkanıklık, kaçak, armatür değişimi.",
     features: ["Sigortalı", "Garanti", "7/24", "Fatura"],
     location: "Gebze merkez ve çevresi",
@@ -75,6 +77,7 @@ export const serviceProviders: ServiceProvider[] = [
     responseTime: "~ 2 saat",
     verified: true,
     photo: "HE",
+    imageUrl: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=400",
     description: "Ev ve işyeri elektrik işleri. LED montaj, sigorta, pano.",
     features: ["Sigortalı", "Garanti", "Fatura"],
     location: "Gebze, Darıca, Çayırova",
@@ -139,6 +142,7 @@ export const serviceProviders: ServiceProvider[] = [
     responseTime: "Aynı gün",
     verified: true,
     photo: "BK",
+    imageUrl: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400",
     description: "Evde saç kesim, renklendirme, fön, düğün makyajı.",
     features: ["Kadın Müşteri", "Premium Ürünler", "Online Rezervasyon"],
     location: "Gebze, Darıca",

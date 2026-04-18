@@ -21,9 +21,10 @@ export default function Page() {
               href={`/restoran/${r.slug}`}
               className="block overflow-hidden rounded-2xl border border-border bg-card transition hover:shadow-md"
             >
-              <div
-                className={`relative h-36 bg-gradient-to-br ${r.coverGradient}`}
-              >
+              <div className={`relative h-36 overflow-hidden bg-gradient-to-br ${r.coverGradient}`}>
+                {r.imageUrl && (
+                  <img src={r.imageUrl} alt={r.name} className="absolute inset-0 h-full w-full object-cover opacity-70" />
+                )}
                 <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur">
                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                   {r.rating.toFixed(1)}

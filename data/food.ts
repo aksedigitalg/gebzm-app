@@ -18,6 +18,7 @@ export interface FoodRestaurant {
   tags: string[]; // kebap, pizza, burger vb.
   menu: MenuItem[];
   coverGradient: string;
+  imageUrl?: string;
 }
 
 export const foodCategories = [
@@ -44,6 +45,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 100,
     tags: ["kebap"],
     coverGradient: "from-orange-500/70 to-red-600/70",
+    imageUrl: "https://images.unsplash.com/photo-1529693662653-9d480da3337e?w=800",
     menu: [
       { id: "1", name: "Adana Kebap", description: "El çekimi, közde pişirilmiş", price: 185, category: "Kebaplar" },
       { id: "2", name: "Urfa Kebap", description: "Acısız, közde pişirilmiş", price: 185, category: "Kebaplar" },
@@ -65,6 +67,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 80,
     tags: ["pizza"],
     coverGradient: "from-rose-500/70 to-orange-500/70",
+    imageUrl: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
     menu: [
       { id: "1", name: "Margherita", description: "Domates, mozzarella, fesleğen", price: 145, category: "Pizzalar" },
       { id: "2", name: "Pepperoni", description: "Sucuk dilimleri, kaşar", price: 175, category: "Pizzalar" },
@@ -85,6 +88,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 90,
     tags: ["burger"],
     coverGradient: "from-amber-500/70 to-red-500/70",
+    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800",
     menu: [
       { id: "1", name: "Classic Burger", description: "120gr dana, cheddar, marul, domates", price: 150, category: "Burgerler" },
       { id: "2", name: "Double Cheese", description: "2x120gr dana, çift peynir", price: 210, category: "Burgerler" },
@@ -105,6 +109,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 60,
     tags: ["doner"],
     coverGradient: "from-yellow-500/70 to-orange-600/70",
+    imageUrl: "https://images.unsplash.com/photo-1561651823-34feb02250e4?w=800",
     menu: [
       { id: "1", name: "Et Döner Dürüm", description: "El açması yufka, dana döner", price: 120, category: "Dürümler" },
       { id: "2", name: "Tavuk Döner Dürüm", description: "Tavuk döner, taze sebze", price: 95, category: "Dürümler" },
@@ -123,6 +128,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 150,
     tags: ["kahvalti"],
     coverGradient: "from-amber-400/70 to-yellow-600/70",
+    imageUrl: "https://images.unsplash.com/photo-1555243896-c709bfa0b564?w=800",
     menu: [
       { id: "1", name: "Serpme Kahvaltı (2 Kişi)", description: "30+ çeşit, çay dahil", price: 595, category: "Kahvaltı" },
       { id: "2", name: "Menemen", description: "Kaşar, sucuklu", price: 145, category: "Sıcaklar" },
@@ -140,6 +146,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 100,
     tags: ["tatli"],
     coverGradient: "from-pink-500/70 to-rose-600/70",
+    imageUrl: "https://images.unsplash.com/photo-1519676867240-f03562e64548?w=800",
     menu: [
       { id: "1", name: "Antep Fıstıklı Baklava (500g)", description: "Geleneksel usul", price: 320, category: "Baklavalar" },
       { id: "2", name: "Sütlaç", description: "Fırın sütlaç", price: 65, category: "Sütlü Tatlılar" },
@@ -157,6 +164,7 @@ export const foodRestaurants: FoodRestaurant[] = [
     minOrder: 75,
     tags: ["tavuk"],
     coverGradient: "from-lime-500/70 to-emerald-600/70",
+    imageUrl: "https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=800",
     menu: [
       { id: "1", name: "Tavuk Döner Menu", description: "Dürüm, patates, içecek", price: 155, category: "Menüler" },
       { id: "2", name: "Kanat (6'lı)", description: "Marine kanat", price: 125, category: "À La Carte" },
