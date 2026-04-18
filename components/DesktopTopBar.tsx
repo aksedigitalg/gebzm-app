@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Sunrise, Sun, Sunset, Moon } from "lucide-react";
+import { Search, Sunrise, Sun, Sunset, Moon, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearch } from "@/components/SearchProvider";
 import { useAuth } from "@/components/AuthProvider";
@@ -43,6 +43,11 @@ export function DesktopTopBar() {
         </div>
       )}
 
+      {/* Mesajlar ikonu */}
+      <Link href="/profil/mesajlar"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground">
+        <MessageSquare className="h-4 w-4" />
+      </Link>
       <NotificationBell token={token} endpoint="user" />
     </header>
   );

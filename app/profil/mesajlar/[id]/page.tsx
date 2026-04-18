@@ -40,6 +40,21 @@ export default function ConversationPage() {
   const userRef = useRef(getUser());
   const sentIdsRef = useRef<Set<string>>(new Set()); // duplicate önleme
 
+  const deleteMsg = async (msgId: string) => {
+    if (msgId.startsWith("temp-")) return;
+    const user = userRef.current;
+    if (!user?.token) return;
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/${msgId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      setMessages((prev) => prev.map((m) =>
+        m.id === msgId ? { ...m, text: "[Mesaj silindi]" } : m
+      ));
+    } catch { /* ignore */ }
+  };
+
   const scrollBottom = () => {
     setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
   };
@@ -177,12 +192,18 @@ export default function ConversationPage() {
         <div className="space-y-3">
           {messages.map((m) => (
             m.senderRole === "user" ? (
-              <div key={m.id} className="flex justify-end">
+              <div key={m.id} className="group flex justify-end">
                 <div className="flex flex-col items-end gap-0.5">
                   <div className={`max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground ${m.temp ? "opacity-70" : ""}`}>
                     {m.text}
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{timeAgo(m.createdAt)}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => deleteMsg(m.id)}
+                      className="hidden text-[10px] text-red-400 hover:text-red-600 group-hover:block">
+                      Sil
+                    </button>
+                    <span className="text-[10px] text-muted-foreground">{timeAgo(m.createdAt)}</span>
+                  </div>
                 </div>
               </div>
             ) : (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, X, Calendar, MessageSquare, Tag, Check } from "lucide-react";
+import { Bell, X, Calendar, MessageSquare, Tag } from "lucide-react";
+import Link from "next/link";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
 
@@ -29,6 +30,15 @@ const typeIcon: Record<string, typeof Bell> = {
   message: MessageSquare,
   listing: Tag,
 };
+
+function getNotifLink(notif: Notif, endpoint: string): string {
+  switch (notif.type) {
+    case "message": return endpoint === "business" ? "/isletme/mesajlar" : "/profil/mesajlar";
+    case "reservation": return endpoint === "business" ? "/isletme/rezervasyonlar" : "/profil/rezervasyonlarim";
+    case "listing": return "/ilanlar";
+    default: return "#";
+  }
+}
 
 interface Props {
   token: string;
@@ -115,8 +125,9 @@ export function NotificationBell({ token, endpoint }: Props) {
             ) : (
               notifs.map((n) => {
                 const Icon = typeIcon[n.type] || Bell;
+                const link = getNotifLink(n, endpoint);
                 return (
-                  <div key={n.id}
+                  <Link key={n.id} href={link} onClick={() => setOpen(false)}
                     className={`flex items-start gap-3 border-b border-border px-4 py-3 transition hover:bg-muted/40 ${!n.is_read ? "bg-primary/5" : ""}`}>
                     <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${!n.is_read ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                       <Icon className="h-4 w-4" />
@@ -127,7 +138,7 @@ export function NotificationBell({ token, endpoint }: Props) {
                       <p className="mt-1 text-[10px] text-muted-foreground">{timeAgo(n.created_at)}</p>
                     </div>
                     {!n.is_read && <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />}
-                  </div>
+                  </Link>
                 );
               })
             )}
