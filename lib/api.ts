@@ -53,7 +53,7 @@ export const api = {
       }),
 
     businessLogin: (email: string, password: string) =>
-      request<{ token: string; business_id: string; type: string }>(
+      request<{ token: string; business_id: string; type: string; name: string }>(
         "/auth/business/login",
         { method: "POST", body: JSON.stringify({ email, password }) }
       ),
@@ -188,7 +188,7 @@ export const api = {
   business: {
     getMe: () => request<Record<string, unknown>>("/business/me", {}, getBusinessToken()),
 
-    updateMe: (data: { name: string; phone: string; address: string; description: string }) =>
+    updateMe: (data: { name: string; phone: string; address: string; description: string; logo_url?: string; cover_url?: string }) =>
       request("/business/me", { method: "PUT", body: JSON.stringify(data) }, getBusinessToken()),
 
     getConversations: () =>

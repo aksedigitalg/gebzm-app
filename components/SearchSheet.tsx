@@ -20,7 +20,8 @@ type Hit =
   | { kind: "place"; slug: string; title: string; subtitle: string }
   | { kind: "event"; id: string; title: string; subtitle: string }
   | { kind: "guide"; id: string; title: string; subtitle: string }
-  | { kind: "emergency"; id: string; title: string; subtitle: string };
+  | { kind: "emergency"; id: string; title: string; subtitle: string }
+  | { kind: "listing"; id: string; title: string; subtitle: string };
 
 function search(q: string): Hit[] {
   const s = q.trim().toLocaleLowerCase("tr");
@@ -104,6 +105,8 @@ function iconFor(kind: Hit["kind"]) {
       return Utensils;
     case "emergency":
       return Phone;
+    case "listing":
+      return Search;
   }
 }
 
@@ -117,6 +120,8 @@ function hrefFor(hit: Hit): string {
       return "/rehber";
     case "emergency":
       return "/acil";
+    case "listing":
+      return `/ilanlar/${hit.id}`;
   }
 }
 
@@ -317,7 +322,7 @@ export function SearchSheet({
           ) : (
             <div className="space-y-2">
               {results.map((hit, i) => {
-                const Icon = iconFor(hit.kind);
+                const Icon = iconFor(hit.kind) ?? Search;
                 return (
                   <Link
                     key={`${hit.kind}-${i}`}
