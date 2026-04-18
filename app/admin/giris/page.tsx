@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@gebzem.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

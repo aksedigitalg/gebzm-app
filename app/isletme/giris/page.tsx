@@ -89,11 +89,8 @@ export default function BusinessLoginPage() {
           </button>
         </form>
 
-        <div className="mt-5 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
-          <p className="font-semibold text-foreground">Demo işletme girişleri:</p>
-          <p className="mt-1">mangal@gebzem.app · berna@gebzem.app</p>
-          <p>drayse@gebzem.app · kosoglu@gebzem.app</p>
-          <p className="mt-1 font-medium">Şifre: Gebze2026!</p>
+        <div className="mt-5 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground text-center">
+          <p>Hesabınız yok mu? <a href="mailto:info@gebzem.app" className="font-semibold text-primary hover:underline">Başvurun</a></p>
         </div>
       </div>
     </div>
