@@ -232,4 +232,25 @@ Admin panelinden değiştirilebilir (`/admin/ayarlar` ve `/admin/gorunum`):
 
 ---
 
-**Son Güncelleme:** 2026-04-18 · Sistem canlı ve tam çalışır durumda
+**Son Güncelleme:** 2026-04-18 · Bildirim sistemi + takvim görünümü + CTA bar sabit + PageLoader animasyonu eklendi
+
+---
+
+## 🔔 Bildirim Sistemi
+
+- **DB:** `notifications` tablosu (user_id, business_id, admin, type, title, body, is_read)
+- **API:** `GET /user|business|admin/notifications`, `PUT .../read-all`
+- **Frontend:** `NotificationBell` component — 15 saniyede bir polling, okunmamış sayısı badge
+- **Tetikleyiciler:** Rezervasyon oluşturulunca işletmeye bildirim gönderilir
+
+## 📅 Rezervasyon Görünümü
+
+- `profil/rezervasyonlarim` — Liste + Takvim toggle
+- Takvim: ayın günleri, rezervasyon olan günlerde renkli dot
+- Tarih format: `01.06.2026 · 14:00` (UTC sorun yok)
+
+## 🎬 Sayfa Geçişi
+
+- `PageLoader` component — pathname değişince 250ms overlay (beyaz flash yok)
+- `pageFadeIn` keyframe — 0.15s ile içerik yumuşak görünür
+- `overlayFadeOut` keyframe — geçiş sırasında arka plan görünmez
