@@ -38,7 +38,28 @@ export default function ConversationPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const userRef = useRef(getUser());
-  const sentIdsRef = useRef<Set<string>>(new Set()); // duplicate önleme
+
+  // tempId → realId mapping: kendi gönderdiğimiz mesajları takip et
+  const pendingRef = useRef<Map<string, string>>(new Map()); // text → tempId
+
+  const scrollBottom = useCallback(() => {
+    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+  }, []);
+
+  const loadMessages = useCallback(async () => {
+    const user = userRef.current;
+    if (!user?.token) { router.replace("/giris"); return; }
+    try {
+      const data = await api.user.getMessages(params.id) as Record<string, unknown>[];
+      setMessages(data.map((m) => ({
+        id: m.id as string,
+        text: m.text as string,
+        senderRole: m.sender_role as "user" | "business",
+        createdAt: m.created_at as string,
+      })));
+      scrollBottom();
+    } catch { router.replace("/profil/mesajlar"); }
+  }, [params.id, router, scrollBottom]);
 
   const deleteMsg = async (msgId: string) => {
     if (msgId.startsWith("temp-")) return;
@@ -55,27 +76,7 @@ export default function ConversationPage() {
     } catch { /* ignore */ }
   };
 
-  const scrollBottom = () => {
-    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
-  };
-
-  // Mesajları yükle
-  const loadMessages = useCallback(async () => {
-    const user = userRef.current;
-    if (!user?.token) { router.replace("/giris"); return; }
-    try {
-      const data = await api.user.getMessages(params.id) as Record<string, unknown>[];
-      setMessages(data.map((m) => ({
-        id: m.id as string,
-        text: m.text as string,
-        senderRole: m.sender_role as "user" | "business",
-        createdAt: m.created_at as string,
-      })));
-      scrollBottom();
-    } catch { router.replace("/profil/mesajlar"); }
-  }, [params.id, router]);
-
-  // WebSocket
+  // WebSocket — temiz, tek handler
   useEffect(() => {
     const user = userRef.current;
     if (!user?.token) { router.replace("/giris"); return; }
@@ -92,85 +93,87 @@ export default function ConversationPage() {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (!data.id) return;
-        // Kendi gönderdiğimiz mesajı tekrar ekleme (tempId ile zaten eklendi)
-        if (sentIdsRef.current.has(data.id)) return;
-        // Karşı tarafın mesajını ekle
-        setMessages((prev) => {
-          if (prev.find((m) => m.id === data.id)) return prev;
-          const newMsg: Msg = {
-            id: data.id,
-            text: data.text,
-            senderRole: data.sender_id === user.id ? "user" : "business",
-            createdAt: new Date().toISOString(),
-          };
-          scrollBottom();
-          return [...prev, newMsg];
-        });
+        if (!data.id || !data.text) return;
+
+        const myId = user.id;
+        const isMine = data.sender_id === myId;
+
+        if (isMine) {
+          // Kendi mesajımız broadcast olarak geri geldi
+          // pending map'te bu text için tempId var mı?
+          const tempId = pendingRef.current.get(data.text);
+          if (tempId) {
+            // tempId'yi gerçek ID ile değiştir
+            setMessages((prev) => prev.map((m) =>
+              m.id === tempId ? { ...m, id: data.id, temp: false } : m
+            ));
+            pendingRef.current.delete(data.text);
+          }
+          // (tempId yoksa yoksay — zaten işlendi veya duplicate)
+        } else {
+          // Karşı tarafın mesajı — UI'ye ekle
+          setMessages((prev) => {
+            if (prev.find((m) => m.id === data.id)) return prev; // duplicate kontrolü
+            const newMsg: Msg = {
+              id: data.id,
+              text: data.text,
+              senderRole: "business",
+              createdAt: new Date().toISOString(),
+            };
+            scrollBottom();
+            return [...prev, newMsg];
+          });
+        }
       } catch { /* ignore */ }
     };
 
-    // WS başarısız olursa polling yap
+    // WS açık değilse polling
     const pollInterval = setInterval(() => {
       if (ws.readyState !== WebSocket.OPEN) loadMessages();
-    }, 4000);
+    }, 5000);
 
     return () => {
       ws.close();
       clearInterval(pollInterval);
     };
-  }, [params.id]);
+  }, [params.id]); // eslint-disable-line
 
-  useEffect(() => { scrollBottom(); }, [messages.length]);
+  useEffect(() => { scrollBottom(); }, [messages.length, scrollBottom]);
 
   const send = () => {
     const t = text.trim();
     if (!t) return;
     setText("");
 
-    const user = userRef.current;
     const tempId = `temp-${Date.now()}`;
 
-    // UI'ye anlık ekle
+    // 1. UI'ye anlık ekle
     setMessages((prev) => [...prev, {
       id: tempId, text: t, senderRole: "user",
       createdAt: new Date().toISOString(), temp: true,
     }]);
 
+    // 2. pending map'e kaydet (WS broadcast gelince eşleştirmek için)
+    pendingRef.current.set(t, tempId);
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      // WS ile gönder — broadcast gelince tempId'yi gerçek ID ile değiştir
-      const msgPayload = JSON.stringify({ text: t });
-      wsRef.current.send(msgPayload);
-      // WS broadcast'ini aldığımızda duplicate olmayacak şekilde track et
-      // (broadcast kendi mesajımızı da gönderir, biz tempId ile zaten eklediğimiz için filtrele)
-      const originalOnMessage = wsRef.current.onmessage;
-      const onceHandler = (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.text === t && data.id) {
-            sentIdsRef.current.add(data.id);
-            // tempId'yi gerçek ID ile değiştir
-            setMessages((prev) => prev.map((m) =>
-              m.id === tempId ? { ...m, id: data.id, temp: false } : m
-            ));
-          }
-        } catch { /* ignore */ }
-      };
-      // Bir kez çalışacak listener
-      const originalHandler = wsRef.current.onmessage;
-      wsRef.current.onmessage = (e) => {
-        onceHandler(e);
-        if (originalHandler) (originalHandler as (e: MessageEvent) => void)(e);
-      };
+      // 3a. WS ile gönder
+      wsRef.current.send(JSON.stringify({ text: t }));
     } else {
-      // HTTP fallback
-      api.user.sendMessage(params.id, t).then(() => loadMessages()).catch(() => {});
+      // 3b. HTTP fallback
+      pendingRef.current.delete(t);
+      api.user.sendMessage(params.id, t)
+        .then(() => loadMessages())
+        .catch(() => {
+          setMessages((prev) => prev.map((m) =>
+            m.id === tempId ? { ...m, temp: false } : m
+          ));
+        });
     }
   };
 
   return (
     <div className="flex h-[calc(100dvh-76px-env(safe-area-inset-bottom,0px)-10px)] flex-col lg:h-screen">
-      {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/95 px-5 py-3 backdrop-blur">
         <button onClick={() => router.back()}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background">
@@ -181,27 +184,27 @@ export default function ConversationPage() {
           <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
             {wsStatus === "connected"
               ? <><Wifi className="h-3 w-3 text-emerald-500" />Canlı</>
-              : <><WifiOff className="h-3 w-3 text-amber-500" />Bağlanıyor...</>
-            }
+              : <><WifiOff className="h-3 w-3 text-amber-500" />Bağlanıyor...</>}
           </p>
         </div>
       </div>
 
-      {/* Mesajlar */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 no-scrollbar">
         <div className="space-y-3">
           {messages.map((m) => (
             m.senderRole === "user" ? (
               <div key={m.id} className="group flex justify-end">
                 <div className="flex flex-col items-end gap-0.5">
-                  <div className={`max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground ${m.temp ? "opacity-70" : ""}`}>
+                  <div className={`max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground ${m.temp ? "opacity-60" : ""}`}>
                     {m.text}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => deleteMsg(m.id)}
-                      className="hidden text-[10px] text-red-400 hover:text-red-600 group-hover:block">
-                      Sil
-                    </button>
+                    {!m.temp && m.text !== "[Mesaj silindi]" && (
+                      <button onClick={() => deleteMsg(m.id)}
+                        className="hidden text-[10px] text-red-400 hover:text-red-600 group-hover:block">
+                        Sil
+                      </button>
+                    )}
                     <span className="text-[10px] text-muted-foreground">{timeAgo(m.createdAt)}</span>
                   </div>
                 </div>
@@ -223,7 +226,6 @@ export default function ConversationPage() {
         </div>
       </div>
 
-      {/* Input */}
       <form onSubmit={(e) => { e.preventDefault(); send(); }}
         className="flex items-center gap-2 border-t border-border bg-card px-5 py-3">
         <input value={text} onChange={(e) => setText(e.target.value)}
