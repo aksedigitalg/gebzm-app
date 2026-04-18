@@ -11,7 +11,7 @@ import { formatTRY, timeAgoTR } from "@/lib/format";
 export const metadata = { title: "İlanlar" };
 export const revalidate = 60;
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
+const API = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
 async function getApiListings(category?: string) {
   try {

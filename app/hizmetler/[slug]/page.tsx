@@ -6,7 +6,7 @@ import { MapPin, Phone, Scissors } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { BusinessActions } from "@/components/BusinessActions";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
+const API = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
 const typeConfig: Record<string, { label: string; bookingLabel: string; color: string }> = {
   kuafor: { label: "Kuaför", bookingLabel: "Randevu Al", color: "from-pink-500 to-rose-600" },

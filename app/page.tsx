@@ -9,7 +9,7 @@ import { quickServices } from "@/data/home-sections";
 
 export const dynamic = "force-dynamic";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
+const API = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
 const quickLinks = [
   { href: "/harita", label: "Harita", description: "Şehirdeki noktaları keşfet", icon: Map, color: "from-cyan-500/15 to-cyan-500/5 text-cyan-600 dark:text-cyan-400" },
