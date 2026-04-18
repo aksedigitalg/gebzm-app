@@ -8,14 +8,11 @@ import {
   Package,
   Wallet,
   Sparkles,
-  Utensils,
-  UtensilsCrossed,
   Megaphone,
   Wrench,
-  PartyPopper,
-  Briefcase,
-  Store,
-  ShoppingBag,
+  MapPin,
+  Bus,
+  PhoneCall,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,12 +42,9 @@ export interface HomeCategory {
 
 export const homeCategories: HomeCategory[] = [
   { label: "Gebzem AI", icon: Sparkles, href: "/ai" },
-  { label: "Yemek", icon: Utensils, href: "/yemek" },
-  { label: "Restoran", icon: UtensilsCrossed, href: "/restoran" },
-  { label: "Market", icon: Store, href: "/market" },
-  { label: "Alışveriş", icon: ShoppingBag, href: "/alisveris" },
   { label: "Hizmetler", icon: Wrench, href: "/hizmetler" },
   { label: "İlanlar", icon: Megaphone, href: "/ilanlar" },
-  { label: "Etkinlik", icon: PartyPopper, href: "/etkinlikler" },
-  { label: "İş Başvurusu", icon: Briefcase, href: "/is-basvurusu" },
+  { label: "Harita", icon: MapPin, href: "/harita" },
+  { label: "Ulaşım", icon: Bus, href: "/ulasim" },
+  { label: "Acil", icon: PhoneCall, href: "/acil" },
 ];
