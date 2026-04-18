@@ -10,7 +10,7 @@ export function PageLoader() {
   useEffect(() => {
     // Sayfa değişince kısa bir overlay göster
     setVisible(true);
-    const t = setTimeout(() => setVisible(false), 150);
+    const t = setTimeout(() => setVisible(false), 80);
     return () => clearTimeout(t);
   }, [pathname]);
 
