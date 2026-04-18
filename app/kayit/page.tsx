@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ArrowRight, User, CheckCircle2 } from "lucide-react";
 import { StepIndicator } from "@/components/StepIndicator";
 import { PhoneInput, isValidPhone } from "@/components/PhoneInput";
-import { PasswordInput } from "@/components/PasswordInput";
 import { OtpInput } from "@/components/OtpInput";
 import { useAuth } from "@/components/AuthProvider";
 import { api } from "@/lib/api";
@@ -19,14 +18,12 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [password, setPassword] = useState("");
-  const [passwordRepeat, setPasswordRepeat] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [devOtp, setDevOtp] = useState("");
   const [token, setToken] = useState("");
   const [userId, setUserId] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const stepIndex = { phone: 0, otp: 1, profile: 2, done: 2 }[step];
 
@@ -39,87 +36,55 @@ export default function RegisterPage() {
   const submitPhone = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!isValidPhone(phone)) {
-      setError("Geçerli bir telefon numarası gir.");
-      return;
-    }
+    if (!isValidPhone(phone)) { setError("Geçerli bir telefon numarası gir."); return; }
     setLoading(true);
     try {
-      await api.auth.sendOTP(phone);
+      const res = await api.auth.sendOTP(phone) as { message: string; dev_otp?: string };
+      if (res.dev_otp) setDevOtp(res.dev_otp);
       setStep("otp");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const submitOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (otp.length !== 6) {
-      setError("6 haneli doğrulama kodunu gir.");
-      return;
-    }
+    if (otp.length !== 6) { setError("6 haneli kodu gir."); return; }
     setLoading(true);
     try {
-      const res = await api.auth.verifyOTP(phone, otp, `${firstName || "Kullanici"}`);
+      const res = await api.auth.verifyOTP(phone, otp);
       setToken(res.token);
       setUserId(res.user_id);
       setStep("profile");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kod hatalı veya süresi dolmuş");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const submitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!firstName.trim() || !lastName.trim()) {
-      setError("Ad ve soyadını yaz.");
-      return;
-    }
-    if (password.length < 4) {
-      setError("Şifre en az 4 karakter olmalı.");
-      return;
-    }
-    if (password !== passwordRepeat) {
-      setError("Şifreler eşleşmiyor.");
-      return;
-    }
+    if (!name.trim()) { setError("Adını yaz."); return; }
     setLoading(true);
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1"}/user/me`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name: `${firstName} ${lastName}`, email: "" }),
-        }
+        `${process.env.NEXT_PUBLIC_API_URL}/user/me`,
+        { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ name, email: "" }) }
       );
-    } catch {
-      // profil güncellemesi zorunlu değil
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* profil güncellemesi zorunlu değil */ }
+    setLoading(false);
     setStep("done");
   };
 
   return (
-    <div
-      className="flex h-[100svh] flex-col px-5 pt-5"
-      style={{
-        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-      }}
-    >
+    <div className="flex h-[100svh] flex-col px-5 pt-5"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
       <div className="flex items-center justify-between">
         <button
           onClick={step === "phone" ? () => router.push("/giris") : goBack}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card transition hover:bg-muted"
-          aria-label="Geri"
           disabled={step === "done"}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card transition hover:bg-muted"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -131,36 +96,21 @@ export default function RegisterPage() {
         <form onSubmit={submitPhone} className="mt-10 flex flex-1 flex-col">
           <h1 className="text-2xl font-bold tracking-tight">Hesap oluştur</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Telefon numaranı gir, sana bir doğrulama kodu göndereceğiz.
+            Telefon numaranı gir, doğrulama kodu gönderelim.
           </p>
-
           <div className="mt-8">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Telefon
-            </label>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Telefon</label>
             <PhoneInput value={phone} onChange={setPhone} autoFocus />
           </div>
-
-          {error && (
-            <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">
-              {error}
-            </p>
-          )}
-
+          {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">{error}</p>}
           <div className="mt-auto pt-8">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-            >
-              {loading ? "Gönderiliyor..." : "Kod Gönder"}
-              {!loading && <ArrowRight className="h-4 w-4" />}
+            <button type="submit" disabled={loading}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
+              {loading ? "Gönderiliyor..." : "Kod Gönder"}{!loading && <ArrowRight className="h-4 w-4" />}
             </button>
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              Zaten hesabın var mı?{" "}
-              <Link href="/giris" className="font-semibold text-primary hover:underline">
-                Giriş yap
-              </Link>
+              Hesabın var mı?{" "}
+              <Link href="/giris" className="font-semibold text-primary hover:underline">Giriş yap</Link>
             </p>
           </div>
         </form>
@@ -170,35 +120,26 @@ export default function RegisterPage() {
         <form onSubmit={submitOtp} className="mt-10 flex flex-1 flex-col">
           <h1 className="text-2xl font-bold tracking-tight">Doğrulama Kodu</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            +90 {phone} numarasına gönderilen 6 haneli kodu gir.
+            +90 {phone} numarasına gönderilen kodu gir.
           </p>
-
           <div className="mt-8">
             <OtpInput value={otp} onChange={setOtp} autoFocus />
           </div>
-
-          {error && (
-            <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">
-              {error}
+          {devOtp && (
+            <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-center text-xs font-semibold text-amber-700">
+              Test kodu: <span className="font-mono tracking-widest">{devOtp}</span>
             </p>
           )}
-
-          <button
-            type="button"
-            onClick={() => setStep("phone")}
-            className="mt-4 text-xs font-medium text-primary hover:underline"
-          >
-            Numarayı değiştir
-          </button>
-
+          {!devOtp && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Demo için <span className="font-bold font-mono">111111</span> girebilirsin
+            </p>
+          )}
+          {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">{error}</p>}
           <div className="mt-auto pt-8">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-            >
-              {loading ? "Doğrulanıyor..." : "Doğrula"}
-              {!loading && <ArrowRight className="h-4 w-4" />}
+            <button type="submit" disabled={loading}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
+              {loading ? "Doğrulanıyor..." : "Doğrula"}{!loading && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>
         </form>
@@ -206,75 +147,21 @@ export default function RegisterPage() {
 
       {step === "profile" && (
         <form onSubmit={submitProfile} className="mt-10 flex flex-1 flex-col">
-          <h1 className="text-2xl font-bold tracking-tight">Bilgilerin</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Son adım! Adını, soyadını ve şifreni belirle.
-          </p>
-
-          <div className="mt-8 space-y-3">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Ad
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Ad"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="h-12 w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
-                />
-              </label>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Soyad
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Soyad"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="h-12 w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
-                />
-              </label>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Şifre
-              </label>
-              <PasswordInput value={password} onChange={setPassword} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Şifre (Tekrar)
-              </label>
-              <PasswordInput
-                value={passwordRepeat}
-                onChange={setPasswordRepeat}
-                placeholder="Şifre tekrar"
-              />
-            </div>
+          <h1 className="text-2xl font-bold tracking-tight">Adın ne?</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Son adım — adını gir.</p>
+          <div className="mt-8">
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Ad Soyad</label>
+            <label className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30">
+              <User className="h-5 w-5 text-muted-foreground" />
+              <input type="text" autoFocus placeholder="Ad Soyad" value={name} onChange={(e) => setName(e.target.value)}
+                className="h-12 w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground" />
+            </label>
           </div>
-
-          {error && (
-            <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">
-              {error}
-            </p>
-          )}
-
+          {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-600">{error}</p>}
           <div className="mt-auto pt-8">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-            >
-              {loading ? "Kaydediliyor..." : "Hesabı Oluştur"}
-              {!loading && <ArrowRight className="h-4 w-4" />}
+            <button type="submit" disabled={loading}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
+              {loading ? "Kaydediliyor..." : "Hesabı Oluştur"}{!loading && <ArrowRight className="h-4 w-4" />}
             </button>
           </div>
         </form>
@@ -285,19 +172,14 @@ export default function RegisterPage() {
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
             <CheckCircle2 className="h-12 w-12" strokeWidth={1.5} />
           </div>
-          <h2 className="mt-6 text-2xl font-bold">Hoş geldin {firstName}!</h2>
+          <h2 className="mt-6 text-2xl font-bold">Hoş geldin{name ? ` ${name.split(" ")[0]}` : ""}!</h2>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-            Hesabın başarıyla oluşturuldu. Gebze&apos;yi keşfetmeye başlayabilirsin.
+            Hesabın oluşturuldu. Gebze'yi keşfetmeye başlayabilirsin.
           </p>
           <button
-            onClick={() => {
-              signIn({ phone, firstName, lastName, token, id: userId });
-              router.replace("/");
-            }}
-            className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-          >
-            Ana sayfaya git
-            <ArrowRight className="h-4 w-4" />
+            onClick={() => { signIn({ phone, token, id: userId }); router.replace("/"); }}
+            className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
+            Ana sayfaya git <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       )}

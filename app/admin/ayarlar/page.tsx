@@ -83,6 +83,40 @@ export default function Page() {
         </button>
       </section>
 
+      {/* Twilio SMS Fallback */}
+      <section className="rounded-2xl border border-border bg-card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-blue-500" />
+            <h3 className="text-sm font-semibold">Twilio SMS (Yedek)</h3>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${settings.twilio_active === "true" ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-500"}`}>
+              {settings.twilio_active === "true" ? "Aktif" : "Pasif"}
+            </span>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2">
+            <span className="text-xs text-muted-foreground">Aktif</span>
+            <input type="checkbox" checked={settings.twilio_active === "true"}
+              onChange={(e) => set("twilio_active", e.target.checked ? "true" : "false")}
+              className="h-4 w-4 accent-primary" />
+          </label>
+        </div>
+        <div className="space-y-3">
+          <Field label="Account SID" value={settings.twilio_account_sid || ""}
+            onChange={(v) => set("twilio_account_sid", v)} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+          <Field label="Auth Token" value={settings.twilio_auth_token || ""}
+            onChange={(v) => set("twilio_auth_token", v)} placeholder="Auth token" type="password" />
+          <Field label="Gönderen Numara" value={settings.twilio_from || ""}
+            onChange={(v) => set("twilio_from", v)} placeholder="+12345678901" />
+        </div>
+        <div className="mt-3 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+          Netgsm başarısız olursa otomatik Twilio devreye girer.
+        </div>
+        <button onClick={() => save(["twilio_account_sid", "twilio_auth_token", "twilio_from", "twilio_active"])}
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90">
+          <Save className="h-3.5 w-3.5" />Kaydet
+        </button>
+      </section>
+
       {/* Resend Email */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
