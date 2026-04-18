@@ -13,6 +13,7 @@ import {
   MapPin,
   Settings,
   Target,
+  UserCircle,
 } from "lucide-react";
 import {
   PanelShell,
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { href: "/admin/mesajlar", label: "Mesajlar", icon: MessageSquare, badge: 6 },
   { href: "/admin/mekanlar", label: "Mekanlar (POI)", icon: MapPin },
   { href: "/admin/ayarlar", label: "Ayarlar", icon: Settings },
+  { href: "/admin/profil", label: "Profilim", icon: UserCircle },
 ];
 
 export default function AdminLayout({
