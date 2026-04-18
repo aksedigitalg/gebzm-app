@@ -9,13 +9,7 @@ import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
 
 // Sayfa geçişi — pathname değişince key değişir → fade-in tetiklenir
 function PageWrapper({ children, k }: { children: React.ReactNode; k: string }) {
-  // ÖNEMLI: transform veya animation kullanma — fixed child'ları bozar (stacking context)
-  // Sadece opacity transition kullan
-  return (
-    <div key={k} style={{ animation: "pageOpacityIn 0.18s ease forwards" }}>
-      {children}
-    </div>
-  );
+  return <div key={k}>{children}</div>;
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {

@@ -5,7 +5,6 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { SearchProvider } from "@/components/SearchProvider";
 import { AppShell } from "@/components/AppShell";
 import { ZoomLock } from "@/components/ZoomLock";
-import { PageLoader } from "@/components/PageLoader";
 
 const googleSans = Google_Sans({
   variable: "--font-sans",
@@ -66,7 +65,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-[100dvh] flex flex-col">
         <ZoomLock />
-        <PageLoader />
         <AuthProvider>
           <SearchProvider>
             <AppShell>{children}</AppShell>

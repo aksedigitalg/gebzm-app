@@ -51,19 +51,21 @@ function getInitialUser(): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<AuthUser | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  // Sync init — SSR'da null, client'ta localStorage'dan oku (flash olmaz)
+  const [user, setUserState] = useState<AuthUser | null>(getInitialUser);
+  const [hydrated, setHydrated] = useState(() => typeof window !== "undefined");
   const pathname = usePathname();
   const router = useRouter();
   const redirecting = useRef(false);
 
-  // Hydration — sadece bir kez
+  // SSR'dan geliyorsa hydration'ı tamamla
   useEffect(() => {
-    const u = getInitialUser();
-    setUserState(u);
-    setHydrated(true);
-    redirecting.current = false;
-  }, []);
+    if (!hydrated) {
+      const u = getInitialUser();
+      setUserState(u);
+      setHydrated(true);
+    }
+  }, []); // eslint-disable-line
 
   // Pathname değişince user'ı güncelle (login/logout sonrası)
   useEffect(() => {

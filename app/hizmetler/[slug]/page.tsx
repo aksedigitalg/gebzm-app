@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic"; // Yeni işletme eklenince cache sorunu olmasın
-import { MapPin, Phone, Scissors, Wrench, Stethoscope } from "lucide-react";
+export const dynamic = "force-dynamic";
+
+import { MapPin, Phone, Scissors } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { BusinessActions } from "@/components/BusinessActions";
-
-export const revalidate = 60;
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
 
@@ -17,9 +16,10 @@ const typeConfig: Record<string, { label: string; bookingLabel: string; color: s
 
 async function getBusiness(id: string) {
   try {
-    const res = await fetch(`${API}/businesses`, { next: { revalidate: 60 } });
-    const all = await res.json();
-    return all.find((b: { id: string }) => b.id === id) || null;
+    // Direkt ID ile çek — cache yok
+    const res = await fetch(`${API}/businesses/${id}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
   } catch { return null; }
 }
 

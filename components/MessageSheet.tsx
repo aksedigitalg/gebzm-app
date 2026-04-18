@@ -49,7 +49,15 @@ export function MessageSheet() {
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => { setOpen(!open); if (!open) load(); }}
+      <button onClick={() => {
+        const opening = !open;
+        setOpen(opening);
+        if (opening) {
+          load();
+          // Badge'i temizle
+          setTimeout(() => setUnread(0), 1000);
+        }
+      }}
         className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card transition hover:bg-muted">
         <MessageSquare className="h-4 w-4" />
         {unread > 0 && (
