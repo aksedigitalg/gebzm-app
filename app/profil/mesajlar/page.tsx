@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Store, MessageSquare, ArrowLeft, Wifi, WifiOff } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
 import { api } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { timeAgoTR } from "@/lib/format";
@@ -27,23 +26,22 @@ export default function MesajlarPage() {
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const pendingRef = useRef<Map<string, string>>(new Map());
   const userRef = useRef(getUser());
 
-  const scrollBottom = () => setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+  const scrollBottom = () =>
+    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
 
-  // Konuşma listesi yükle
+  // Konuşma listesi
   useEffect(() => {
     const user = userRef.current;
     if (!user?.token) { router.replace("/giris"); return; }
     api.user.getConversations().then((data) => {
-      const list = data as Conv[];
-      setConvs(list);
+      setConvs(data as Conv[]);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-  // Aktif konuşma değişince WS bağlan
+  // Aktif konuşma WS
   useEffect(() => {
     if (!activeId) return;
     const user = userRef.current;
@@ -55,7 +53,6 @@ export default function MesajlarPage() {
       scrollBottom();
     }).catch(() => {});
 
-    // Eski WS kapat
     wsRef.current?.close();
     setWsStatus("connecting");
 
@@ -69,26 +66,23 @@ export default function MesajlarPage() {
       try {
         const data = JSON.parse(e.data);
         if (!data.id || !data.text) return;
-        const isMine = data.sender_id === user.id;
-        if (isMine) {
-          const tempId = pendingRef.current.get(data.text);
-          if (tempId) {
-            setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: data.id, temp: false } : m));
-            pendingRef.current.delete(data.text);
-            setConvs((prev) => prev.map((c) => c.id === activeId ? { ...c, last_message: data.text } : c));
-          }
-        } else {
-          setMessages((prev) => {
-            if (prev.find((m) => m.id === data.id)) return prev;
-            scrollBottom();
-            return [...prev, { id: data.id, text: data.text, sender_role: "business", created_at: new Date().toISOString() }];
-          });
-          setConvs((prev) => prev.map((c) => c.id === activeId ? { ...c, last_message: data.text } : c));
-        }
+        // Backend gönderene broadcast ETMEZ — sadece karşı taraf gelir
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev;
+          scrollBottom();
+          return [...prev, { id: data.id, text: data.text, sender_role: "business", created_at: new Date().toISOString() }];
+        });
+        setConvs((prev) => prev.map((c) => c.id === activeId ? { ...c, last_message: data.text } : c));
       } catch { /* ignore */ }
     };
 
-    const poll = setInterval(() => { if (ws.readyState !== WebSocket.OPEN) api.user.getMessages(activeId).then((d) => setMessages(d as Msg[])).catch(() => {}); }, 5000);
+    // Fallback polling (WS bağlı değilse)
+    const poll = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        api.user.getMessages(activeId).then((d) => setMessages(d as Msg[])).catch(() => {});
+      }
+    }, 5000);
+
     return () => { ws.close(); clearInterval(poll); };
   }, [activeId]);
 
@@ -97,38 +91,42 @@ export default function MesajlarPage() {
     const t = text.trim();
     if (!t || !activeId) return;
     setText("");
+
+    // Anlık UI'ye ekle (sadece 1 kez — WS broadcast gelmeyecek çünkü backend exclude ediyor)
     const tempId = `temp-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: tempId, text: t, sender_role: "user", created_at: new Date().toISOString(), temp: true }]);
-    pendingRef.current.set(t, tempId);
+    setMessages((prev) => [...prev, {
+      id: tempId, text: t, sender_role: "user",
+      created_at: new Date().toISOString(), temp: true,
+    }]);
+    setConvs((prev) => prev.map((c) => c.id === activeId ? { ...c, last_message: t } : c));
+    scrollBottom();
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ text: t }));
+      // tempId'yi gerçek ID ile değiştirmeye gerek yok — backend bize göndermeyecek
+      // sadece gönderildi işaretini kaldır
+      setTimeout(() => {
+        setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, temp: false } : m));
+      }, 500);
     } else {
-      pendingRef.current.delete(t);
-      api.user.sendMessage(activeId, t).then(() =>
-        api.user.getMessages(activeId).then((d) => setMessages(d as Msg[]))
-      ).catch(() => {});
+      api.user.sendMessage(activeId, t)
+        .then(() => api.user.getMessages(activeId).then((d) => setMessages(d as Msg[])))
+        .catch(() => setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, temp: false } : m)));
     }
-    scrollBottom();
   };
 
   const activeConv = convs.find((c) => c.id === activeId);
 
   if (loading) return (
-    <>
-      <PageHeader title="Mesajlarım" back="/profil" />
-      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">Yükleniyor...</div>
-    </>
+    <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">Yükleniyor...</div>
   );
 
   if (convs.length === 0) return (
-    <>
-      <PageHeader title="Mesajlarım" subtitle="0 konuşma" back="/profil" />
-      <div className="flex flex-col items-center py-20 text-center px-5">
-        <MessageSquare className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
-        <p className="mt-4 text-sm font-semibold">Henüz mesajın yok</p>
-        <p className="mt-1 text-xs text-muted-foreground">Bir işletmeye soru sor veya randevu al.</p>
-      </div>
-    </>
+    <div className="flex flex-col items-center py-20 text-center px-5">
+      <MessageSquare className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
+      <p className="mt-4 text-sm font-semibold">Henüz mesajın yok</p>
+      <p className="mt-1 text-xs text-muted-foreground">Bir işletmeye soru sor veya randevu al.</p>
+    </div>
   );
 
   return (
@@ -144,13 +142,16 @@ export default function MesajlarPage() {
             <div>
               <p className="text-sm font-semibold">{activeConv.business_name}</p>
               <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                {wsStatus === "connected" ? <><Wifi className="h-3 w-3 text-emerald-500" />Canlı</> : <><WifiOff className="h-3 w-3 text-amber-500" />...</>}
+                {wsStatus === "connected"
+                  ? <><Wifi className="h-3 w-3 text-emerald-500" />Canlı</>
+                  : <><WifiOff className="h-3 w-3 text-amber-500" />...</>}
               </p>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background">
+            <button onClick={() => router.back()}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <p className="text-sm font-semibold">Mesajlarım</p>
@@ -195,7 +196,6 @@ export default function MesajlarPage() {
             </div>
           ) : (
             <>
-              {/* Desktop header */}
               <div className="hidden items-center gap-3 border-b border-border px-5 py-3 lg:flex">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Store className="h-4 w-4" />
@@ -203,24 +203,23 @@ export default function MesajlarPage() {
                 <div>
                   <p className="text-sm font-semibold">{activeConv.business_name}</p>
                   <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    {wsStatus === "connected" ? <><Wifi className="h-3 w-3 text-emerald-500" />Canlı</> : <><WifiOff className="h-3 w-3 text-amber-500" />Bağlanıyor...</>}
+                    {wsStatus === "connected"
+                      ? <><Wifi className="h-3 w-3 text-emerald-500" />Canlı</>
+                      : <><WifiOff className="h-3 w-3 text-amber-500" />Bağlanıyor...</>}
                   </p>
                 </div>
               </div>
 
-              {/* Mesajlar */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 no-scrollbar">
                 <div className="space-y-3">
                   {messages.map((m) => (
                     m.sender_role === "user" ? (
-                      <div key={m.id} className="group flex justify-end">
+                      <div key={m.id} className="flex justify-end">
                         <div className="flex flex-col items-end gap-0.5">
                           <div className={`max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground ${m.temp ? "opacity-60" : ""}`}>
                             {m.text}
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {m.created_at ? timeAgoTR(m.created_at) : "Az önce"}
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">{timeAgoTR(m.created_at)}</span>
                         </div>
                       </div>
                     ) : (
@@ -232,9 +231,7 @@ export default function MesajlarPage() {
                           <div className="max-w-[80%] rounded-2xl rounded-tl-sm border border-border bg-card px-4 py-2.5 text-sm">
                             {m.text}
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {m.created_at ? timeAgoTR(m.created_at) : "Az önce"}
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">{timeAgoTR(m.created_at)}</span>
                         </div>
                       </div>
                     )
@@ -242,7 +239,6 @@ export default function MesajlarPage() {
                 </div>
               </div>
 
-              {/* Input */}
               <form onSubmit={send} className="flex items-center gap-2 border-t border-border bg-card px-5 py-3">
                 <input value={text} onChange={(e) => setText(e.target.value)}
                   placeholder="Mesaj yaz..."
