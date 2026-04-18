@@ -2,107 +2,106 @@
 
 # Gebzem — Proje Rehberi
 
-> Bu dosya tüm proje bağlamını özetler. Her Claude Code oturumu başlangıcında otomatik yüklenir. **Yeni özellik eklerken / hata düzeltirken önce bu dosyayı oku.**
+> Bu dosya tüm proje bağlamını özetler. Her Claude Code oturumu başlangıcında otomatik yüklenir.
 
 ---
 
 ## 📖 Proje Özeti
 
-**Gebzem**, Gebze (Kocaeli) şehrine özel bir **tam özellikli şehir rehberi platformu**. 3 farklı arayüz:
-
-1. **Kullanıcı Uygulaması** — hizmetler, ilanlar, harita, rezervasyon, randevu, anlık mesajlaşma, bildirimler
-2. **Admin Paneli (Web)** — işletme onayları, kullanıcı yönetimi, platform ayarları, görünüm
-3. **İşletme Paneli (Web)** — profil (logo/kapak), rezervasyon/randevu yönetimi, müşteri mesajlaşması
+**Gebzem**, Gebze (Kocaeli) şehrine özel şehir rehberi platformu.
 
 **Sahibi:** `aksedigitalg <info@aksedigital.com>`
 **Repo:** https://github.com/aksedigitalg/gebzm-app
 **Domain:** https://gebzem.app
-**Admin Giriş:** `info@gebzemapp.com` / `80148014`
+**Admin:** `info@gebzemapp.com` / `80148014`
 
 ---
 
 ## 🔧 Teknoloji Stack
 
-| Katman | Teknoloji | Notlar |
-|---|---|---|
-| Framework | **Next.js 16** (App Router) | Turbopack kapalı, Webpack |
-| Dil | **TypeScript** strict | Type güvenli |
-| Styling | **Tailwind CSS v4** | `@theme inline`, CSS variables, no config file |
-| Font | **Google Sans** | next/font/google |
-| UI İkonları | **lucide-react** | Sadece 2D, emoji yok (kural) |
-| Harita | **Leaflet + react-leaflet** | Dynamic import (SSR kapalı) |
-| Backend | **Go 1.24 + Fiber v2** | Systemd ile çalışıyor |
-| DB | **PostgreSQL 16** | `postgres://gebzem:gebzem2026@localhost:5432/gebzem_db` |
-| Realtime | **WebSocket** | gofiber/contrib/websocket |
-| SMS | **Twilio Verify** (OTP) + Netgsm (yedek) | Admin'den toggle |
-| Deploy | **DigitalOcean** | PM2 (Next.js) + systemd (Go) + nginx |
-| Auto-deploy | **GitHub Webhook** | `/opt/gebzem-web/deploy.sh` |
-
-**Önemli Next.js notları:**
-- `searchParams` ve `params` — **Promise** olarak gelir, `await` ile çözülür
-- `viewport` metadata'dan ayrıldı → `export const viewport: Viewport = {...}`
-- `dynamic(import, { ssr: false })` — Server Component'te çalışmaz (`MapWrapper.tsx` pattern'i)
-- Kritik sayfalarda `export const dynamic = "force-dynamic"` (hizmetler, ana sayfa)
+| Katman | Teknoloji |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Dil | TypeScript strict |
+| Styling | Tailwind CSS v4 |
+| Font | Google Sans |
+| İkonlar | lucide-react (emoji yok) |
+| Backend | Go 1.24 + Fiber v2 |
+| DB | PostgreSQL 16 |
+| Realtime | WebSocket (gofiber/contrib/websocket) |
+| SMS | Twilio Verify (OTP) + Netgsm yedek |
+| Deploy | DigitalOcean Frankfurt |
+| Auto-deploy | GitHub Webhook → deploy.sh |
 
 ---
 
-## 🏗️ Sunucu Bilgileri
+## 🏗️ Sunucu
 
 | | |
 |---|---|
-| Provider | DigitalOcean (Frankfurt) |
 | IP | 138.68.69.122 |
 | SSH | `ssh -i ~/.ssh/gebzem root@138.68.69.122` |
-| Next.js | `/opt/gebzem-web` — PM2 (gebzem-web) port 3000 |
-| Go API | `/opt/gebzem-api` — systemd (gebzem-api) port 8080 |
+| Next.js | `/opt/gebzem-web` — PM2 port 3000 |
+| Go API | `/opt/gebzem-api` — systemd port 8080 |
 | Uploads | `/var/www/uploads/` → `gebzem.app/uploads/` |
 | nginx | `/etc/nginx/sites-enabled/gebzem` |
-| SSL | Let's Encrypt (otomatik yenileme aktif) |
 
 **Go API güncelle:** `cd /opt/gebzem-api && go build -o gebzem-api-bin . && systemctl restart gebzem-api`
-**Next.js güncelle:** `git push origin main` → webhook otomatik deploy (~45 sn)
+**Next.js deploy:** `git push origin main` → webhook otomatik (veya manuel: kill stale build, npm run build, pm2 restart)
+
+**⚠️ Manuel deploy gerekirse:**
+```bash
+ssh -i ~/.ssh/gebzem root@138.68.69.122
+ps aux | grep 'next build' | awk '{print $2}' | xargs kill -9 2>/dev/null
+cd /opt/gebzem-web && npm run build && pm2 restart gebzem-web
+```
 
 ---
 
 ## 🔐 Auth Sistemi
 
-### 3 Ayrı Dünya
-
-| | localStorage Key | Token Süresi |
+| | Key | Süre |
 |---|---|---|
-| Kullanıcı | `gebzem_user` | JWT 30 gün |
-| İşletme | `gebzem_business` | JWT 30 gün |
-| Admin | `gebzem_admin` | JWT 24 saat |
+| Kullanıcı | `gebzem_user` (localStorage) | JWT 30 gün |
+| İşletme | `gebzem_business` (localStorage) | JWT 30 gün |
+| Admin | `gebzem_admin` (localStorage) | JWT 24 saat |
 
-**Route Isolation:**
-- `AuthProvider` sadece `/profil/*` rotalarını korur (kullanıcı)
-- `/admin/*` ve `/isletme/*` → kendi layout'larında kendi auth mantıkları
-- İşletme `is_approved=true` olmadan token verilmez
+**Kullanıcı giriş akışı:**
+1. Telefon + Şifre gir → `POST /auth/login-step1` → şifre doğruysa OTP gönderir
+2. Yeni kullanıcı (şifresi yok) → `POST /auth/send-otp` → OTP gönderir
+3. OTP doğrula → `POST /auth/verify-otp` → JWT token
+4. Yeni kullanıcı: şifre belirle → `POST /user/set-password`
 
-**OTP:** Twilio Verify — gerçek SMS. Demo kod: `111111` her zaman geçerli.
-**Admin:** `info@gebzemapp.com` / `80148014` (sunucu `.env`'de, `ADMIN_EMAIL` / `ADMIN_PASSWORD`)
+**İşletme:** Admin onayı zorunlu (`is_approved=true`). Onaysız token verilmez.
+**OTP demo:** `111111` her zaman geçerli. Gerçek: Twilio Verify.
+**Admin:** `info@gebzemapp.com` / `80148014` (sunucu `.env`'de)
 
 ---
 
 ## 📡 API Endpoint'leri
 
-**Base URL:** `https://gebzem.app/api/v1`
+**Base:** `https://gebzem.app/api/v1` (client) / `http://localhost:8080/api/v1` (server-side)
+**WebSocket:** `wss://gebzem.app/ws/conversations/:id?token=JWT`
 
 ### Auth
 ```
-POST /auth/send-otp            → OTP gönder (Twilio Verify)
-POST /auth/verify-otp          → OTP doğrula + JWT token
-POST /auth/email/register      → Email ile kayıt
-POST /auth/email/login         → Email ile giriş
-POST /auth/business/register   → İşletme kayıt (admin onayı gerekir)
-POST /auth/business/login      → İşletme giriş (is_approved=true zorunlu)
-POST /auth/admin/login         → Admin giriş
+POST /auth/check-phone       → Telefon kontrolü (has_password: bool)
+POST /auth/login-step1       → Telefon+Şifre → OTP gönder
+POST /auth/send-otp          → OTP gönder
+POST /auth/verify-otp        → OTP doğrula → token
+POST /auth/business/register → İşletme kayıt
+POST /auth/business/login    → İşletme giriş
+POST /auth/business/search   → İşletme ara (şifre sıfırlama)
+POST /auth/business/reset-otp → Sıfırlama OTP'si
+POST /auth/business/reset-password → Yeni şifre
+POST /auth/admin/login       → Admin giriş
 ```
 
-### Kullanıcı (Bearer token gerekli)
+### Kullanıcı (`/user/*` — Bearer token)
 ```
 GET/PUT  /user/me
-PUT      /user/password
+PUT      /user/password      → Şifre değiştir
+POST     /user/set-password  → İlk şifre belirleme
 GET/POST /user/conversations
 GET/POST /user/conversations/:id/messages
 GET/POST /user/reservations
@@ -110,28 +109,29 @@ GET/POST /user/listings
 PUT/DELETE /user/listings/:id
 GET      /user/notifications
 PUT      /user/notifications/read-all
-POST     /upload              → Fotoğraf yükle (/var/www/uploads)
+POST     /upload             → Fotoğraf yükle
 ```
 
-### İşletme (Bearer token gerekli)
+### İşletme (`/business/*` — Bearer token)
 ```
-GET/PUT  /business/me         → Profil (name, phone, address, description, logo_url, cover_url)
+GET/PUT  /business/me        → logo_url, cover_url dahil
 GET      /business/conversations
 GET/POST /business/conversations/:id/messages
 GET      /business/reservations
-PUT      /business/reservations/:id/status
+PUT      /business/reservations/:id/status → bekliyor/onaylandi/reddedildi/tamamlandi
 GET      /business/notifications
 PUT      /business/notifications/read-all
 ```
 
 ### Public
 ```
-GET /businesses               → Tüm onaylı işletmeler (?type=kuafor|usta|doktor)
-GET /listings                 → Kullanıcı ilanları (?category=...)
+GET /businesses              → Onaylı işletmeler (?type=kuafor)
+GET /businesses/:id          → Tekil işletme (cache: no-store)
+GET /listings                → İlanlar (?category=...)
 GET /listings/:id
 ```
 
-### Admin (Bearer token gerekli)
+### Admin (`/admin/*` — Bearer token)
 ```
 GET /admin/stats
 GET /admin/users + PUT /admin/users/:id/toggle
@@ -140,11 +140,7 @@ GET/POST /admin/settings
 GET/PUT  /admin/profile
 GET      /admin/notifications
 PUT      /admin/notifications/read-all
-```
-
-### WebSocket
-```
-WS wss://gebzem.app/ws/conversations/:id?token=JWT → Anlık mesajlaşma
+GET      /admin/listings
 ```
 
 ---
@@ -153,249 +149,146 @@ WS wss://gebzem.app/ws/conversations/:id?token=JWT → Anlık mesajlaşma
 
 **Bağlantı:** `postgres://gebzem:gebzem2026@localhost:5432/gebzem_db`
 
-### Tablolar
-
 | Tablo | Kritik Sütunlar |
 |---|---|
 | `users` | phone (nullable), name, email, password_hash, auth_type |
-| `businesses` | name, type, email, password_hash, phone, address, description, **logo_url, cover_url**, is_approved, is_active |
+| `businesses` | name, type, email, password_hash, phone, address, description, logo_url, cover_url, is_approved, is_active, last_seen |
 | `conversations` | user_id, business_id, last_message, updated_at |
-| `messages` | conversation_id, sender_id, **sender_role** (user/business), **text** (nullable), content (nullable) |
-| `reservations` | user_id, business_id, date (DATE), time (TIME), **type** (rezervasyon/randevu), **status** (bekliyor/onaylandi/reddedildi/tamamlandi), party_size, note |
-| `user_listings` | user_id, title, category, price, **photos (text[])**, features (jsonb), status |
+| `messages` | conversation_id, sender_id, sender_role (user/business), text, photo_url |
+| `reservations` | user_id, business_id, date (DATE), time (TIME), type (rezervasyon/randevu), status (bekliyor/onaylandi/reddedildi/tamamlandi), party_size, note |
+| `user_listings` | user_id, title, category, price, photos (text[]), features (jsonb), status |
 | `settings` | key, value |
 | `otp_codes` | phone, code, expires_at, used |
 | `notifications` | user_id, business_id, admin (bool), type, title, body, is_read |
+| `media` | user_id, url, filename |
 
-### DB Temizleme
+**DB Temizleme:**
 ```sql
 sudo -u postgres psql -d gebzem_db -c "
-TRUNCATE user_listings, messages, conversations, reservations, otp_codes, notifications RESTART IDENTITY CASCADE;
-DELETE FROM businesses;
-DELETE FROM users;
+TRUNCATE user_listings,messages,conversations,reservations,otp_codes,notifications RESTART IDENTITY CASCADE;
+DELETE FROM businesses; DELETE FROM users;
 "
 ```
 
 ---
 
-## 📁 Dosya Yapısı
+## 📁 Kritik Dosyalar
 
 ```
 app/
-├── page.tsx                  # Ana sayfa — API'den işletmeler + ilanlar (force-dynamic)
-├── giris/, kayit/            # Kullanıcı OTP auth
-├── profil/
-│   ├── page.tsx              # Profil — mesajlar, ilanlar, randevular, ayarlar
-│   ├── mesajlar/[id]/        # Chat — WebSocket + HTTP fallback
-│   ├── rezervasyonlarim/     # Liste + Takvim görünümü toggle
-│   ├── ilanlarim/            # Kullanıcının ilanları
-│   └── duzenle/              # Profil düzenle (ad, email, şifre)
-├── hizmetler/[slug]/         # force-dynamic, API'den kuafor/usta/doktor
-├── ilanlar/yeni/             # İlan oluştur/düzenle (?edit=id)
+├── page.tsx                  # Ana sayfa — revalidate=30, INTERNAL_API_URL
+├── giris/page.tsx            # Telefon+Şifre → OTP → Giriş
+├── kayit/page.tsx            # Yeni kullanıcı kayıt
+├── hizmetler/page.tsx        # force-dynamic, API'den işletmeler
+├── hizmetler/[slug]/page.tsx # force-dynamic, cache:no-store, /businesses/:id
+├── ilanlar/page.tsx          # revalidate=30
+├── profil/                   # mesajlar(2-panel), rezervasyonlarim(takvim), ilanlarim
 ├── isletme/
-│   ├── giris/                # Email + şifre (tip seçimi yok)
-│   ├── kayit/                # 2 adımlı kayıt formu
-│   ├── profil/               # Logo + kapak yükle + bilgiler
-│   ├── mesajlar/             # WebSocket anlık mesajlaşma
-│   ├── rezervasyonlar/       # Tüm tipler — onayla/reddet
-│   ├── randevular/           # Tüm tipler — onayla/reddet
-│   └── ...                   # (diğerleri boş state)
-├── admin/
-│   ├── giris/                # Koyu tema login
-│   ├── page.tsx              # Dashboard — gerçek API stats
-│   ├── isletmeler/           # Onayla/reddet
-│   ├── kullanicilar/         # Listele/engelle
-│   ├── ilanlar/              # API'den gerçek ilanlar
-│   ├── ayarlar/              # Twilio/Netgsm/Resend/Google
-│   ├── gorunum/              # Renkler/font/toggle'lar
-│   └── profil/               # Admin email/şifre değiştir
+│   ├── giris/page.tsx        # Email+Şifre (tip seçimi yok)
+│   ├── kayit/page.tsx        # 2 adımlı kayıt
+│   ├── sifre-sifirla/        # İşletme şifre sıfırlama (ada göre ara)
+│   ├── layout.tsx            # Token kontrolü, sidebar badge, bildirim sayısı
+│   ├── mesajlar/page.tsx     # WebSocket 2-panel
+│   ├── rezervasyonlar/       # Takvim + Liste toggle
+│   └── randevular/           # Takvim + Liste toggle
+└── admin/
+    ├── gorunum/              # Renk/font/toggle ayarları
+    └── ayarlar/              # Twilio/Netgsm/SMS ayarları
 
 components/
-├── AppShell.tsx              # Layout + PageWrapper (pageFadeIn animasyonu)
-├── PageLoader.tsx            # Sayfa geçiş overlay (overlayFadeOut 250ms)
-├── AuthProvider.tsx          # Sync init — flash yok, sadece /profil/* korumalı
-├── BusinessActions.tsx       # CTA bar: fixed bottom-5, lg:left-[88px] ortali
-├── NotificationBell.tsx      # Bell ikonu — 15sn polling, badge, dropdown
-├── DesktopSidebar.tsx        # 5 item dikey orta: Ana Sayfa, Arama, Kategoriler, AI, Kampanyalar
-├── DesktopTopBar.tsx         # Arama + selamlama + NotificationBell
-├── PanelShell.tsx            # Admin + İşletme: sidebar + topbar + NotificationBell
-├── PhotoUpload.tsx           # Fotoğraf upload (JWT ile /upload endpoint)
-├── panel/StatCard.tsx        # Stat kartı
-├── panel/SimpleChart.tsx     # BarChart + LineChart (SVG)
+├── AppShell.tsx              # Layout — animasyon YOK (hız için)
+├── AuthProvider.tsx          # Korumalı olmayan sayfalarda spinner YOK
+├── BusinessActions.tsx       # CTA: login yoksa /giris'e yönlendir
+├── NotificationBell.tsx      # Bell: açılınca otomatik read-all
+├── MessageSheet.tsx          # Mesaj popup (navigate etmez)
+├── panel/PanelShell.tsx      # notifToken + notifEndpoint prop'ları
 └── ...
 
-lib/
-├── api.ts                    # Tüm API çağrıları — getToken(), getBusinessToken()
-├── auth.ts                   # User localStorage — AuthUser: { phone, token, id, firstName, lastName }
-├── panel-auth.ts             # Admin/Business localStorage — token alanı var
-└── business-types.ts         # 10 işletme türü × modüller config
-
-data/ (statik şehir içeriği — panel sayfalarında kullanılmıyor)
-├── places.ts                 # 8 Gebze tarihi yeri
-├── services.ts               # 40+ POI (eczane, ATM, benzinlik...)
-├── transport.ts              # Marmaray, YHT, otobüs, feribot
-├── emergency.ts              # Acil numaralar
-├── guide.ts                  # Rehber mekanları
-└── home-sections.ts          # quickServices + homeCategories
+lib/api.ts                    # client: NEXT_PUBLIC_API_URL
+                              # server: INTERNAL_API_URL (localhost)
 ```
 
 ---
 
-## 🎨 Tasarım Sistemi
+## ⚡ Performans Notları
 
-### Renkler (globals.css)
-```css
---primary: #0e7490  (turkuaz) / dark: #22d3ee
---secondary: #10b981 (emerald) / dark: #34d399
---background: #f8fafc / dark: #0b1220
---card: #ffffff / dark: #111a2e
+**INTERNAL_API_URL:** Sunucu taraflı fetch'ler `localhost:8080` kullanır. SSL overhead yok.
 ```
-Admin görünüm ayarları DB'de (`primary_color`, `secondary_color`)
+/opt/gebzem-web/.env.local:
+  NEXT_PUBLIC_API_URL=https://gebzem.app/api/v1
+  INTERNAL_API_URL=http://localhost:8080/api/v1
+```
 
-### Kurallar
+**Sayfa stratejileri:**
+- `force-dynamic` → sadece hizmetler/[slug] (yeni işletme anında görünsün)
+- `revalidate=30` → ana sayfa, ilanlar (30sn cache, hızlı)
+- Static → diğer tüm sayfalar
+
+**AuthProvider:** Korumalı olmayan sayfalarda (/, /hizmetler, vb.) spinner YOK — anında açılır.
+
+---
+
+## 🎨 Tasarım
+
 - **Font:** Google Sans
-- **Padding:** `px-5` (20px) — her sayfa wrapper'ı
-- **Emoji yok** — sadece Lucide ikonları
+- **Primary:** `#0e7490` / **Secondary:** `#10b981`
+- **Admin'den değiştirilebilir:** `/admin/gorunum`
+- **Padding:** `px-5` her yerde
+- **Emoji yok** — Lucide ikonları
 - **Tarih formatı:** `r.date.slice(0,10).split("-").reverse().join(".")` → `01.06.2026`
-- **Dark mode:** `prefers-color-scheme` + profil toggle (localStorage `gebzem_theme`)
-- **iOS:** input font-size 16px (zoom önleme), ZoomLock component
-
-### iOS/WebKit Scroller Pattern
-```tsx
-<div className="-mx-5 flex gap-3 overflow-x-auto scroll-pl-5 no-scrollbar">
-  {items.map((it, i) => (
-    <Card className="first:ml-5 last:mr-5" />
-  ))}
-</div>
-```
-
-### Sayfa Geçiş Animasyonu
-- `PageLoader` — pathname değişince 250ms bg-background overlay (flash yok)
-- `pageFadeIn` keyframe — `from: { opacity:0, translateY:4px }` → 0.15s
-- `AppShell` → `PageWrapper key={pathname}` — her route değişiminde re-mount
-
----
-
-## 🏪 İşletme Türleri (10 adet)
-
-| ID | Etiket | Özel Modüller |
-|---|---|---|
-| `restoran` | Restoran | menu, rezervasyonlar |
-| `yemek` | Yemek Teslimat | menu, siparisler |
-| `kafe` | Kafe | menu, rezervasyonlar |
-| `market` | Market | urunler, kampanyalar, siparisler |
-| `magaza` | Mağaza | urunler, kampanyalar, siparisler |
-| `doktor` | Doktor | randevular, hizmetler, hastalarim |
-| `kuafor` | Kuaför | hizmetler, randevular |
-| `usta` | Usta | hizmetler, talepler |
-| `emlakci` | Emlakçı | emlak-ilanlari, portfoy |
-| `galerici` | Galerici | vasita-ilanlari |
-
-Tüm türlerde ortak: profil, reklam, ilanlar (iş), mesajlar, yorumlar, istatistik, ayarlar
-
----
-
-## ⚙️ Admin Ayarları (DB `settings` tablosu)
-
-| Key | Açıklama |
-|---|---|
-| `twilio_account_sid/auth_token/verify_sid/from/active` | Twilio Verify OTP |
-| `netgsm_usercode/password/header/active` | Netgsm SMS (yedek) |
-| `google_client_id/secret/active` | Google OAuth (backend henüz yok) |
-| `resend_api_key/active` | Email servisi |
-| `primary_color/secondary_color` | Site renkleri |
-| `font_family` | Yazı tipi |
-| `hero_title/subtitle` | Ana sayfa hero |
+- **Dark mode:** `prefers-color-scheme` + profil toggle
 
 ---
 
 ## 🔔 Bildirim Sistemi
 
-- **DB:** `notifications` (user_id, business_id, admin, type, title, body, is_read)
-- **API:** `/user|business|admin/notifications` GET + `/read-all` PUT
-- **Frontend:** `NotificationBell` — 15sn polling, okunmamış badge, dropdown
-- **Tipler:** `reservation`, `message`, `listing`
-
----
-
-## 📅 Rezervasyon / Randevu
-
-- **Oluşturma:** `BusinessActions` → tarih/saat seçici → API
-- **Tip:** `bookingLabel.toLowerCase().includes("randevu")` ? "randevu" : "rezervasyon"
-- **Görünüm:** `/profil/rezervasyonlarim` — Liste + Takvim toggle
-- **Takvim:** Ayın günleri, rezervasyonlu günlerde renkli dot (emerald=onaylı, amber=bekliyor)
-- **İşletme:** `/isletme/rezervasyonlar` ve `/isletme/randevular` — onayla/reddet
+- DB: `notifications` tablosu
+- API: `/user|business|admin/notifications`
+- Frontend: `NotificationBell` — 15sn polling, açılınca otomatik read-all
+- **Tetikleyiciler:** Rezervasyon onaylanınca/reddedilince kullanıcıya bildirim
 
 ---
 
 ## 💬 Mesajlaşma (WebSocket)
 
-- **Bağlantı:** `wss://gebzem.app/ws/conversations/:id?token=JWT`
-- **nginx:** upgrade header gerekli (ayarlı)
-- **Akış:** WS açıksa anlık, kapalıysa HTTP fallback
-- **Temp ID:** Gönderilince UI'ye anında eklenir, WS broadcast'i ID'yi günceller
+- **Backend:** Gönderene broadcast ETMEZ — sadece karşı tarafa
+- **Frontend:** tempId ile anlık UI, WS gelince id güncellenir
+- **Fallback:** WS bağlı değilse 5sn polling
 
 ---
 
-## 🐛 Kritik Bilinen Notlar
+## 🏪 İşletme Türleri (10 adet)
 
-1. **`GetBusinessMe`** — SELECT'te `cover_url` var, Scan'de 11. parametre olmalı. Eksikse 404 döner.
-2. **`GetMessages`** — role="business" ise `business_id` ile, user ise `user_id` ile ownership check.
-3. **İşletme login** — `is_approved=true` olmazsa 403 döner.
-4. **Tarih UTC kayması** — `new Date(r.date)` yerine `r.date.slice(0,10).split("-").reverse().join(".")` kullan.
-5. **`hizmetler/page.tsx`** — `force-dynamic` zorunlu, yoksa cache'den gelir, yeni işletme görünmez.
-6. **CTA bar desktop** — `lg:left-[88px]` (sidebar genişliği) ile ortalanır.
-7. **İşletme kayıt/giriş** — layout `/isletme/giris` ve `/isletme/kayit`'ı public sayar.
-8. **Auth flash** — Layout'larda `useState(() => getSession())` ile sync init — `pathname` değişince reset yok.
+`restoran`, `yemek`, `kafe`, `market`, `magaza`, `doktor`, `kuafor`, `usta`, `emlakci`, `galerici`
 
 ---
 
-## ⚡ Geliştirme Komutları
+## ⚙️ Admin Settings (DB)
 
-```bash
-npm run dev          # localhost:3000
-npm run build        # Production build
-npx tsc --noEmit     # Type check
-```
+`twilio_*`, `netgsm_*`, `google_*`, `resend_*`, `primary_color`, `secondary_color`, `font_family`, `hero_title/subtitle`
 
-### Commit Konvansiyonu
-```
-feat: yeni özellik
-fix: hata düzeltme
-docs: belgeleme
-chore: araç/config
-```
+---
+
+## 🐛 Kritik Notlar
+
+1. **WS broadcast:** `broadcastToConv(convID, out, userID)` — sender exclude edilir
+2. **GetBusinessMe:** SELECT'te 11 kolon var (cover_url dahil), Scan parametresi uymalı
+3. **İşletme 404:** `/businesses/:id` → `cache: "no-store"`, `force-dynamic`
+4. **Tarih UTC:** `r.date.slice(0,10).split("-").reverse().join(".")`
+5. **AuthProvider:** `hydrated` başlangıçta `typeof window !== "undefined"` — sync init
+6. **İşletme şifresi:** `is_approved=true` olmadan token verilmez
+7. **Manuel rebuild:** Stale build varsa `kill -9 $(ps aux | grep 'next build' | awk '{print $2}')`
 
 ---
 
 ## 🚀 Sonraki Adımlar
 
-1. **Google OAuth** — admin toggle var, Go backend kodu yazılmadı
-2. **Netgsm** — ıslak imza tamamlanınca admin'den key gir → aktif
-3. **FCM Push Notification** — bildirim DB var, push gönderimi yok
-4. **R2 Medya Upload** — şu an `/var/www/uploads` sunucuya kaydediliyor
-5. **Flutter Native App** — aynı API, onboarding burada olacak
-6. **Ödeme** — iyzico/Stripe entegrasyonu
+1. Google OAuth (admin toggle var, backend yok)
+2. Netgsm (ıslak imza bekliyor)
+3. FCM Push Notification
+4. Medya R2 upload (şu an `/var/www/uploads`)
+5. Flutter Native App
 
 ---
 
-## 📚 Hızlı Başvuru
-
-| "Şunu yapmak istiyorum" | Nereye bak |
-|---|---|
-| Yeni kullanıcı sayfası | `app/yeni/page.tsx` — PageHeader + px-5 |
-| Yeni işletme türü | `lib/business-types.ts` + modül sayfası |
-| Auth mantığı | `lib/auth.ts` + `components/AuthProvider.tsx` |
-| Admin yeni sayfa | `app/admin/layout.tsx` (navItems) + sayfa |
-| İşletme yeni modül | `app/isletme/layout.tsx` (buildNav) + sayfa |
-| Harita | `components/MapView.tsx`, `MapWrapper.tsx` |
-| Global arama | `components/SearchSheet.tsx` → `search()` fonksiyonu |
-| API endpoint ekle | `routes/routes.go` + `handlers/*.go` → build + restart |
-| Bildirim gönder | `handlers/notifications.go` → `CreateNotification()` |
-| DB temizle | Yukarıdaki SQL komutu |
-
----
-
-**Son Güncelleme:** 2026-04-18 · Sistem tam canlı — WebSocket mesajlaşma, bildirimler, takvim görünümü, sayfa geçiş animasyonu, işletme kayıt formu
-
-**Bu dosyayı her önemli değişiklikte güncelle.**
+**Son Güncelleme:** 2026-04-19 · Site anında açılıyor, WS mesajlaşma, bildirimler, takvim, şifre sıfırlama
