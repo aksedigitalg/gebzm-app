@@ -16,7 +16,7 @@ const API = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "
 async function getApiListings(category?: string) {
   try {
     const url = category ? `${API}/listings?category=${category}` : `${API}/listings`;
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, { next: { revalidate: 30 } });
     if (!res.ok) return [];
     return res.json();
   } catch {

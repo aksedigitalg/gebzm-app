@@ -7,7 +7,7 @@ import { HomeHeader } from "@/components/HomeHeader";
 import { AdSlider } from "@/components/AdSlider";
 import { quickServices } from "@/data/home-sections";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 const API = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
@@ -28,7 +28,7 @@ const typeConfig: Record<string, { label: string; color: string }> = {
 
 async function getRecentBusinesses() {
   try {
-    const res = await fetch(`${API}/businesses`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/businesses`, { next: { revalidate: 30 } });
     if (!res.ok) return [];
     return (await res.json()).slice(0, 4);
   } catch { return []; }
@@ -36,7 +36,7 @@ async function getRecentBusinesses() {
 
 async function getRecentListings() {
   try {
-    const res = await fetch(`${API}/listings`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/listings`, { next: { revalidate: 30 } });
     if (!res.ok) return [];
     return (await res.json()).slice(0, 4);
   } catch { return []; }
