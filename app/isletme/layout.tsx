@@ -94,6 +94,8 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
       navItems={nav}
       userName={session.name}
       userEmail={session.email}
+      notifToken={session.token || ""}
+      notifEndpoint="business"
       onSignOut={() => { clearBusinessSession(); setSession(null); }}
     >
       {children}

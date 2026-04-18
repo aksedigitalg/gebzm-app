@@ -85,6 +85,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       navItems={navItems}
       userName={session.name}
       userEmail={session.email}
+      notifToken={session.token || ""}
+      notifEndpoint="admin"
       onSignOut={() => { clearAdminSession(); setSession(null); }}
     >
       {children}

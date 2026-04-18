@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut, type LucideIcon, Search } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { cn } from "@/lib/utils";
 
 export interface NavItem {
@@ -17,11 +18,13 @@ interface PanelShellProps {
   children: React.ReactNode;
   brandName: string;
   brandSubtitle: string;
-  brandColor: string; // Tailwind gradient classes
+  brandColor: string;
   navItems: NavItem[];
   userName: string;
   userEmail: string;
   onSignOut: () => void;
+  notifToken?: string;
+  notifEndpoint?: "user" | "business" | "admin";
 }
 
 export function PanelShell({
@@ -33,6 +36,8 @@ export function PanelShell({
   userName,
   userEmail,
   onSignOut,
+  notifToken = "",
+  notifEndpoint = "business",
 }: PanelShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -175,12 +180,10 @@ export function PanelShell({
           </button>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Ara..."
-              className="h-10 w-full rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary"
-            />
+            <input type="text" placeholder="Ara..."
+              className="h-10 w-full rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary" />
           </div>
+          <NotificationBell token={notifToken} endpoint={notifEndpoint} />
         </header>
 
         <main className="flex-1 px-5 py-6 lg:px-8 lg:py-8">{children}</main>
