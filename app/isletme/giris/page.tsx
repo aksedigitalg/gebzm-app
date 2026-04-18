@@ -89,8 +89,10 @@ export default function BusinessLoginPage() {
           </button>
         </form>
 
-        <div className="mt-5 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground text-center">
-          <p>Hesabınız yok mu? <a href="mailto:info@gebzem.app" className="font-semibold text-primary hover:underline">Başvurun</a></p>
+        <div className="mt-5 text-center text-xs text-muted-foreground">
+          <p>Hesabınız yok mu?{" "}
+            <a href="/isletme/kayit" className="font-semibold text-primary hover:underline">İşletme Başvurusu</a>
+          </p>
         </div>
       </div>
     </div>

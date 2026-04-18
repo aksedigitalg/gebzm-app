@@ -58,22 +58,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Sayfa geçişi flash önleme */
-body::before {
-  content: '';
-  display: block;
-  position: fixed;
-  inset: 0;
-  background: var(--background);
-  z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.1s ease;
+/* Sayfa içeriği fade-in */
+main, .contents > * {
+  animation: pageFadeIn 0.18s ease forwards;
 }
 
-/* Auth yüklenirken arka plan görünmesin */
-[data-auth-loading="true"]::before {
-  opacity: 1;
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Panel içerikleri */
+.panel-content {
+  animation: pageFadeIn 0.15s ease forwards;
+}
+
+/* Tüm tıklanabilir elementlerde yumuşak geçiş */
+a, button {
+  transition: opacity 0.1s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 html,
