@@ -16,7 +16,7 @@ const categories = [
   { id: "is-makineleri", label: "İş Makineleri", subs: ["Tarım", "İnşaat", "Endüstriyel", "Diğer"] },
 ];
 
-export default function YeniIlanPage() {
+function YeniIlanContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -215,5 +215,14 @@ export default function YeniIlanPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+import { Suspense } from 'react';
+export default function YeniIlanPage() {
+  return (
+    <Suspense fallback={<div className='flex items-center justify-center py-20'><div className='h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent' /></div>}>
+      <YeniIlanContent />
+    </Suspense>
   );
 }

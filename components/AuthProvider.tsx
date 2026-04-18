@@ -122,16 +122,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const onAuth = isAuthRoute(pathname);
   const isProtected = isProtectedRoute(pathname);
 
-  // Flash önleme: redirect gerekiyorsa ve hydrate olmadıysa spinner
+  // Sadece REDIRECT gerektiğinde spinner göster
+  // Korumalı olmayan sayfalar HEMEn gösterilir — loading yok!
   const needsRedirect = hydrated && !isPanel && (
     (!user && isProtected) ||
     (user && onAuth) ||
     pathname === "/onboarding"
   );
 
-  const shouldShowContent = hydrated && !needsRedirect;
-
-  if (!hydrated || needsRedirect) {
+  // Spinner sadece: protected sayfada login yokken VEYA redirect sırasında
+  if (needsRedirect) {
     return (
       <AuthContext.Provider value={value}>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
@@ -141,17 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Her durumda direkt içeriği göster — loading yok
   return (
     <AuthContext.Provider value={value}>
-      <div
-        className="contents"
-        style={{
-          opacity: shouldShowContent ? 1 : 0,
-          transition: "opacity 0.15s ease",
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </AuthContext.Provider>
   );
 }
