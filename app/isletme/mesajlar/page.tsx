@@ -25,7 +25,10 @@ export default function Page() {
 
   useEffect(() => {
     if (!activeId) return;
-    api.business.getMessages(activeId).then((data) => setMessages(data as Msg[])).catch(() => {});
+    const load = () => api.business.getMessages(activeId).then((data) => setMessages(data as Msg[])).catch(() => {});
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [activeId]);
 
   const send = async (e: React.FormEvent) => {

@@ -29,10 +29,7 @@ export default function Page() {
 
   useEffect(() => {
     api.business.getReservations().then((data) => {
-      // randevu tipini göster (rezervasyon değil)
-      const all = data as Appointment[];
-      const randevular = all.filter((r) => r.type === "randevu");
-      setList(randevular.length > 0 ? randevular : all);
+      setList(data as Appointment[]);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);

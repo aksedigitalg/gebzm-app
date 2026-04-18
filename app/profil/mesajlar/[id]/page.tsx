@@ -58,6 +58,13 @@ export default function ConversationPage() {
     }
   };
 
+  // 5 saniyede bir otomatik güncelle
+  useEffect(() => {
+    if (!isApi) return;
+    const interval = setInterval(loadApiMessages, 5000);
+    return () => clearInterval(interval);
+  }, [isApi, params.id]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);

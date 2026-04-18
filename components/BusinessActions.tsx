@@ -169,7 +169,7 @@ function BookingDialog({
           date,
           time,
           note: note || undefined,
-          type: bookingLabel === "Randevu" ? "randevu" : "rezervasyon",
+          type: bookingLabel.toLowerCase().includes("randevu") ? "randevu" : "rezervasyon",
           party_size: party,
         });
         await api.user.startConversation(businessId, `${bookingLabel} talebim: ${summary}`);
