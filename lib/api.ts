@@ -58,6 +58,18 @@ export const api = {
         { method: "POST", body: JSON.stringify({ email, password }) }
       ),
 
+    emailRegister: (name: string, email: string, password: string) =>
+      request<{ token: string; user_id: string }>("/auth/email/register", {
+        method: "POST",
+        body: JSON.stringify({ name, email, password }),
+      }),
+
+    emailLogin: (email: string, password: string) =>
+      request<{ token: string; user_id: string }>("/auth/email/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      }),
+
     businessRegister: (data: {
       name: string;
       type: string;
@@ -137,6 +149,15 @@ export const api = {
       request(`/admin/businesses/${id}/approve`, {
         method: "PUT",
         body: JSON.stringify({ approve }),
+      }, token),
+
+    getSettings: (token: string) =>
+      request<Record<string, string>>("/admin/settings", {}, token),
+
+    updateSettings: (data: Record<string, string>, token: string) =>
+      request("/admin/settings", {
+        method: "POST",
+        body: JSON.stringify(data),
       }, token),
   },
 
