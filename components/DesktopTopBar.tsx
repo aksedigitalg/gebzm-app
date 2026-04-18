@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { getGreeting } from "@/lib/greeting";
 import { NotificationBell } from "@/components/NotificationBell";
 import { getUser } from "@/lib/auth";
+import Link from "next/link";
 
 export function DesktopTopBar() {
   const { open } = useSearch();
