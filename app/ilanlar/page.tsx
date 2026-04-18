@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Image as ImageIcon, Clock } from "lucide-react";
+import { MapPin, Image as ImageIcon, Clock, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import {
   classifieds,
@@ -30,6 +30,11 @@ export default async function Page({
         back="/kategoriler"
       />
       <div className="px-5 pb-6 pt-4">
+        {/* İlan ver butonu */}
+        <Link href="/ilanlar/yeni"
+          className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
+          <Plus className="h-4 w-4" />İlan Ver
+        </Link>
         {/* Kategori filtreleri */}
         <div className="-mx-5 mb-5 flex gap-2 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-1 no-scrollbar">
           <Link

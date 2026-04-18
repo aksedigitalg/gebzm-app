@@ -112,6 +112,30 @@ export const api = {
     getReservations: () =>
       request<unknown[]>("/user/reservations", {}, getToken()),
 
+    getMyListings: () =>
+      request<unknown[]>("/user/listings", {}, getToken()),
+
+    createListing: (data: {
+      title: string;
+      category: string;
+      sub_category?: string;
+      price: number;
+      description?: string;
+      location?: string;
+      features?: Record<string, string>;
+      photos?: string[];
+    }) =>
+      request<{ id: string }>("/user/listings", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }, getToken()),
+
+    updateListing: (id: string, data: Record<string, unknown>) =>
+      request(`/user/listings/${id}`, { method: "PUT", body: JSON.stringify(data) }, getToken()),
+
+    deleteListing: (id: string) =>
+      request(`/user/listings/${id}`, { method: "DELETE" }, getToken()),
+
     createReservation: (data: {
       business_id: string;
       date: string;

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import {
   Pencil, KeyRound, Bell, Moon, Sun, Monitor,
   Shield, HelpCircle, Info, LogOut, ChevronRight,
-  MessageSquare, Store, Check,
+  MessageSquare, Store, Check, Tag,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/components/AuthProvider";
@@ -85,11 +85,18 @@ export default function ProfilPage() {
         <section>
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Etkileşim</h3>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <Link href="/profil/mesajlar" className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-muted/60">
+            <Link href="/profil/mesajlar" className="flex items-center gap-3 border-b border-border px-4 py-3.5 transition hover:bg-muted/60">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <MessageSquare className="h-4 w-4" />
               </div>
               <span className="flex-1 text-sm font-medium">Mesajlarım</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+            <Link href="/profil/ilanlarim" className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-muted/60">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Tag className="h-4 w-4" />
+              </div>
+              <span className="flex-1 text-sm font-medium">İlanlarım</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>
           </div>
