@@ -80,7 +80,10 @@ export default function Page() {
                   <div>
                     <p className="text-sm font-semibold">{r.user_name}</p>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{r.date} · {r.time}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Tarih: {r.date ? r.date.slice(0,10).split("-").reverse().join(".") : "-"} · Saat: {r.time?.slice(0,5) || "-"}
+                      </span>
                       {r.user_phone && (
                         <a href={`tel:${r.user_phone}`} className="inline-flex items-center gap-1 hover:text-primary">
                           <Phone className="h-3 w-3" />{r.user_phone}

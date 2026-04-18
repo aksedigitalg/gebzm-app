@@ -72,10 +72,12 @@ export default function RezerasyonlarimPage() {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />{new Date(r.date).toLocaleDateString("tr-TR")}
+                      <Calendar className="h-3.5 w-3.5" />
+                      Tarih: {r.date ? r.date.slice(0,10).split("-").reverse().join(".") : "-"}
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />{r.time?.slice(0, 5)}
+                      <Clock className="h-3.5 w-3.5" />
+                      Saat: {r.time?.slice(0, 5) || "-"}
                     </span>
                     {r.party_size > 0 && (
                       <span className="inline-flex items-center gap-1">

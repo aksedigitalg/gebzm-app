@@ -88,7 +88,8 @@ export default function Page() {
                     <p className="text-sm font-semibold">{r.user_name}</p>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3 w-3" />{r.date} · {r.time}
+                        <Clock className="h-3 w-3" />
+                        Tarih: {r.date ? r.date.slice(0,10).split("-").reverse().join(".") : "-"} · Saat: {r.time?.slice(0,5) || "-"}
                       </span>
                       {r.party_size > 0 && (
                         <span className="inline-flex items-center gap-1">
