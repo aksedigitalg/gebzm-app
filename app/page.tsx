@@ -1,11 +1,13 @@
 import Link from "next/link";
 import {
-  Map, Calendar, Compass, Bus, Utensils, PhoneCall,
-  ChevronRight, Wrench, Scissors, Stethoscope, Tag,
+  Map, Compass, Bus, PhoneCall,
+  ChevronRight, Wrench, Scissors, Tag,
 } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { AdSlider } from "@/components/AdSlider";
 import { quickServices } from "@/data/home-sections";
+
+export const dynamic = "force-dynamic";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
 
@@ -124,7 +126,7 @@ export default async function HomePage() {
               <Link href="/hizmetler" className="text-xs font-medium text-primary hover:underline">Tümünü gör</Link>
             </div>
             <div className="-mx-5 flex snap-x gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-2 no-scrollbar lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:pb-0">
-              {businesses.map((b: { id: string; name: string; type: string; description: string; logo_url: string }, i: number) => {
+              {businesses.map((b: { id: string; name: string; type: string; description: string; logo_url: string }) => {
                 const cfg = typeConfig[b.type] || { label: b.type, color: "from-slate-500 to-gray-600" };
                 return (
                   <Link key={b.id} href={`/hizmetler/${b.id}`}

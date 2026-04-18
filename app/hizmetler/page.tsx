@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 
 export const metadata = { title: "Hizmetler" };
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
 
@@ -17,7 +17,7 @@ interface Biz { id: string; name: string; type: string; phone: string; address: 
 
 async function getProviders(): Promise<Biz[]> {
   try {
-    const res = await fetch(`${API}/businesses`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API}/businesses`, { cache: "no-store" });
     const all: Biz[] = await res.json();
     return all.filter((b) => ["kuafor", "usta", "doktor"].includes(b.type));
   } catch { return []; }
