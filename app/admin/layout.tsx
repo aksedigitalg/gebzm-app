@@ -28,13 +28,13 @@ import {
 
 const navItems: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/isletmeler", label: "İşletmeler", icon: Building2, badge: 4 },
+  { href: "/admin/isletmeler", label: "İşletmeler", icon: Building2 },
   { href: "/admin/kullanicilar", label: "Kullanıcılar", icon: Users },
-  { href: "/admin/ilanlar", label: "İlanlar", icon: Megaphone, badge: 2 },
-  { href: "/admin/reklamlar", label: "Reklamlar", icon: Target, badge: 1 },
+  { href: "/admin/ilanlar", label: "İlanlar", icon: Megaphone },
+  { href: "/admin/reklamlar", label: "Reklamlar", icon: Target },
   { href: "/admin/isler", label: "İş İlanları", icon: Briefcase },
   { href: "/admin/etkinlikler", label: "Etkinlikler", icon: Calendar },
-  { href: "/admin/mesajlar", label: "Mesajlar", icon: MessageSquare, badge: 6 },
+  { href: "/admin/mesajlar", label: "Mesajlar", icon: MessageSquare },
   { href: "/admin/mekanlar", label: "Mekanlar (POI)", icon: MapPin },
   { href: "/admin/gorunum", label: "Görünüm", icon: Palette },
   { href: "/admin/ayarlar", label: "Ayarlar", icon: Settings },

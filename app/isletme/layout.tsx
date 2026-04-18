@@ -33,8 +33,8 @@ function buildNav(typeId: string | undefined): NavItem[] {
     { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
     ...typeModules,
     { href: "/isletme/reklam", label: "Reklamlar", icon: Megaphone },
-    { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase, badge: 2 },
-    { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare, badge: 5 },
+    { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase },
+    { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare },
     { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },
     { href: "/isletme/istatistik", label: "İstatistikler", icon: TrendingUp },
     { href: "/isletme/ayarlar", label: "Ayarlar", icon: Settings },
@@ -61,6 +61,12 @@ export default function BusinessLayout({
     if (!ready) return;
     const isLogin = pathname === "/isletme/giris";
     if (!session && !isLogin) router.replace("/isletme/giris");
+    // Token yoksa (eski mock session) çıkış yap ve yeniden giriş
+    if (session && !session.token && !isLogin) {
+      clearBusinessSession();
+      router.replace("/isletme/giris");
+      return;
+    }
     if (session && isLogin) router.replace("/isletme");
   }, [ready, session, pathname, router]);
 
