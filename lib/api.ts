@@ -230,7 +230,7 @@ export const api = {
       ),
 
     getListing: (id: string) =>
-      request<Record<string, unknown>>(`/business/listings/${id}`, {}, getBusinessToken()),
+      request<Record<string, unknown>>(`/listings/${id}`, {}),
 
     updateListing: (id: string, data: Record<string, unknown>) =>
       request(`/business/listings/${id}`, { method: "PUT", body: JSON.stringify(data) }, getBusinessToken()),

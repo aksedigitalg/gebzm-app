@@ -41,7 +41,10 @@ export default function DuzenlemePage() {
         setLocation((d.location as string) || "");
         setCategory((d.category as string) || "");
         setSubcategory((d.subcategory as string) || "");
-        setPhotos((d.photos as string[]) || []);
+        const allMedia = (d.photos as string[]) || [];
+        const isVideo = (url: string) => /\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/");
+        setPhotos(allMedia.filter(u => !isVideo(u)));
+        setVideos(allMedia.filter(u => isVideo(u)));
         setAttrs((d.attributes as Record<string, string>) || {});
       })
       .catch(() => setError("İlan yüklenemedi"))
@@ -58,7 +61,7 @@ export default function DuzenlemePage() {
         price: parseInt(price) || 0,
         price_type: priceType,
         description, location,
-        photos,
+        photos: [...photos, ...videos],
         attributes: attrs,
         listing_type: "kurumsal",
       });

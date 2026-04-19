@@ -62,26 +62,28 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Native file picker — label wrapper garantili açılır */}
       {photos.length < max && (
-        <div className={`relative flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+        >
           {uploading
             ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
             : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
           }
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic"
-            multiple
-            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-            onChange={handleFiles}
-            disabled={uploading}
-          />
-        </div>
+        </button>
       )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic"
+        multiple
+        className="hidden"
+        onChange={handleFiles}
+      />
 
-      {/* Önizlemeler */}
       {photos.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {photos.map((url, i) => (

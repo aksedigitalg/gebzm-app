@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Eye, MapPin, TrendingUp, CheckCircle, XCircle, Clock, type LucideIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, MapPin, TrendingUp, CheckCircle, XCircle, Clock, Play, type LucideIcon } from "lucide-react";
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/");
+}
 import { api } from "@/lib/api";
 import { listingCategories } from "@/lib/listing-categories";
 
@@ -51,11 +55,12 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
   };
 
   const setStatus = async (id: string, status: string) => {
+    setListings(p => p.map(l => l.id === id ? { ...l, status } : l));
     try {
       await api.business.updateListingStatus(id, status);
-      setListings(p => p.map(l => l.id === id ? { ...l, status } : l));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Güncellenemedi");
+      setListings(p => p.map(l => l.id === id ? { ...l, status: status === "pasif" ? "active" : "pasif" } : l));
+      setError(e instanceof Error ? e.message : "Durum güncellenemedi");
     }
   };
 
@@ -148,11 +153,21 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
             return (
               <div key={l.id} className="rounded-2xl border border-border bg-card p-4">
                 <div className="flex gap-4">
-                  <div className="flex h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
-                    {l.photos?.[0]
-                      ? <img src={l.photos[0]} alt="" className="h-full w-full object-cover" />
-                      : <HeaderIcon className="m-auto h-8 w-8 text-muted-foreground/40" />
-                    }
+                  <div className="relative flex h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
+                    {l.photos?.[0] ? (
+                      isVideoUrl(l.photos[0]) ? (
+                        <>
+                          <video src={l.photos[0]} className="h-full w-full object-cover" muted playsInline preload="none" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <Play className="h-5 w-5 text-white" fill="white" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={l.photos[0]} alt="" className="h-full w-full object-cover" />
+                      )
+                    ) : (
+                      <HeaderIcon className="m-auto h-8 w-8 text-muted-foreground/40" />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">

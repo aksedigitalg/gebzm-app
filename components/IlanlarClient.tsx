@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { MapPin, Clock, Tag, SlidersHorizontal, X, Map, List, Search, RotateCcw } from "lucide-react";
+import { MapPin, Clock, Tag, SlidersHorizontal, X, Map, List, Search, RotateCcw, Play } from "lucide-react";
 import { listingCategories } from "@/lib/listing-categories";
 import { formatTRY, timeAgoTR } from "@/lib/format";
 
@@ -33,43 +33,30 @@ function isActive(f: Filters) {
   return !!(f.category || f.priceMin || f.priceMax || f.listingType || f.priceTypes.length || f.search);
 }
 
-export function IlanlarClient({ initialListings }: { initialListings: Listing[] }) {
-  const [view, setView] = useState<"liste" | "harita">("liste");
-  const [filters, setFilters] = useState<Filters>(EMPTY);
-  const [mobileFilter, setMobileFilter] = useState(false);
+function isVideoUrl(url: string) {
+  return /\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/");
+}
 
-  const setF = useCallback((k: keyof Filters, v: string | string[]) =>
-    setFilters(p => ({ ...p, [k]: v })), []);
+/* ---- Sidebar bileşeni parent dışında tanımlandı (her render'da yeniden mount olmaz) ---- */
+interface SidebarProps {
+  filters: Filters;
+  setF: (k: keyof Filters, v: string | string[]) => void;
+  togglePT: (v: string) => void;
+  resetFilters: () => void;
+}
 
-  const togglePT = (v: string) =>
-    setFilters(p => ({
-      ...p,
-      priceTypes: p.priceTypes.includes(v)
-        ? p.priceTypes.filter(x => x !== v)
-        : [...p.priceTypes, v],
-    }));
-
-  const filtered = useMemo(() => initialListings.filter(l => {
-    if (filters.category && l.category !== filters.category) return false;
-    if (filters.priceMin && l.price < +filters.priceMin) return false;
-    if (filters.priceMax && l.price > +filters.priceMax) return false;
-    if (filters.listingType && l.listing_type !== filters.listingType) return false;
-    if (filters.priceTypes.length && !filters.priceTypes.includes(l.price_type)) return false;
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      if (!l.title.toLowerCase().includes(q) && !(l.location || "").toLowerCase().includes(q)) return false;
-    }
-    return true;
-  }), [initialListings, filters]);
-
-  /* ---- Sidebar içeriği (desktop + mobile sheet'te ortak) ---- */
-  const Sidebar = () => (
+function SidebarFilters({ filters, setF, togglePT, resetFilters }: SidebarProps) {
+  return (
     <div className="space-y-5 text-sm">
       {/* Arama */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <input value={filters.search} onChange={e => setF("search", e.target.value)}
-          placeholder="İlan ara..." className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-xs outline-none focus:border-primary" />
+        <input
+          value={filters.search}
+          onChange={e => setF("search", e.target.value)}
+          placeholder="İlan ara..."
+          className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-xs outline-none focus:border-primary"
+        />
       </div>
 
       {/* Kategori */}
@@ -78,7 +65,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
         <div className="space-y-0.5">
           <button onClick={() => setF("category", "")}
             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${!filters.category ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}>
-            <span>🏷️</span>Tümü
+            <Tag className="h-3.5 w-3.5" />Tümü
           </button>
           {listingCategories.map(c => (
             <button key={c.id} onClick={() => setF("category", filters.category === c.id ? "" : c.id)}
@@ -95,13 +82,21 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
       <div>
         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fiyat Aralığı (₺)</p>
         <div className="flex items-center gap-2">
-          <input type="number" placeholder="Min" value={filters.priceMin}
+          <input
+            type="number"
+            placeholder="Min"
+            value={filters.priceMin}
             onChange={e => setF("priceMin", e.target.value)}
-            className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary" />
+            className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+          />
           <span className="shrink-0 text-[10px] text-muted-foreground">—</span>
-          <input type="number" placeholder="Max" value={filters.priceMax}
+          <input
+            type="number"
+            placeholder="Max"
+            value={filters.priceMax}
             onChange={e => setF("priceMax", e.target.value)}
-            className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary" />
+            className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+          />
         </div>
       </div>
 
@@ -141,7 +136,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
       {isActive(filters) && (
         <>
           <hr className="border-border" />
-          <button onClick={() => setFilters(EMPTY)}
+          <button onClick={resetFilters}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-semibold text-muted-foreground hover:bg-muted transition">
             <RotateCcw className="h-3 w-3" />Filtreleri Sıfırla
           </button>
@@ -149,16 +144,47 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
       )}
     </div>
   );
+}
+
+export function IlanlarClient({ initialListings }: { initialListings: Listing[] }) {
+  const [view, setView] = useState<"liste" | "harita">("liste");
+  const [filters, setFilters] = useState<Filters>(EMPTY);
+  const [mobileFilter, setMobileFilter] = useState(false);
+
+  const setF = useCallback((k: keyof Filters, v: string | string[]) =>
+    setFilters(p => ({ ...p, [k]: v })), []);
+
+  const togglePT = useCallback((v: string) =>
+    setFilters(p => ({
+      ...p,
+      priceTypes: p.priceTypes.includes(v)
+        ? p.priceTypes.filter(x => x !== v)
+        : [...p.priceTypes, v],
+    })), []);
+
+  const resetFilters = useCallback(() => setFilters(EMPTY), []);
+
+  const filtered = useMemo(() => initialListings.filter(l => {
+    if (filters.category && l.category !== filters.category) return false;
+    if (filters.priceMin && l.price < +filters.priceMin) return false;
+    if (filters.priceMax && l.price > +filters.priceMax) return false;
+    if (filters.listingType && l.listing_type !== filters.listingType) return false;
+    if (filters.priceTypes.length && !filters.priceTypes.includes(l.price_type)) return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!l.title.toLowerCase().includes(q) && !(l.location || "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [initialListings, filters]);
 
   return (
-    /* AppShell max-w ve padding'inden çık */
     <div className="-mx-5 -mb-6 lg:-mx-6 lg:-my-4">
       {/* Üst bilgi çubuğu */}
       <div className="flex items-center justify-between border-b border-border bg-background/80 px-4 py-2.5 backdrop-blur-sm">
         <p className="text-sm font-semibold text-muted-foreground">
           <span className="font-bold text-foreground">{filtered.length}</span> ilan
           {isActive(filters) && (
-            <button onClick={() => setFilters(EMPTY)}
+            <button onClick={resetFilters}
               className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
               <X className="h-2.5 w-2.5" />filtre aktif
             </button>
@@ -175,7 +201,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-border bg-card/50 p-4 lg:block"
           style={{ height: "calc(100dvh - 97px)" }}>
-          <Sidebar />
+          <SidebarFilters filters={filters} setF={setF} togglePT={togglePT} resetFilters={resetFilters} />
         </aside>
 
         {/* İçerik */}
@@ -186,7 +212,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                 <Tag className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
                 <p className="mt-4 text-sm font-semibold">Sonuç bulunamadı</p>
                 {isActive(filters) && (
-                  <button onClick={() => setFilters(EMPTY)}
+                  <button onClick={resetFilters}
                     className="mt-4 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground">
                     Filtreleri Sıfırla
                   </button>
@@ -194,41 +220,55 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
               </div>
             ) : (
               <div className="grid gap-3 p-4 pb-24 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map(l => (
-                  <Link key={l.id} href={`/ilanlar/${l.id}`}
-                    className="flex gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/30 hover:shadow-md">
-                    <div className="relative flex h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted">
-                      {l.photos?.[0]
-                        ? <img src={l.photos[0]} alt="" className="h-full w-full object-cover" />
-                        : <Tag className="m-auto h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
-                      }
-                      {l.listing_type === "kurumsal" && (
-                        <span className="absolute bottom-1 left-1 rounded bg-primary/80 px-1 py-0.5 text-[8px] font-bold text-white">PRO</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-semibold leading-tight">{l.title}</p>
-                      <p className="mt-1 text-base font-bold text-primary">{formatTRY(l.price)}</p>
-                      {l.price_type !== "sabit" && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {l.price_type === "pazarlik" ? "Pazarlık Var" : "Takas Olur"}
-                        </span>
-                      )}
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                        {l.location && (
-                          <span className="flex items-center gap-0.5 truncate">
-                            <MapPin className="h-3 w-3 shrink-0" />{l.location}
-                          </span>
+                {filtered.map(l => {
+                  const firstMedia = l.photos?.[0];
+                  const isVideo = firstMedia ? isVideoUrl(firstMedia) : false;
+                  return (
+                    <Link key={l.id} href={`/ilanlar/${l.id}`}
+                      className="flex gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/30 hover:shadow-md">
+                      <div className="relative flex h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted">
+                        {firstMedia ? (
+                          isVideo ? (
+                            <>
+                              <video src={firstMedia} className="h-full w-full object-cover" muted playsInline preload="none" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <Play className="h-6 w-6 text-white" fill="white" />
+                              </div>
+                            </>
+                          ) : (
+                            <img src={firstMedia} alt="" className="h-full w-full object-cover" />
+                          )
+                        ) : (
+                          <Tag className="m-auto h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
                         )}
-                        {l.created_at && (
-                          <span className="flex items-center gap-0.5 whitespace-nowrap">
-                            <Clock className="h-3 w-3" />{timeAgoTR(l.created_at)}
-                          </span>
+                        {l.listing_type === "kurumsal" && (
+                          <span className="absolute bottom-1 left-1 rounded bg-primary/80 px-1 py-0.5 text-[8px] font-bold text-white">PRO</span>
                         )}
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold leading-tight">{l.title}</p>
+                        <p className="mt-1 text-base font-bold text-primary">{formatTRY(l.price)}</p>
+                        {l.price_type !== "sabit" && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {l.price_type === "pazarlik" ? "Pazarlık Var" : "Takas Olur"}
+                          </span>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                          {l.location && (
+                            <span className="flex items-center gap-0.5 truncate">
+                              <MapPin className="h-3 w-3 shrink-0" />{l.location}
+                            </span>
+                          )}
+                          {l.created_at && (
+                            <span className="flex items-center gap-0.5 whitespace-nowrap">
+                              <Clock className="h-3 w-3" />{timeAgoTR(l.created_at)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )
           ) : (
@@ -239,7 +279,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
         </div>
       </div>
 
-      {/* Sabit alt toggle — alttan 20px (mobilde BottomNav üstünde) */}
+      {/* Sabit alt toggle */}
       <div className="pointer-events-none fixed bottom-[calc(76px+env(safe-area-inset-bottom,0px)+20px)] left-0 right-0 z-40 flex justify-center lg:bottom-5">
         <div className="pointer-events-auto flex overflow-hidden rounded-full border border-border bg-card/95 shadow-2xl backdrop-blur">
           <button onClick={() => setView("liste")}
@@ -264,7 +304,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <Sidebar />
+            <SidebarFilters filters={filters} setF={setF} togglePT={togglePT} resetFilters={resetFilters} />
             <button onClick={() => setMobileFilter(false)}
               className="mt-5 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground">
               {filtered.length} İlan Göster

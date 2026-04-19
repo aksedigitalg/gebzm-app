@@ -41,7 +41,7 @@ export default function YeniIlanPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.token}` },
         body: JSON.stringify({ title, category, subcategory, price: parseInt(price) || 0,
-          price_type: priceType, description, location, photos, attributes: attrs, listing_type: "kurumsal" }),
+          price_type: priceType, description, location, photos: [...photos, ...videos], attributes: attrs, listing_type: "kurumsal" }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Hata");
