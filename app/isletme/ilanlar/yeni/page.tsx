@@ -1,392 +1,276 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ChevronLeft,
-  Briefcase,
-  MapPin,
-  Banknote,
-  FileText,
-  CheckCircle2,
-  Save,
-  Send,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Camera, Tag, MapPin, Eye } from "lucide-react";
+import Link from "next/link";
+import { PhotoUpload } from "@/components/PhotoUpload";
+import { listingCategories, getCategoryById } from "@/lib/listing-categories";
+import { getBusinessSession } from "@/lib/panel-auth";
 
-const jobTypes = [
-  "Tam Zamanlı",
-  "Yarı Zamanlı",
-  "Sözleşmeli",
-  "Staj",
-  "Uzaktan",
-];
+const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
+type Step = "category" | "details" | "photos" | "preview";
 
-const categories = [
-  "Satış",
-  "Servis / Garson",
-  "Mutfak / Aşçı",
-  "Temizlik",
-  "Yönetim",
-  "Ofis",
-  "Diğer",
-];
-
-const experienceLevels = [
-  "Deneyim aranmıyor",
-  "0-1 yıl",
-  "1-3 yıl",
-  "3-5 yıl",
-  "5+ yıl",
-];
-
-const sampleBenefits = [
-  "Yemek",
-  "Servis",
-  "Özel Sigorta",
-  "Prim",
-  "Bayram İkramiyesi",
-  "Eğitim",
-  "Esnek Saat",
-  "Yıllık İzin",
-];
-
-export default function Page() {
+export default function YeniIlanPage() {
   const router = useRouter();
+  const [step, setStep] = useState<Step>("category");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
   const [title, setTitle] = useState("");
-  const [type, setType] = useState(jobTypes[0]);
-  const [category, setCategory] = useState(categories[0]);
-  const [experience, setExperience] = useState(experienceLevels[0]);
-  const [location, setLocation] = useState("Mustafa Paşa Mah., Gebze");
-  const [salaryMin, setSalaryMin] = useState("");
-  const [salaryMax, setSalaryMax] = useState("");
-  const [showSalary, setShowSalary] = useState(true);
   const [description, setDescription] = useState("");
-  const [reqs, setReqs] = useState<string[]>([""]);
-  const [benefits, setBenefits] = useState<string[]>(["Yemek", "Servis"]);
-  const [saved, setSaved] = useState(false);
+  const [price, setPrice] = useState("");
+  const [priceType, setPriceType] = useState("sabit");
+  const [location, setLocation] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [attrs, setAttrs] = useState<Record<string, string>>({});
 
-  const addReq = () => setReqs([...reqs, ""]);
-  const updReq = (i: number, v: string) =>
-    setReqs((prev) => prev.map((r, idx) => (idx === i ? v : r)));
-  const delReq = (i: number) => setReqs((prev) => prev.filter((_, idx) => idx !== i));
+  const catCfg = getCategoryById(category);
+  const steps: Step[] = ["category", "details", "photos", "preview"];
+  const idx = steps.indexOf(step);
+  const sa = (k: string, v: string) => setAttrs(p => ({ ...p, [k]: v }));
 
-  const toggleBenefit = (b: string) =>
-    setBenefits((prev) =>
-      prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]
-    );
-
-  const submit = async (publish: boolean) => {
-    await new Promise((r) => setTimeout(r, 400));
-    setSaved(true);
-    setTimeout(() => router.replace("/isletme/ilanlar"), 900);
+  const submit = async () => {
+    const s = getBusinessSession();
+    if (!s?.token) { setError("Oturum süresi dolmuş."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/business/listings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.token}` },
+        body: JSON.stringify({ title, category, subcategory, price: parseInt(price) || 0,
+          price_type: priceType, description, location, photos, attributes: attrs, listing_type: "kurumsal" }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Hata");
+      router.push("/isletme/ilanlar");
+    } catch (e) { setError(e instanceof Error ? e.message : "Hata"); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center gap-3">
-        <Link
-          href="/isletme/ilanlar"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card transition hover:bg-muted"
-          aria-label="Geri"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Link>
+    <div className="mx-auto max-w-2xl space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        {step !== "category" ? (
+          <button onClick={() => setStep(steps[idx - 1])}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background hover:bg-muted">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        ) : (
+          <Link href="/isletme/ilanlar" className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background hover:bg-muted">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        )}
         <div>
-          <h1 className="text-2xl font-bold">Yeni İş İlanı</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            İlanı yayınlamadan önce taslak olarak kaydedebilirsiniz
-          </p>
+          <h1 className="text-xl font-bold">Yeni İlan Oluştur</h1>
+          <p className="text-xs text-muted-foreground">Adım {idx + 1} / {steps.length}</p>
         </div>
-      </header>
+      </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <form className="space-y-5 lg:col-span-2">
-          <Section icon={Briefcase} title="Temel Bilgiler">
-            <Field label="İlan Başlığı" required>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Örn: Deneyimli Garson"
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Kategori" required>
-                <Select value={category} onChange={setCategory} options={categories} />
-              </Field>
-              <Field label="Çalışma Şekli" required>
-                <Select value={type} onChange={setType} options={jobTypes} />
-              </Field>
-            </div>
-            <Field label="Deneyim" required>
-              <Select
-                value={experience}
-                onChange={setExperience}
-                options={experienceLevels}
-              />
-            </Field>
-          </Section>
+      {/* Progress bar */}
+      <div className="flex gap-1.5">
+        {steps.map((s, i) => (
+          <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= idx ? "bg-primary" : "bg-muted"}`} />
+        ))}
+      </div>
 
-          <Section icon={MapPin} title="Lokasyon">
-            <Field label="Adres" required>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-          </Section>
-
-          <Section icon={Banknote} title="Ücret">
-            <label className="mb-2 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showSalary}
-                onChange={(e) => setShowSalary(e.target.checked)}
-                className="h-4 w-4 accent-primary"
-              />
-              İlanda ücret aralığını göster
-            </label>
-            {showSalary && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Minimum (TL)">
-                  <input
-                    type="number"
-                    value={salaryMin}
-                    onChange={(e) => setSalaryMin(e.target.value)}
-                    placeholder="25000"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                  />
-                </Field>
-                <Field label="Maksimum (TL)">
-                  <input
-                    type="number"
-                    value={salaryMax}
-                    onChange={(e) => setSalaryMax(e.target.value)}
-                    placeholder="35000"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                  />
-                </Field>
-              </div>
-            )}
-          </Section>
-
-          <Section icon={FileText} title="İş Tanımı">
-            <Field label="Açıklama" required>
-              <textarea
-                rows={6}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Pozisyon hakkında detaylı bilgi yazın: sorumluluklar, beklentiler, çalışma koşulları..."
-                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </Field>
-          </Section>
-
-          <Section icon={CheckCircle2} title="Aranan Nitelikler">
-            <div className="space-y-2">
-              {reqs.map((r, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={r}
-                    onChange={(e) => updReq(i, e.target.value)}
-                    placeholder={`${i + 1}. Nitelik`}
-                    className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                  />
-                  {reqs.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => delReq(i)}
-                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 text-red-600 transition hover:bg-red-500/20"
-                      aria-label="Sil"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={addReq}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted"
-              >
-                + Yeni Nitelik
+      {/* ADIM 1 — Kategori */}
+      {step === "category" && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-base font-semibold">Kategori Seçin</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">İlanınız hangi kategoride?</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {listingCategories.map(c => (
+              <button key={c.id} onClick={() => { setCategory(c.id); setSubcategory(""); }}
+                className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center transition ${category === c.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/30 hover:bg-muted/30"}`}>
+                <span className="text-3xl">{c.icon}</span>
+                <span className="text-xs font-semibold leading-tight">{c.label}</span>
               </button>
-            </div>
-          </Section>
+            ))}
+          </div>
 
-          <Section icon={Save} title="Yan Haklar">
-            <p className="mb-2 text-xs text-muted-foreground">
-              İlanda gösterilecek avantajları seçin
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {sampleBenefits.map((b) => {
-                const selected = benefits.includes(b);
-                return (
-                  <button
-                    key={b}
-                    type="button"
-                    onClick={() => toggleBenefit(b)}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    {selected ? "✓ " : "+ "}
-                    {b}
+          {category && catCfg && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold">Alt Kategori</h3>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {catCfg.subcategories.map(s => (
+                  <button key={s.id} onClick={() => setSubcategory(s.id)}
+                    className={`rounded-xl border px-3 py-2.5 text-xs font-medium text-left transition ${subcategory === s.id ? "border-primary bg-primary/5 text-primary" : "border-border bg-background hover:border-primary/30"}`}>
+                    {s.label}
                   </button>
-                );
-              })}
-            </div>
-          </Section>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {saved && (
-              <span className="text-sm font-semibold text-emerald-600">
-                ✓ İlan kaydedildi, yönlendiriliyor...
-              </span>
-            )}
-            <div className="ml-auto flex gap-2">
-              <button
-                type="button"
-                onClick={() => submit(false)}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold transition hover:bg-muted"
-              >
-                <Save className="h-4 w-4" />
-                Taslak Kaydet
-              </button>
-              <button
-                type="button"
-                onClick={() => submit(true)}
-                disabled={!title || !description}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-              >
-                <Send className="h-4 w-4" />
-                Yayınla
-              </button>
-            </div>
-          </div>
-        </form>
-
-        {/* Canlı önizleme */}
-        <aside className="lg:sticky lg:top-20 lg:h-fit">
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Önizleme
-            </p>
-            <div className="rounded-xl border border-border bg-background p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground">
-                  <Briefcase className="h-5 w-5" strokeWidth={1.75} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">
-                    {title || "İlan Başlığı"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Gebze Mangal Evi · {type}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {location}
-                  </p>
-                  {showSalary && salaryMin && (
-                    <p className="mt-2 text-xs font-semibold text-primary">
-                      {salaryMin}
-                      {salaryMax && ` - ${salaryMax}`} TL
-                    </p>
-                  )}
-                  {description && (
-                    <p className="mt-2 line-clamp-3 text-[11px] text-muted-foreground">
-                      {description}
-                    </p>
-                  )}
-                  {benefits.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {benefits.slice(0, 4).map((b) => (
-                        <span
-                          key={b}
-                          className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary"
-                        >
-                          {b}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                ))}
               </div>
             </div>
+          )}
+
+          <button onClick={() => setStep("details")} disabled={!category}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 transition hover:opacity-90">
+            Devam Et <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ADIM 2 — Detaylar */}
+      {step === "details" && catCfg && (
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold">{catCfg.icon} {catCfg.label} Detayları</h2>
+
+          {/* Temel bilgiler */}
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Başlık *</label>
+              <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
+                placeholder="Örn: 2019 BMW 320i M Sport - 72.000 km"
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Açıklama</label>
+              <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="İlanınız hakkında detaylı bilgi verin..."
+                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Fiyat (₺) *</label>
+                <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Fiyat Türü</label>
+                <select value={priceType} onChange={e => setPriceType(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary">
+                  <option value="sabit">Sabit Fiyat</option>
+                  <option value="pazarlik">Pazarlık Var</option>
+                  <option value="takas">Takas Olur</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Konum</label>
+              <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Gebze / Mahalle"
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" />
+            </div>
           </div>
-        </aside>
-      </div>
+
+          {/* Kategori özellikler */}
+          {catCfg.attributes.length > 0 && (
+            <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+              <h3 className="text-sm font-semibold">{catCfg.label} Özellikleri</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {catCfg.attributes.map(a => (
+                  <div key={a.key}>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{a.label}</label>
+                    {a.type === "select" ? (
+                      <select value={attrs[a.key] || ""} onChange={e => sa(a.key, e.target.value)}
+                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary">
+                        <option value="">Seçin</option>
+                        {a.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input type={a.type === "number" ? "number" : "text"} value={attrs[a.key] || ""}
+                        onChange={e => sa(a.key, e.target.value)}
+                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button onClick={() => setStep("photos")} disabled={!title || !price}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 transition hover:opacity-90">
+            Fotoğraflara Geç <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ADIM 3 — Fotoğraflar */}
+      {step === "photos" && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Camera className="h-5 w-5" />Fotoğraflar
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">İlk fotoğraf kapak görseli olarak kullanılır. Max 20.</p>
+          </div>
+          <PhotoUpload photos={photos} onChange={setPhotos} max={20} />
+          <button onClick={() => setStep("preview")}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
+            Önizlemeye Geç <Eye className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ADIM 4 — Önizleme */}
+      {step === "preview" && catCfg && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Eye className="h-5 w-5" />Önizleme
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Yayınlandığında bu şekilde görünecek.</p>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+            {photos[0] ? (
+              <img src={photos[0]} alt="" className="h-52 w-full object-cover" />
+            ) : (
+              <div className="flex h-52 items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
+                <Tag className="h-14 w-14 text-muted-foreground/30" strokeWidth={1.25} />
+              </div>
+            )}
+            <div className="space-y-3 p-5">
+              <div>
+                <p className="text-lg font-bold">{title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {catCfg.label}{subcategory ? ` · ${catCfg.subcategories.find(s => s.id === subcategory)?.label}` : ""}
+                </p>
+              </div>
+              <p className="text-2xl font-bold text-primary">
+                {parseInt(price || "0").toLocaleString("tr-TR")} ₺
+                {priceType !== "sabit" && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    ({priceType === "pazarlik" ? "Pazarlık Var" : "Takas Olur"})
+                  </span>
+                )}
+              </p>
+              {location && (
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />{location}
+                </p>
+              )}
+              {description && <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{description}</p>}
+              {Object.keys(attrs).filter(k => attrs[k]).length > 0 && (
+                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                  {Object.entries(attrs).filter(([, v]) => v).map(([k, v]) => (
+                    <div key={k} className="rounded-lg bg-muted/50 px-2.5 py-1.5 text-xs">
+                      <span className="text-muted-foreground">{catCfg.attributes.find(a => a.key === k)?.label}: </span>
+                      <span className="font-medium">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {error && <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600">{error}</p>}
+
+          <div className="flex gap-3">
+            <button onClick={() => setStep("photos")}
+              className="flex-1 rounded-full border border-border py-3 text-sm font-semibold transition hover:bg-muted">
+              Düzenle
+            </button>
+            <button onClick={submit} disabled={loading}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
+              {loading ? "Yayınlanıyor..." : <><Check className="h-4 w-4" />İlanı Yayınla</>}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
-  );
-}
-
-function Section({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof Save;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">{title}</h3>
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-muted-foreground">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function Select({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
   );
 }

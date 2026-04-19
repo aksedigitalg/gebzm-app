@@ -207,6 +207,9 @@ export const api = {
     getReservations: () =>
       request<unknown[]>("/business/reservations", {}, getBusinessToken()),
 
+    getMyListings: () =>
+      request<unknown[]>("/business/listings", {}, getBusinessToken()),
+
     getMyServices: () =>
       request<unknown[]>("/business/services", {}, getBusinessToken()),
 
