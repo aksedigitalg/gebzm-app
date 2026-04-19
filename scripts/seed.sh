@@ -194,20 +194,24 @@ fi
 log "İlanlar ekleniyor: Gebze Emlak"
 T=$(login_biz "emlakci@test.com")
 if [ -n "$T" ]; then
-  post "$API/user/listings" '{"title":"Gebze Merkez 3+1 Satilik Daire","category":"emlak","subcategory":"konut-satilik","price":4500000,"price_type":"pazarlik","location":"Gebze Merkez","description":"Cumhuriyet Mah. 140m2, 3+1, 2. kat, asansorlu, otoparkli. Metro ve AVM yakini.","attributes":{"alan":"140m2","oda":"3+1","kat":"2/6","isitma":"dogalgaz"},"listing_type":"kurumsal"}' "$T" > /dev/null
-  post "$API/user/listings" '{"title":"Cayirova 2+1 Kiralik Daire","category":"emlak","subcategory":"konut-kiralik","price":18000,"price_type":"sabit","location":"Cayirova Gebze","description":"90m2, 2+1, temiz bakimli. Fabrika OSB yakini, ulasim avantajli.","attributes":{"alan":"90m2","oda":"2+1","kat":"3/5"},"listing_type":"kurumsal"}' "$T" > /dev/null
-  post "$API/user/listings" '{"title":"Gebze OSB Kiralik Depo 1200m2","category":"emlak","subcategory":"isyeri","price":45000,"price_type":"pazarlik","location":"Gebze OSB","description":"1200m2 kapali alan, yuksek tavan, rampa. TIR girisi mevcut.","listing_type":"kurumsal"}' "$T" > /dev/null
-  ok "Gebze Emlak — 3 ilan"
+  post "$API/business/listings" '{"title":"Gebze Merkez 3+1 Satilik Daire","category":"emlak","subcategory":"konut-satilik","price":4500000,"price_type":"pazarlik","location":"Gebze Merkez","description":"Cumhuriyet Mah. 140m2, 3+1, 2. kat, asansorlu, otoparkli. Metro ve AVM yakini.","attributes":{"alan":"140m2","oda":"3+1","kat":"2/6","isitma":"dogalgaz"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"Cayirova 2+1 Kiralik Daire","category":"emlak","subcategory":"konut-kiralik","price":18000,"price_type":"sabit","location":"Cayirova Gebze","description":"90m2, 2+1, temiz bakimli. Fabrika OSB yakini, ulasim avantajli.","attributes":{"alan":"90m2","oda":"2+1","kat":"3/5"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"Gebze OSB Kiralik Depo 1200m2","category":"emlak","subcategory":"isyeri","price":45000,"price_type":"pazarlik","location":"Gebze OSB","description":"1200m2 kapali alan, yuksek tavan, rampa. TIR girisi mevcut."}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"Gebze Merkez 4+1 Satilik Lux Daire","category":"emlak","subcategory":"konut-satilik","price":7200000,"price_type":"pazarlik","location":"Gebze Merkez","description":"Yeni bina, 180m2, 4+1, site ici, guvenlikli, acik kapali otopark.","attributes":{"alan":"180m2","oda":"4+1","kat":"5/10","isitma":"dogalgaz"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"Cayirova Kiralik Dukkan 80m2","category":"emlak","subcategory":"isyeri","price":12000,"price_type":"sabit","location":"Cayirova Gebze","description":"Ana cadde uzeri, 80m2, vitrinli, teslime hazir dukkan.","attributes":{"alan":"80m2"}}' "$T" > /dev/null
+  ok "Gebze Emlak — 5 ilan"
 fi
 
 # --- GALERİCİ — İlanlar ---
 log "İlanlar ekleniyor: Ozkan Oto Galeri"
 T=$(login_biz "galerici@test.com")
 if [ -n "$T" ]; then
-  post "$API/user/listings" '{"title":"2022 Toyota Corolla Hybrid 45.000 km","category":"vasita","subcategory":"otomobil","price":1450000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"2022 model, Advance paket, hasarsiz, boyasiz, muayeneli. Ilk elden.","attributes":{"marka":"Toyota","model":"Corolla","yil":"2022","km":"45.000","yakit":"Hybrid","renk":"Beyaz"},"listing_type":"kurumsal"}' "$T" > /dev/null
-  post "$API/user/listings" '{"title":"2020 VW Passat 1.6 TDI 98.000 km","category":"vasita","subcategory":"otomobil","price":980000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"2020 model, Impression paket, full bakimli, tramer yok. Uzun yol dostu.","attributes":{"marka":"VW","model":"Passat","yil":"2020","km":"98.000","yakit":"Dizel"},"listing_type":"kurumsal"}' "$T" > /dev/null
-  post "$API/user/listings" '{"title":"2019 Ford Transit 9+1 Minibus 130.000 km","category":"vasita","subcategory":"ticari","price":750000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"Servis tipi, 9+1 koltuk, klimali, bakimli. Personel tasima icin ideal.","attributes":{"marka":"Ford","model":"Transit","yil":"2019","km":"130.000","tip":"Minibus"},"listing_type":"kurumsal"}' "$T" > /dev/null
-  ok "Ozkan Oto Galeri — 3 ilan"
+  post "$API/business/listings" '{"title":"2022 Toyota Corolla Hybrid 45.000 km","category":"vasita","subcategory":"otomobil","price":1450000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"2022 model, Advance paket, hasarsiz, boyasiz, muayeneli. Ilk elden.","attributes":{"marka":"Toyota","model":"Corolla","yil":"2022","km":"45.000","yakit":"Hybrid","renk":"Beyaz"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"2020 VW Passat 1.6 TDI 98.000 km","category":"vasita","subcategory":"otomobil","price":980000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"2020 model, Impression paket, full bakimli, tramer yok. Uzun yol dostu.","attributes":{"marka":"VW","model":"Passat","yil":"2020","km":"98.000","yakit":"Dizel"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"2019 Ford Transit 9+1 Minibus 130.000 km","category":"vasita","subcategory":"ticari","price":750000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"Servis tipi, 9+1 koltuk, klimali, bakimli. Personel tasima icin ideal.","attributes":{"marka":"Ford","model":"Transit","yil":"2019","km":"130.000","tip":"Minibus"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"2021 Honda Civic 1.5 VTEC 62.000 km","category":"vasita","subcategory":"otomobil","price":1180000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"2021 model, Executive paket, hasarsiz, ilk elden, 62.000 km.","attributes":{"marka":"Honda","model":"Civic","yil":"2021","km":"62.000","yakit":"Benzin","renk":"Gri"}}' "$T" > /dev/null
+  post "$API/business/listings" '{"title":"2018 Renault Symbol 1.5 dCi 110.000 km","category":"vasita","subcategory":"otomobil","price":520000,"price_type":"pazarlik","location":"Gebze Oto Pazari","description":"Ekonomik aile arabasi, dizel, bakimli, tramer yok.","attributes":{"marka":"Renault","model":"Symbol","yil":"2018","km":"110.000","yakit":"Dizel"}}' "$T" > /dev/null
+  ok "Ozkan Oto Galeri — 5 ilan"
 fi
 
 # =============================================================================
