@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -37,7 +37,7 @@ function detailHref(b: Biz) {
   return `/hizmetler/${b.id}`;
 }
 
-export default function HizmetlerPage() {
+function HizmetlerContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialTip = searchParams.get("tip") || "";
@@ -149,5 +149,13 @@ export default function HizmetlerPage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function HizmetlerPage() {
+  return (
+    <Suspense>
+      <HizmetlerContent />
+    </Suspense>
   );
 }
