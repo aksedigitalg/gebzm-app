@@ -108,7 +108,7 @@ export function MediaUpload({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/heic"
             multiple
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
             onChange={handlePhotoFiles}
             disabled={uploading}
           />
@@ -126,7 +126,7 @@ export function MediaUpload({
             ref={videoRef}
             type="file"
             accept="video/mp4,video/mov,video/avi,video/webm"
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
             onChange={handleVideoFile}
             disabled={uploadingVideo}
           />

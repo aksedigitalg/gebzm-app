@@ -228,5 +228,17 @@ export const api = {
         { method: "PUT", body: JSON.stringify({ status }) },
         getBusinessToken()
       ),
+
+    getListing: (id: string) =>
+      request<Record<string, unknown>>(`/business/listings/${id}`, {}, getBusinessToken()),
+
+    updateListing: (id: string, data: Record<string, unknown>) =>
+      request(`/business/listings/${id}`, { method: "PUT", body: JSON.stringify(data) }, getBusinessToken()),
+
+    updateListingStatus: (id: string, status: string) =>
+      request(`/business/listings/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }, getBusinessToken()),
+
+    deleteListing: (id: string) =>
+      request(`/business/listings/${id}`, { method: "DELETE" }, getBusinessToken()),
   },
 };
