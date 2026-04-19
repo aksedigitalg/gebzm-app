@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Clock, Phone, MessageCircle, Eye, Tag, User, Store, ChevronRight } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { MapPin, Clock, Phone, MessageCircle, Eye, Tag, User, Store, ChevronRight, ChevronLeft } from "lucide-react";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { formatTRY, timeAgoTR } from "@/lib/format";
 
@@ -37,16 +36,21 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   return (
     <>
-      <PageHeader title="İlan Detayı" subtitle={l.subcategory || l.category} back="/ilanlar" />
       <div className="pb-36">
-        {/* Fotoğraf galerisi */}
-        {l.photos?.length > 0 ? (
-          <PhotoGallery photos={l.photos} title={l.title} />
-        ) : (
-          <div className="flex h-52 items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-            <Tag className="h-16 w-16 text-muted-foreground/30" strokeWidth={1.25} />
-          </div>
-        )}
+        {/* Fotoğraf galerisi — floating geri butonu */}
+        <div className="relative">
+          <Link href="/ilanlar"
+            className="absolute left-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/65">
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          {l.photos?.length > 0 ? (
+            <PhotoGallery photos={l.photos} title={l.title} />
+          ) : (
+            <div className="flex h-52 items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+              <Tag className="h-16 w-16 text-muted-foreground/30" strokeWidth={1.25} />
+            </div>
+          )}
+        </div>
 
         <div className="space-y-4 px-5 pt-5">
           {/* Başlık & Fiyat */}

@@ -58,6 +58,8 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
   const setStatus = async (id: string, newStatus: string) => {
     const prev = listings.find(l => l.id === id)?.status ?? "active";
     setListings(p => p.map(l => l.id === id ? { ...l, status: newStatus } : l));
+    /* Eğer aktif filtre ile yeni durum uyuşmuyorsa "Tümü"ye geç — kullanıcı kaybetmesin */
+    setFilter(f => (f !== "all" && f !== newStatus) ? "all" : f);
     try {
       await api.business.updateListingStatus(id, newStatus);
       const labels: Record<string, string> = { active: "Aktif", pasif: "Pasif", satildi: "Satıldı" };
@@ -65,6 +67,7 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
       setTimeout(() => setOpMsg(null), 2500);
     } catch (e) {
       setListings(p => p.map(l => l.id === id ? { ...l, status: prev } : l));
+      setFilter(f => f); // koru
       setOpMsg({ text: e instanceof Error ? e.message : "Durum güncellenemedi", ok: false });
       setTimeout(() => setOpMsg(null), 3000);
     }

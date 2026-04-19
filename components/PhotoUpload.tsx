@@ -21,27 +21,38 @@ function getToken() {
   return getUser()?.token || "";
 }
 
-function triggerPicker(inputRef: React.RefObject<HTMLInputElement | null>) {
-  const inp = inputRef.current;
-  if (!inp) return;
-  if ("showPicker" in inp) {
+type FSHandle = { getFile: () => Promise<File> };
+type OpenPickerFn = (opts?: object) => Promise<FSHandle[]>;
+
+async function openNativePicker(fallbackRef: React.RefObject<HTMLInputElement | null>): Promise<File[]> {
+  const win = window as typeof window & { showOpenFilePicker?: OpenPickerFn };
+  if (win.showOpenFilePicker) {
     try {
-      (inp as unknown as { showPicker: () => void }).showPicker();
-      return;
-    } catch {}
+      const handles = await win.showOpenFilePicker({
+        multiple: true,
+        types: [{ description: "Fotoğraf", accept: { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"] } }],
+      });
+      return Promise.all(handles.map(h => h.getFile()));
+    } catch (e) {
+      if ((e as DOMException).name === "AbortError") return [];
+    }
   }
-  inp.click();
+  const inp = fallbackRef.current;
+  if (inp) {
+    try {
+      if ("showPicker" in (inp as object)) { (inp as unknown as { showPicker(): void }).showPicker(); }
+      else { (inp as HTMLInputElement).click(); }
+    } catch { (inp as HTMLInputElement).click(); }
+  }
+  return [];
 }
 
 export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
-    if (!files.length) return;
+  const uploadFiles = async (files: File[]) => {
     const remaining = max - photos.length;
     if (remaining <= 0) { setError(`En fazla ${max} fotoğraf`); return; }
     setUploading(true); setError("");
@@ -51,28 +62,35 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
         const form = new FormData();
         form.append("photo", file);
         const uploadUrl = folder ? `${API}/upload?folder=${encodeURIComponent(folder)}` : `${API}/upload`;
-        const res = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${getToken()}` },
-          body: form,
-        });
+        const res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: form });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Yükleme başarısız");
         urls.push(data.url as string);
       }
       onChange([...photos, ...urls]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Yükleme hatası");
-    } finally { setUploading(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Yükleme hatası"); }
+    finally { setUploading(false); }
+  };
+
+  const handleClick = async () => {
+    if (uploading) return;
+    const files = await openNativePicker(inputRef);
+    if (files.length) await uploadFiles(files);
+  };
+
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length) await uploadFiles(files);
   };
 
   return (
     <div className="space-y-3">
       {photos.length < max && (
-        <div>
+        <>
           <button
             type="button"
-            onClick={() => triggerPicker(inputRef)}
+            onClick={handleClick}
             disabled={uploading}
             className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none disabled:pointer-events-none disabled:opacity-50"
           >
@@ -87,10 +105,10 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
             accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
             style={{ position: "fixed", top: -9999, left: -9999, opacity: 0 }}
-            onChange={handleFiles}
+            onChange={handleChange}
             disabled={uploading}
           />
-        </div>
+        </>
       )}
 
       {photos.length > 0 && (

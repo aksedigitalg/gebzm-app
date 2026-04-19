@@ -29,43 +29,53 @@ async function uploadFile(file: File, folder?: string) {
   const body = new FormData();
   body.append("photo", file);
   const url = folder ? `${API}/upload?folder=${encodeURIComponent(folder)}` : `${API}/upload`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${getToken()}` },
-    body,
-  });
+  const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Yükleme başarısız");
   return { url: data.url as string, thumbnail: data.thumbnail as string | undefined };
 }
 
-function triggerPicker(inputRef: React.RefObject<HTMLInputElement | null>) {
-  const inp = inputRef.current;
-  if (!inp) return;
-  if ("showPicker" in inp) {
+/* showOpenFilePicker: Opera/Chrome'da OS-native picker açar, Opera'nın kendi panelini bypass eder */
+type FSHandle = { getFile: () => Promise<File> };
+type OpenPickerFn = (opts?: object) => Promise<FSHandle[]>;
+
+async function openNativePicker(opts: { multiple: boolean; accept: Record<string, string[]>; fallbackRef: React.RefObject<HTMLInputElement | null> }): Promise<File[]> {
+  const win = window as typeof window & { showOpenFilePicker?: OpenPickerFn };
+  if (win.showOpenFilePicker) {
     try {
-      (inp as unknown as { showPicker: () => void }).showPicker();
-      return;
-    } catch {}
+      const handles = await win.showOpenFilePicker({
+        multiple: opts.multiple,
+        types: [{ description: "Dosya", accept: opts.accept }],
+      });
+      return Promise.all(handles.map(h => h.getFile()));
+    } catch (e) {
+      if ((e as DOMException).name === "AbortError") return [];
+      /* API hata verirse fallback'e düş */
+    }
   }
-  inp.click();
+  /* Fallback: hidden input click */
+  const inp = opts.fallbackRef.current;
+  if (inp) {
+    try {
+      if ("showPicker" in (inp as object)) { (inp as unknown as { showPicker(): void }).showPicker(); }
+      else { (inp as HTMLInputElement).click(); }
+    } catch { (inp as HTMLInputElement).click(); }
+  }
+  return []; /* files gelince onChange tetiklenir */
 }
 
 export function MediaUpload({
   photos, videos = [], onPhotosChange, onVideosChange,
   maxPhotos = 20, maxVideos = 1, allowVideo = true, folder,
 }: Props) {
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [error, setError] = useState("");
   const [videoThumbs, setVideoThumbs] = useState<Record<string, string>>({});
 
-  const handlePhotoFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
-    if (!files.length) return;
+  const uploadPhotos = async (files: File[]) => {
     const remaining = maxPhotos - photos.length;
     if (remaining <= 0) { setError(`En fazla ${maxPhotos} fotoğraf`); return; }
     setUploading(true); setError("");
@@ -76,12 +86,48 @@ export function MediaUpload({
         urls.push(r.url);
       }
       onPhotosChange([...photos, ...urls]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Yükleme hatası");
-    } finally { setUploading(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Yükleme hatası"); }
+    finally { setUploading(false); }
   };
 
-  const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoClick = async () => {
+    if (uploading) return;
+    const files = await openNativePicker({
+      multiple: true,
+      accept: { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"] },
+      fallbackRef: photoInputRef,
+    });
+    if (files.length) await uploadPhotos(files);
+  };
+
+  /* onChange sadece fallback path için tetiklenir */
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length) await uploadPhotos(files);
+  };
+
+  const handleVideoClick = async () => {
+    if (uploadingVideo) return;
+    if (videos.length >= maxVideos) { setError(`En fazla ${maxVideos} video`); return; }
+    const files = await openNativePicker({
+      multiple: false,
+      accept: { "video/*": [".mp4", ".mov", ".avi", ".webm"] },
+      fallbackRef: videoInputRef,
+    });
+    if (!files.length) return;
+    const file = files[0];
+    if (file.size > 500 * 1024 * 1024) { setError("Video max 500MB"); return; }
+    setUploadingVideo(true); setError("");
+    try {
+      const r = await uploadFile(file, folder);
+      if (onVideosChange) onVideosChange([...videos, r.url]);
+      if (r.thumbnail) setVideoThumbs(p => ({ ...p, [r.url]: r.thumbnail! }));
+    } catch (err) { setError(err instanceof Error ? err.message : "Video yükleme hatası"); }
+    finally { setUploadingVideo(false); }
+  };
+
+  const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -92,9 +138,8 @@ export function MediaUpload({
       const r = await uploadFile(file, folder);
       if (onVideosChange) onVideosChange([...videos, r.url]);
       if (r.thumbnail) setVideoThumbs(p => ({ ...p, [r.url]: r.thumbnail! }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Video yükleme hatası");
-    } finally { setUploadingVideo(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Video yükleme hatası"); }
+    finally { setUploadingVideo(false); }
   };
 
   const removePhoto = (i: number) => onPhotosChange(photos.filter((_, idx) => idx !== i));
@@ -106,12 +151,11 @@ export function MediaUpload({
 
   return (
     <div className="space-y-3">
-      {/* Fotoğraf butonu */}
       {photos.length < maxPhotos && (
-        <div>
+        <>
           <button
             type="button"
-            onClick={() => triggerPicker(photoInputRef)}
+            onClick={handlePhotoClick}
             disabled={uploading}
             className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none disabled:pointer-events-none disabled:opacity-50"
           >
@@ -120,24 +164,17 @@ export function MediaUpload({
               : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
             }
           </button>
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
-            multiple
+          <input ref={photoInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.heif" multiple
             style={{ position: "fixed", top: -9999, left: -9999, opacity: 0 }}
-            onChange={handlePhotoFiles}
-            disabled={uploading}
-          />
-        </div>
+            onChange={handlePhotoChange} disabled={uploading} />
+        </>
       )}
 
-      {/* Video butonu */}
       {allowVideo && videos.length < maxVideos && (
-        <div>
+        <>
           <button
             type="button"
-            onClick={() => triggerPicker(videoInputRef)}
+            onClick={handleVideoClick}
             disabled={uploadingVideo}
             className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 select-none disabled:pointer-events-none disabled:opacity-50"
           >
@@ -146,18 +183,12 @@ export function MediaUpload({
               : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
             }
           </button>
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept=".mp4,.mov,.avi,.webm"
+          <input ref={videoInputRef} type="file" accept=".mp4,.mov,.avi,.webm"
             style={{ position: "fixed", top: -9999, left: -9999, opacity: 0 }}
-            onChange={handleVideoFile}
-            disabled={uploadingVideo}
-          />
-        </div>
+            onChange={handleVideoChange} disabled={uploadingVideo} />
+        </>
       )}
 
-      {/* Önizlemeler */}
       {(photos.length > 0 || videos.length > 0) && (
         <div className="flex flex-wrap gap-2">
           {photos.map((url, i) => (
