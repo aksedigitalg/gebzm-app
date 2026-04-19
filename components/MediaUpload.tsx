@@ -25,9 +25,6 @@ function getToken() {
   return getUser()?.token || "";
 }
 
-let _uid = 0;
-function nextId() { return ++_uid; }
-
 async function uploadFile(file: File, folder?: string) {
   const body = new FormData();
   body.append("photo", file);
@@ -42,15 +39,21 @@ async function uploadFile(file: File, folder?: string) {
   return { url: data.url as string, thumbnail: data.thumbnail as string | undefined };
 }
 
+/* Şeffaf input overlay — tıklama doğrudan input'a gider, programmatic click yok */
+const OVERLAY: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  opacity: 0,
+  cursor: "pointer",
+  width: "100%",
+  height: "100%",
+  zIndex: 10,
+};
+
 export function MediaUpload({
   photos, videos = [], onPhotosChange, onVideosChange,
   maxPhotos = 20, maxVideos = 1, allowVideo = true, folder,
 }: Props) {
-  const photoId = useRef(`mu-photo-${nextId()}`).current;
-  const videoId = useRef(`mu-video-${nextId()}`).current;
-  const photoRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLInputElement>(null);
-
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +64,7 @@ export function MediaUpload({
     e.target.value = "";
     if (!files.length) return;
     const remaining = maxPhotos - photos.length;
-    if (remaining <= 0) { setError(`En fazla ${maxPhotos} fotoğraf eklenebilir`); return; }
+    if (remaining <= 0) { setError(`En fazla ${maxPhotos} fotoğraf`); return; }
     setUploading(true); setError("");
     try {
       const urls: string[] = [];
@@ -79,8 +82,8 @@ export function MediaUpload({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (videos.length >= maxVideos) { setError(`En fazla ${maxVideos} video eklenebilir`); return; }
-    if (file.size > 500 * 1024 * 1024) { setError("Video max 500MB olabilir"); return; }
+    if (videos.length >= maxVideos) { setError(`En fazla ${maxVideos} video`); return; }
+    if (file.size > 500 * 1024 * 1024) { setError("Video max 500MB"); return; }
     setUploadingVideo(true); setError("");
     try {
       const r = await uploadFile(file, folder);
@@ -100,55 +103,43 @@ export function MediaUpload({
 
   return (
     <div className="space-y-3">
-      {/* Fotoğraf — input[type=file] doğrudan tıklanır, accept uzantı bazlı */}
+      {/* Fotoğraf butonu — input şeffaf overlay olarak üzerinde */}
       {photos.length < maxPhotos && (
-        <>
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => photoRef.current?.click()}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-          >
+        <div className="relative">
+          <div className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none ${uploading ? "pointer-events-none opacity-50" : ""}`}>
             {uploading
               ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
               : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
             }
-          </button>
+          </div>
           <input
-            ref={photoRef}
-            id={photoId}
             type="file"
             accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
-            style={{ display: "none" }}
+            style={OVERLAY}
             onChange={handlePhotoFiles}
+            disabled={uploading}
           />
-        </>
+        </div>
       )}
 
-      {/* Video */}
+      {/* Video butonu — aynı overlay yaklaşımı */}
       {allowVideo && videos.length < maxVideos && (
-        <>
-          <button
-            type="button"
-            disabled={uploadingVideo}
-            onClick={() => videoRef.current?.click()}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 ${uploadingVideo ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-          >
+        <div className="relative">
+          <div className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 select-none ${uploadingVideo ? "pointer-events-none opacity-50" : ""}`}>
             {uploadingVideo
               ? <><Loader2 className="h-5 w-5 animate-spin" />Video yükleniyor...</>
               : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
             }
-          </button>
+          </div>
           <input
-            ref={videoRef}
-            id={videoId}
             type="file"
             accept=".mp4,.mov,.avi,.webm"
-            style={{ display: "none" }}
+            style={OVERLAY}
             onChange={handleVideoFile}
+            disabled={uploadingVideo}
           />
-        </>
+        </div>
       )}
 
       {/* Önizlemeler */}

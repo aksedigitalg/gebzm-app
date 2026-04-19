@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Camera, X, Loader2, Plus } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getBusinessSession } from "@/lib/panel-auth";
@@ -21,8 +21,17 @@ function getToken() {
   return getUser()?.token || "";
 }
 
+const OVERLAY: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  opacity: 0,
+  cursor: "pointer",
+  width: "100%",
+  height: "100%",
+  zIndex: 10,
+};
+
 export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,7 +40,7 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
     e.target.value = "";
     if (!files.length) return;
     const remaining = max - photos.length;
-    if (remaining <= 0) { setError(`En fazla ${max} fotoğraf eklenebilir`); return; }
+    if (remaining <= 0) { setError(`En fazla ${max} fotoğraf`); return; }
     setUploading(true); setError("");
     try {
       const urls: string[] = [];
@@ -57,27 +66,22 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
   return (
     <div className="space-y-3">
       {photos.length < max && (
-        <>
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-          >
+        <div className="relative">
+          <div className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none ${uploading ? "pointer-events-none opacity-50" : ""}`}>
             {uploading
               ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
               : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
             }
-          </button>
+          </div>
           <input
-            ref={inputRef}
             type="file"
             accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
-            style={{ display: "none" }}
+            style={OVERLAY}
             onChange={handleFiles}
+            disabled={uploading}
           />
-        </>
+        </div>
       )}
 
       {photos.length > 0 && (
@@ -85,7 +89,7 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
           {photos.map((url, i) => (
             <div key={url} className="relative h-24 w-24 shrink-0">
               <img src={url} alt="" className="h-full w-full rounded-xl object-cover border border-border" />
-              <button type="button" onClick={() => photos.length > 0 && onChange(photos.filter((_, idx) => idx !== i))}
+              <button type="button" onClick={() => onChange(photos.filter((_, idx) => idx !== i))}
                 className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow">
                 <X className="h-3 w-3" />
               </button>
