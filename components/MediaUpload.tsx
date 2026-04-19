@@ -39,7 +39,7 @@ async function uploadFile(file: File, folder?: string) {
   return { url: data.url as string, thumbnail: data.thumbnail as string | undefined };
 }
 
-function triggerPicker(inputRef: React.RefObject<HTMLInputElement>) {
+function triggerPicker(inputRef: React.RefObject<HTMLInputElement | null>) {
   const inp = inputRef.current;
   if (!inp) return;
   if ("showPicker" in inp) {

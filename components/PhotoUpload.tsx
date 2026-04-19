@@ -21,7 +21,7 @@ function getToken() {
   return getUser()?.token || "";
 }
 
-function triggerPicker(inputRef: React.RefObject<HTMLInputElement>) {
+function triggerPicker(inputRef: React.RefObject<HTMLInputElement | null>) {
   const inp = inputRef.current;
   if (!inp) return;
   if ("showPicker" in inp) {

@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { Tag } from "lucide-react";
 import { BusinessListings } from "@/components/BusinessListings";
 
