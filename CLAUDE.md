@@ -47,13 +47,16 @@
 | nginx | `/etc/nginx/sites-enabled/gebzem` |
 
 **Go API güncelle:** `cd /opt/gebzem-api && go build -o gebzem-api-bin . && systemctl restart gebzem-api`
-**Next.js deploy:** `git push origin main` → webhook otomatik (veya manuel: kill stale build, npm run build, pm2 restart)
+**Next.js deploy:** `git push origin main` → webhook otomatik çalışır:
+1. `git pull` → DB sıfırlama → `npm run build` → `pm2 restart` → **seed (10 işletme)**
+
+**⚠️ Her push sonrası otomatik:** DB sıfırlanır + 10 test işletmesi yüklenir. Tarayıcıda localStorage temizle (F12 → Application → Local Storage → Clear).
 
 **⚠️ Manuel deploy gerekirse:**
 ```bash
 ssh -i ~/.ssh/gebzem root@138.68.69.122
 ps aux | grep 'next build' | awk '{print $2}' | xargs kill -9 2>/dev/null
-cd /opt/gebzem-web && npm run build && pm2 restart gebzem-web
+cd /opt/gebzem-web && bash deploy.sh
 ```
 
 ---
@@ -344,12 +347,16 @@ GET /businesses/:id/gallery (public)
 
 ## 🔄 DB Reset & Seed
 
-```bash
-# 1. Reset
-ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh"
+**Otomatik (her `git push` sonrası):** deploy.sh içinde otomatik çalışır.
 
-# 2. Seed (tüm 10 işletme kategorisi)
-bash scripts/seed.sh
+**Manuel:**
+```bash
+ssh -i ~/.ssh/gebzem root@138.68.69.122 "cd /opt/gebzem-web && bash deploy.sh"
+```
+
+**Sadece seed:**
+```bash
+ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh && bash /opt/gebzem-web/scripts/seed.sh"
 ```
 
 **Test İşletmeleri (şifre: 80148014):**
