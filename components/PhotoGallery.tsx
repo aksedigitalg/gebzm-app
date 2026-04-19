@@ -1,11 +1,45 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, ZoomIn, Play } from "lucide-react";
 
 interface Props {
   photos: string[];
   title?: string;
+}
+
+function isVideo(url: string) {
+  return /\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/");
+}
+
+function MediaItem({ url, title, className }: { url: string; title?: string; className?: string }) {
+  if (isVideo(url)) {
+    return (
+      <video
+        src={url}
+        className={className}
+        controls
+        playsInline
+        preload="metadata"
+        onClick={e => e.stopPropagation()}
+      />
+    );
+  }
+  return <img src={url} alt={title} className={className} />;
+}
+
+function ThumbItem({ url, className }: { url: string; className?: string }) {
+  if (isVideo(url)) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-black`}>
+        <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Play className="h-4 w-4 text-white" fill="white" />
+        </div>
+      </div>
+    );
+  }
+  return <img src={url} alt="" className={`${className} object-cover`} />;
 }
 
 export function PhotoGallery({ photos, title = "" }: Props) {
@@ -32,19 +66,29 @@ export function PhotoGallery({ photos, title = "" }: Props) {
 
   if (!photos?.length) return null;
 
+  const activeIsVideo = isVideo(photos[active]);
+
   return (
     <>
       {/* Ana görsel */}
       <div className="relative bg-black">
         <div
-          className="relative h-72 cursor-zoom-in overflow-hidden sm:h-96"
-          onClick={() => setLightbox(true)}
+          className={`relative h-72 overflow-hidden sm:h-96 ${activeIsVideo ? "" : "cursor-zoom-in"}`}
+          onClick={() => { if (!activeIsVideo) setLightbox(true); }}
         >
-          <img
-            src={photos[active]}
-            alt={title}
-            className="h-full w-full object-contain"
-          />
+          {activeIsVideo ? (
+            <video
+              key={photos[active]}
+              src={photos[active]}
+              className="h-full w-full object-contain"
+              controls
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <img src={photos[active]} alt={title} className="h-full w-full object-contain" />
+          )}
+
           {photos.length > 1 && (
             <>
               <button
@@ -61,10 +105,19 @@ export function PhotoGallery({ photos, title = "" }: Props) {
               </button>
             </>
           )}
-          <div className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
-            <ZoomIn className="h-3 w-3" />
-            {active + 1} / {photos.length}
-          </div>
+
+          {!activeIsVideo && (
+            <div className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+              <ZoomIn className="h-3 w-3" />
+              {active + 1} / {photos.length}
+            </div>
+          )}
+          {activeIsVideo && (
+            <div className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+              <Play className="h-3 w-3" fill="white" />
+              {active + 1} / {photos.length}
+            </div>
+          )}
         </div>
 
         {/* Thumbnail şeridi */}
@@ -78,20 +131,28 @@ export function PhotoGallery({ photos, title = "" }: Props) {
                   i === active ? "ring-2 ring-primary ring-offset-1 ring-offset-black" : "opacity-60 hover:opacity-100"
                 }`}
               >
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                {isVideo(url) ? (
+                  <>
+                    <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <Play className="h-3 w-3 text-white" fill="white" />
+                    </div>
+                  </>
+                ) : (
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                )}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Lightbox */}
-      {lightbox && (
+      {/* Lightbox — sadece resimler için */}
+      {lightbox && !activeIsVideo && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm"
           onClick={() => setLightbox(false)}
         >
-          {/* Kapat */}
           <button
             onClick={() => setLightbox(false)}
             className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
@@ -99,12 +160,10 @@ export function PhotoGallery({ photos, title = "" }: Props) {
             <X className="h-5 w-5" />
           </button>
 
-          {/* Sayaç */}
           <div className="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white backdrop-blur-sm">
             {active + 1} / {photos.length}
           </div>
 
-          {/* Sol ok */}
           {photos.length > 1 && (
             <button
               onClick={e => { e.stopPropagation(); prev(); }}
@@ -114,15 +173,12 @@ export function PhotoGallery({ photos, title = "" }: Props) {
             </button>
           )}
 
-          {/* Resim */}
-          <img
-            src={photos[active]}
-            alt={title}
+          <MediaItem
+            url={photos[active]}
+            title={title}
             className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
-            onClick={e => e.stopPropagation()}
           />
 
-          {/* Sağ ok */}
           {photos.length > 1 && (
             <button
               onClick={e => { e.stopPropagation(); next(); }}
@@ -132,18 +188,26 @@ export function PhotoGallery({ photos, title = "" }: Props) {
             </button>
           )}
 
-          {/* Alt thumbnail şeridi */}
           {photos.length > 1 && (
             <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5 overflow-x-auto px-4">
               {photos.map((url, i) => (
                 <button
                   key={i}
                   onClick={e => { e.stopPropagation(); setActive(i); }}
-                  className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg transition ${
+                  className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-lg transition ${
                     i === active ? "ring-2 ring-white" : "opacity-50 hover:opacity-80"
                   }`}
                 >
-                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  {isVideo(url) ? (
+                    <>
+                      <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <Play className="h-3 w-3 text-white" fill="white" />
+                      </div>
+                    </>
+                  ) : (
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                  )}
                 </button>
               ))}
             </div>

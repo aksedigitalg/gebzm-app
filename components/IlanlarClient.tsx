@@ -230,7 +230,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                         {firstMedia ? (
                           isVideo ? (
                             <>
-                              <video src={firstMedia} className="h-full w-full object-cover" muted playsInline preload="none" />
+                              <video src={firstMedia} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                                 <Play className="h-6 w-6 text-white" fill="white" />
                               </div>

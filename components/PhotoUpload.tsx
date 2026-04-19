@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useState } from "react";
 import { Camera, X, Loader2, Plus } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getBusinessSession } from "@/lib/panel-auth";
@@ -22,12 +22,14 @@ function getToken() {
 }
 
 export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
+  const uid = useId();
+  const inputId = `photo-upload-${uid}`;
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = "";
     if (!files.length) return;
     const remaining = max - photos.length;
     if (remaining <= 0) { setError(`En fazla ${max} fotoğraf eklenebilir`); return; }
@@ -54,7 +56,6 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
       setError(err instanceof Error ? err.message : "Yükleme hatası");
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
@@ -63,26 +64,25 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
   return (
     <div className="space-y-3">
       {photos.length < max && (
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-          className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+        <label
+          htmlFor={inputId}
+          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}
         >
           {uploading
             ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
             : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
           }
-        </button>
+          <input
+            id={inputId}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            multiple
+            className="sr-only"
+            onChange={handleFiles}
+            disabled={uploading}
+          />
+        </label>
       )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic"
-        multiple
-        className="hidden"
-        onChange={handleFiles}
-      />
 
       {photos.length > 0 && (
         <div className="flex flex-wrap gap-2">

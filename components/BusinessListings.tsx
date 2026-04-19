@@ -157,7 +157,7 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
                     {l.photos?.[0] ? (
                       isVideoUrl(l.photos[0]) ? (
                         <>
-                          <video src={l.photos[0]} className="h-full w-full object-cover" muted playsInline preload="none" />
+                          <video src={l.photos[0]} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                             <Play className="h-5 w-5 text-white" fill="white" />
                           </div>
