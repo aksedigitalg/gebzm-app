@@ -179,15 +179,25 @@ app/
 ├── page.tsx                  # Ana sayfa — revalidate=30, INTERNAL_API_URL
 ├── giris/page.tsx            # Telefon+Şifre → OTP → Giriş
 ├── kayit/page.tsx            # Yeni kullanıcı kayıt
-├── hizmetler/page.tsx        # force-dynamic, API'den işletmeler
-├── hizmetler/[slug]/page.tsx # force-dynamic, cache:no-store, /businesses/:id
+├── hizmetler/page.tsx        # CLIENT — tüm 10 tip, ?tip= filtre
+├── hizmetler/[slug]/page.tsx # force-dynamic — TÜM tipler için evrensel detay
+│                             #   food (restoran/yemek/kafe) → menü göster
+│                             #   service (kuafor/usta/doktor) → hizmetler göster
+├── restoran/page.tsx         # revalidate=30, sadece restoran tipi
+├── restoran/[id]/page.tsx    # force-dynamic, galeri YOK, sadece menü
+├── yemek/page.tsx            # revalidate=30, yemek teslimat listesi
+├── kafe/page.tsx             # revalidate=30, kafe listesi
+├── market/page.tsx           # revalidate=30, market listesi
+├── magaza/page.tsx           # revalidate=30, mağaza listesi
+├── emlakci/page.tsx          # revalidate=30, emlakçı listesi
+├── galerici/page.tsx         # revalidate=30, oto galeri listesi
 ├── ilanlar/page.tsx          # revalidate=30
 ├── profil/                   # mesajlar(2-panel), rezervasyonlarim(takvim), ilanlarim
 ├── isletme/
 │   ├── giris/page.tsx        # Email+Şifre (tip seçimi yok)
 │   ├── kayit/page.tsx        # 2 adımlı kayıt
 │   ├── sifre-sifirla/        # İşletme şifre sıfırlama (ada göre ara)
-│   ├── layout.tsx            # Token kontrolü, sidebar badge, bildirim sayısı
+│   ├── layout.tsx            # Token kontrolü, sidebar: Galeri YOK, QR sadece menu tiplerinde
 │   ├── mesajlar/page.tsx     # WebSocket 2-panel
 │   ├── rezervasyonlar/       # Takvim + Liste toggle
 │   └── randevular/           # Takvim + Liste toggle
@@ -291,7 +301,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-19 · Restoran modülü (menü+galeri+QR) + tam ilan sistemi (8 kategori+wizard+teklif) + admin CRUD + AI yan panel
+**Son Güncelleme:** 2026-04-19 · Tüm 10 kategori sayfaları + evrensel işletme detay sayfası + galeri kaldırıldı + kapsamlı seed scripti + MediaUpload (foto+video)
 
 ---
 
@@ -332,9 +342,26 @@ GET /businesses/:id/gallery (public)
 
 ---
 
-## 🔄 DB Reset
+## 🔄 DB Reset & Seed
 
 ```bash
+# 1. Reset
 ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh"
+
+# 2. Seed (tüm 10 işletme kategorisi)
+bash scripts/seed.sh
 ```
-**Test işletmesi:** Ahmet Kuaför — `info@ahmet.com` / `80148014`
+
+**Test İşletmeleri (şifre: 80148014):**
+| Email | İşletme | Tip |
+|---|---|---|
+| kuafor@test.com | Ahmet Kuaför | kuafor |
+| restoran@test.com | Gebze Lezzet Restoran | restoran |
+| yemek@test.com | Hızlı Bites | yemek |
+| kafe@test.com | Mavi Kafe & Pastane | kafe |
+| market@test.com | Gebze Fresh Market | market |
+| magaza@test.com | TechStore Gebze | magaza |
+| doktor@test.com | Dr. Mehmet Kılıç | doktor |
+| usta@test.com | Yıldız Elektrik | usta |
+| emlakci@test.com | Gebze Emlak | emlakci |
+| galerici@test.com | Özkan Oto Galeri | galerici |

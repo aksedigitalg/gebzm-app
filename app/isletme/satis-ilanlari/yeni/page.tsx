@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Camera, Tag, MapPin, Eye } from "lucide-react";
 import Link from "next/link";
-import { PhotoUpload } from "@/components/PhotoUpload";
+import { MediaUpload } from "@/components/MediaUpload";
 import { listingCategories, getCategoryById } from "@/lib/listing-categories";
 import { getBusinessSession } from "@/lib/panel-auth";
 
@@ -24,6 +24,7 @@ export default function YeniIlanPage() {
   const [priceType, setPriceType] = useState("sabit");
   const [location, setLocation] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  const [videos, setVideos] = useState<string[]>([]);
   const [attrs, setAttrs] = useState<Record<string, string>>({});
 
   const catCfg = getCategoryById(category);
@@ -197,7 +198,7 @@ export default function YeniIlanPage() {
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">İlk fotoğraf kapak görseli olarak kullanılır. Max 20.</p>
           </div>
-          <PhotoUpload photos={photos} onChange={setPhotos} max={20} />
+          <MediaUpload photos={photos} videos={videos} onPhotosChange={setPhotos} onVideosChange={setVideos} maxPhotos={20} maxVideos={3} />
           <button onClick={() => setStep("preview")}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
             Önizlemeye Geç <Eye className="h-4 w-4" />

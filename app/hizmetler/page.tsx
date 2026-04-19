@@ -1,36 +1,70 @@
-import { Wrench, Scissors, Stethoscope, MapPin, Plus } from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  UtensilsCrossed, Utensils, Coffee, Store, ShoppingBag,
+  Stethoscope, Scissors, Wrench, Building, Car,
+  MapPin, Plus, Loader2,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 
-export const metadata = { title: "Hizmetler" };
-export const revalidate = 30;
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
-const API = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
-
-const typeConfig: Record<string, { label: string; color: string }> = {
-  kuafor: { label: "Kuaför", color: "from-pink-500 to-rose-600" },
-  usta:   { label: "Usta",   color: "from-blue-500 to-indigo-600" },
-  doktor: { label: "Doktor", color: "from-emerald-500 to-teal-600" },
+const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bookingLabel: string }> = {
+  restoran: { label: "Restoran", icon: UtensilsCrossed, color: "from-orange-500 to-red-600", bookingLabel: "Rezervasyon Al" },
+  yemek:    { label: "Yemek",    icon: Utensils,       color: "from-rose-500 to-orange-500", bookingLabel: "Sipariş Ver" },
+  kafe:     { label: "Kafe",     icon: Coffee,          color: "from-amber-500 to-orange-600", bookingLabel: "Rezervasyon Al" },
+  market:   { label: "Market",   icon: Store,           color: "from-emerald-500 to-teal-600", bookingLabel: "İletişim" },
+  magaza:   { label: "Mağaza",   icon: ShoppingBag,     color: "from-sky-500 to-blue-600", bookingLabel: "İletişim" },
+  doktor:   { label: "Doktor",   icon: Stethoscope,     color: "from-cyan-500 to-blue-600", bookingLabel: "Randevu Al" },
+  kuafor:   { label: "Kuaför",   icon: Scissors,        color: "from-pink-500 to-fuchsia-600", bookingLabel: "Randevu Al" },
+  usta:     { label: "Usta",     icon: Wrench,          color: "from-amber-600 to-orange-700", bookingLabel: "Talep Gönder" },
+  emlakci:  { label: "Emlakçı",  icon: Building,        color: "from-blue-600 to-indigo-700", bookingLabel: "İletişim" },
+  galerici: { label: "Galerici", icon: Car,             color: "from-slate-600 to-zinc-700", bookingLabel: "İletişim" },
 };
 
-interface Biz { id: string; name: string; type: string; phone: string; address: string; description: string; logo_url: string; }
+const TYPE_ORDER = ["restoran", "yemek", "kafe", "market", "magaza", "doktor", "kuafor", "usta", "emlakci", "galerici"];
 
-async function getProviders(): Promise<Biz[]> {
-  try {
-    const res = await fetch(`${API}/businesses`, { next: { revalidate: 30 } });
-    const all: Biz[] = await res.json();
-    return all.filter((b) => ["kuafor", "usta", "doktor"].includes(b.type));
-  } catch { return []; }
+interface Biz {
+  id: string; name: string; type: string; phone: string;
+  address: string; description: string; logo_url: string;
 }
 
-export default async function Page() {
-  const providers = await getProviders();
+function detailHref(b: Biz) {
+  if (b.type === "restoran" || b.type === "kafe" || b.type === "yemek") return `/restoran/${b.id}`;
+  return `/hizmetler/${b.id}`;
+}
+
+export default function HizmetlerPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialTip = searchParams.get("tip") || "";
+  const [activeType, setActiveType] = useState(initialTip);
+  const [businesses, setBusinesses] = useState<Biz[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API}/businesses`)
+      .then(r => r.json())
+      .then(data => { setBusinesses(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const filtered = activeType ? businesses.filter(b => b.type === activeType) : businesses;
+
+  const handleType = (t: string) => {
+    setActiveType(t);
+    const params = new URLSearchParams(searchParams.toString());
+    if (t) params.set("tip", t); else params.delete("tip");
+    router.replace(`/hizmetler?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <>
-      <PageHeader title="Hizmetler" subtitle="Usta, kuaför, doktor ve daha fazlası" back="/kategoriler" />
+      <PageHeader title="Hizmetler & İşletmeler" subtitle="Gebze'deki tüm işletmeler" back="/kategoriler" />
       <div className="px-5 pb-6 pt-4">
-        {/* İşletme başvurusu CTA */}
         <Link href="/isletme/kayit"
           className="mb-4 flex items-center gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4 transition hover:bg-primary/10">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -41,23 +75,57 @@ export default async function Page() {
             <p className="text-xs text-muted-foreground">Gebzem'de yerinizi alın — ücretsiz başvuru</p>
           </div>
         </Link>
-        {providers.length === 0 ? (
+
+        {/* Tip filtresi */}
+        <div className="-mx-5 flex gap-2 overflow-x-auto scroll-pl-5 scroll-pr-5 pb-3 no-scrollbar">
+          <button
+            onClick={() => handleType("")}
+            className={`ml-5 shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+              activeType === "" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"
+            }`}
+          >
+            Tümü
+          </button>
+          {TYPE_ORDER.map(t => {
+            const cfg = TYPE_CONFIG[t];
+            return (
+              <button
+                key={t}
+                onClick={() => handleType(t)}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition last:mr-5 ${
+                  activeType === t ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"
+                }`}
+              >
+                {cfg.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/40" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Wrench className="h-12 w-12 text-muted-foreground/40" strokeWidth={1.5} />
-            <p className="mt-4 text-sm font-semibold">Henüz hizmet sağlayıcı eklenmemiş</p>
-            <p className="mt-1 text-xs text-muted-foreground">Hizmet sağlayıcılar platforma katıldıkça burada listelenecek.</p>
+            <p className="mt-4 text-sm font-semibold">Henüz işletme eklenmemiş</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {activeType ? `${TYPE_CONFIG[activeType]?.label} kategorisinde` : ""} işletmeler yakında listelenecek.
+            </p>
           </div>
         ) : (
           <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
-            {providers.map((p) => {
-              const cfg = typeConfig[p.type] || { label: p.type, color: "from-slate-500 to-gray-600" };
+            {filtered.map((p) => {
+              const cfg = TYPE_CONFIG[p.type] || { label: p.type, color: "from-slate-500 to-gray-600", icon: Wrench };
+              const Icon = cfg.icon;
               return (
-                <Link key={p.id} href={`/hizmetler/${p.id}`}
+                <Link key={p.id} href={detailHref(p)}
                   className="flex gap-4 rounded-2xl border border-border bg-card p-4 transition hover:shadow-md">
                   <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${cfg.color} text-white overflow-hidden`}>
                     {p.logo_url
                       ? <img src={p.logo_url} alt={p.name} className="h-full w-full object-cover" />
-                      : <Scissors className="h-7 w-7" strokeWidth={1.75} />
+                      : <Icon className="h-7 w-7" strokeWidth={1.75} />
                     }
                   </div>
                   <div className="min-w-0 flex-1">

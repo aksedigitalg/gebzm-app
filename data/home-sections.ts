@@ -13,6 +13,15 @@ import {
   MapPin,
   Bus,
   PhoneCall,
+  UtensilsCrossed,
+  Utensils,
+  Coffee,
+  Store,
+  ShoppingBag,
+  Stethoscope,
+  Scissors,
+  Building,
+  Car,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,7 +51,16 @@ export interface HomeCategory {
 
 export const homeCategories: HomeCategory[] = [
   { label: "Gebzem AI", icon: Sparkles, href: "/ai" },
-  { label: "Hizmetler", icon: Wrench, href: "/hizmetler" },
+  { label: "Restoran", icon: UtensilsCrossed, href: "/restoran" },
+  { label: "Yemek", icon: Utensils, href: "/yemek" },
+  { label: "Kafe", icon: Coffee, href: "/kafe" },
+  { label: "Market", icon: Store, href: "/market" },
+  { label: "Mağaza", icon: ShoppingBag, href: "/magaza" },
+  { label: "Doktor", icon: Stethoscope, href: "/hizmetler?tip=doktor" },
+  { label: "Kuaför", icon: Scissors, href: "/hizmetler?tip=kuafor" },
+  { label: "Usta", icon: Wrench, href: "/hizmetler?tip=usta" },
+  { label: "Emlakçı", icon: Building, href: "/emlakci" },
+  { label: "Galerici", icon: Car, href: "/galerici" },
   { label: "İlanlar", icon: Megaphone, href: "/ilanlar" },
   { label: "Harita", icon: MapPin, href: "/harita" },
   { label: "Ulaşım", icon: Bus, href: "/ulasim" },

@@ -12,7 +12,6 @@ import {
   Settings,
   Megaphone,
   Tag,
-  Image,
   QrCode,
 } from "lucide-react";
 import { PanelShell, type NavItem } from "@/components/panel/PanelShell";
@@ -35,8 +34,7 @@ function buildNav(typeId: string | undefined): NavItem[] {
     { href: "/isletme", label: "Dashboard", icon: LayoutDashboard },
     { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
     ...typeModules,
-    { href: "/isletme/galeri", label: "Galeri", icon: Image },
-    { href: "/isletme/qr-menu", label: "QR Menü", icon: QrCode },
+    ...(config.modules.includes("menu") ? [{ href: "/isletme/qr-menu", label: "QR Menü", icon: QrCode }] : []),
     { href: "/isletme/reklam", label: "Reklamlar", icon: Megaphone },
     { href: "/isletme/satis-ilanlari", label: "Satış İlanları", icon: Tag },
     { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase },

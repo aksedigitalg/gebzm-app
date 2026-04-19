@@ -21,9 +21,16 @@ const quickLinks = [
 ];
 
 const typeConfig: Record<string, { label: string; color: string }> = {
-  kuafor: { label: "Kuaför", color: "from-pink-500 to-rose-600" },
-  usta:   { label: "Usta",   color: "from-blue-500 to-indigo-600" },
-  doktor: { label: "Doktor", color: "from-emerald-500 to-teal-600" },
+  restoran: { label: "Restoran",        color: "from-orange-500 to-red-600" },
+  yemek:    { label: "Yemek Teslimat",  color: "from-rose-500 to-orange-500" },
+  kafe:     { label: "Kafe & Pastane",  color: "from-amber-500 to-orange-600" },
+  market:   { label: "Market",          color: "from-emerald-500 to-teal-600" },
+  magaza:   { label: "Mağaza",          color: "from-sky-500 to-blue-600" },
+  doktor:   { label: "Doktor & Klinik", color: "from-cyan-500 to-blue-600" },
+  kuafor:   { label: "Kuaför & Berber", color: "from-pink-500 to-fuchsia-600" },
+  usta:     { label: "Usta",            color: "from-amber-600 to-orange-700" },
+  emlakci:  { label: "Emlakçı",         color: "from-blue-600 to-indigo-700" },
+  galerici: { label: "Oto Galeri",      color: "from-slate-600 to-zinc-700" },
 };
 
 async function getRecentBusinesses() {
@@ -129,7 +136,7 @@ export default async function HomePage() {
               {businesses.map((b: { id: string; name: string; type: string; description: string; logo_url: string }) => {
                 const cfg = typeConfig[b.type] || { label: b.type, color: "from-slate-500 to-gray-600" };
                 return (
-                  <Link key={b.id} href={`/hizmetler/${b.id}`}
+                  <Link key={b.id} href={["restoran","yemek","kafe"].includes(b.type) ? `/restoran/${b.id}` : `/hizmetler/${b.id}`}
                     className={`group flex w-56 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:shadow-md first:ml-5 last:mr-5 lg:w-auto lg:first:ml-0 lg:last:mr-0`}>
                     <div className={`flex h-28 items-center justify-center bg-gradient-to-br ${cfg.color}`}>
                       {b.logo_url
