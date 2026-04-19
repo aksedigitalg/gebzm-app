@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Settings,
   Megaphone,
+  Tag,
 } from "lucide-react";
 import { PanelShell, type NavItem } from "@/components/panel/PanelShell";
 import {
@@ -33,6 +34,7 @@ function buildNav(typeId: string | undefined): NavItem[] {
     { href: "/isletme/profil", label: "İşletme Profilim", icon: Store },
     ...typeModules,
     { href: "/isletme/reklam", label: "Reklamlar", icon: Megaphone },
+    { href: "/isletme/satis-ilanlari", label: "Satış İlanları", icon: Tag },
     { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase },
     { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare },
     { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },
@@ -106,7 +108,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
     if (session?.token && isPublic) { router.replace("/isletme"); return; }
   }, [ready, session, isPublic, router]);
 
-  if (isPublic || pathname.startsWith("/isletme/sifre")) return <>{children}</>;
+  if (isPublic || pathname.startsWith("/isletme/sifre") || pathname.startsWith("/isletme/kayit")) return <>{children}</>;
 
   if (!ready || !session?.token) return <Spinner />;
 
