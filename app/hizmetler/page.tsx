@@ -1,4 +1,4 @@
-import { Wrench, Scissors, Stethoscope, MapPin } from "lucide-react";
+import { Wrench, Scissors, Stethoscope, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -30,6 +30,17 @@ export default async function Page() {
     <>
       <PageHeader title="Hizmetler" subtitle="Usta, kuaför, doktor ve daha fazlası" back="/kategoriler" />
       <div className="px-5 pb-6 pt-4">
+        {/* İşletme başvurusu CTA */}
+        <Link href="/isletme/kayit"
+          className="mb-4 flex items-center gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4 transition hover:bg-primary/10">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Plus className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-primary">İşletmenizi Ekleyin</p>
+            <p className="text-xs text-muted-foreground">Gebzem'de yerinizi alın — ücretsiz başvuru</p>
+          </div>
+        </Link>
         {providers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Wrench className="h-12 w-12 text-muted-foreground/40" strokeWidth={1.5} />

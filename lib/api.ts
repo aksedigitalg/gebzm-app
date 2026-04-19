@@ -207,6 +207,18 @@ export const api = {
     getReservations: () =>
       request<unknown[]>("/business/reservations", {}, getBusinessToken()),
 
+    getMyServices: () =>
+      request<unknown[]>("/business/services", {}, getBusinessToken()),
+
+    createService: (data: { name: string; description?: string; price?: number; duration?: string; category?: string }) =>
+      request<{ id: string }>("/business/services", { method: "POST", body: JSON.stringify(data) }, getBusinessToken()),
+
+    updateService: (id: string, data: Record<string, unknown>) =>
+      request(`/business/services/${id}`, { method: "PUT", body: JSON.stringify(data) }, getBusinessToken()),
+
+    deleteService: (id: string) =>
+      request(`/business/services/${id}`, { method: "DELETE" }, getBusinessToken()),
+
     updateReservationStatus: (resId: string, status: string) =>
       request(
         `/business/reservations/${resId}/status`,

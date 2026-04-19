@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-import { MapPin, Phone, Scissors } from "lucide-react";
+import { MapPin, Phone, Scissors, Tag, Clock } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { BusinessActions } from "@/components/BusinessActions";
 
@@ -16,19 +16,33 @@ const typeConfig: Record<string, { label: string; bookingLabel: string; color: s
 
 async function getBusiness(id: string) {
   try {
-    // Direkt ID ile çek — cache yok
     const res = await fetch(`${API}/businesses/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
 }
 
+async function getServices(id: string) {
+  try {
+    const res = await fetch(`${API}/businesses/${id}/services`, { cache: "no-store" });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
+
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const biz = await getBusiness(slug);
+  const [biz, services] = await Promise.all([getBusiness(slug), getServices(slug)]);
   if (!biz) notFound();
 
   const cfg = typeConfig[biz.type] || { label: biz.type, bookingLabel: "Randevu Al", color: "from-slate-500 to-gray-600" };
+  const grouped = (services as { id: string; name: string; description?: string; price?: number; duration?: string; category?: string }[])
+    .reduce<Record<string, typeof services>>((acc, s) => {
+      const c = s.category || "Hizmetler";
+      if (!acc[c]) acc[c] = [];
+      acc[c].push(s);
+      return acc;
+    }, {});
 
   return (
     <>
@@ -80,6 +94,37 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
             )}
           </div>
         </div>
+
+        {/* Hizmetler listesi */}
+        {Object.keys(grouped).length > 0 && (
+          <div className="space-y-4">
+            {Object.entries(grouped).map(([cat, svcs]) => (
+              <section key={cat}>
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{cat}</h3>
+                <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                  {(svcs as { id: string; name: string; description?: string; price?: number; duration?: string }[]).map((s, i) => (
+                    <div key={s.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${i < svcs.length - 1 ? "border-b border-border" : ""}`}>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{s.name}</p>
+                        {s.description && <p className="mt-0.5 text-xs text-muted-foreground">{s.description}</p>}
+                        {s.duration && (
+                          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <Clock className="h-3 w-3" />{s.duration}
+                          </p>
+                        )}
+                      </div>
+                      {(s.price ?? 0) > 0 && (
+                        <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                          {(s.price ?? 0).toLocaleString("tr-TR")} ₺
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
 
       <BusinessActions
