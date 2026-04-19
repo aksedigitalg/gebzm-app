@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Video, X, Loader2, Play } from "lucide-react";
+import { Camera, Video, X, Loader2, Play, Plus } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getBusinessSession } from "@/lib/panel-auth";
 
@@ -25,8 +25,7 @@ function getToken() {
   return getUser()?.token || "";
 }
 
-async function uploadFile(file: File, type: "photo" | "video", folder?: string): Promise<string> {
-  if (type === "video" && file.size > 500 * 1024 * 1024) throw new Error("Video max 500MB olabilir");
+async function uploadFile(file: File, folder?: string): Promise<string> {
   const body = new FormData();
   body.append("photo", file);
   const url = folder ? `${API}/upload?folder=${encodeURIComponent(folder)}` : `${API}/upload`;
@@ -44,7 +43,8 @@ export function MediaUpload({
   photos, videos = [], onPhotosChange, onVideosChange,
   maxPhotos = 20, maxVideos = 1, allowVideo = true, folder,
 }: Props) {
-  const [uploading, setUploading] = useState<"photo" | "video" | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [error, setError] = useState("");
   const photoRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
@@ -54,19 +54,20 @@ export function MediaUpload({
     if (!files.length) return;
     const remaining = maxPhotos - photos.length;
     if (remaining <= 0) { setError(`En fazla ${maxPhotos} fotoğraf eklenebilir`); return; }
-    setUploading("photo");
+    const toUpload = files.slice(0, remaining);
+    setUploading(true);
     setError("");
     try {
       const urls: string[] = [];
-      for (const file of files.slice(0, remaining)) {
-        const url = await uploadFile(file, "photo", folder);
+      for (const file of toUpload) {
+        const url = await uploadFile(file, folder);
         urls.push(url);
       }
       onPhotosChange([...photos, ...urls]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Yükleme hatası");
     } finally {
-      setUploading(null);
+      setUploading(false);
       if (photoRef.current) photoRef.current.value = "";
     }
   };
@@ -75,15 +76,17 @@ export function MediaUpload({
     const file = e.target.files?.[0];
     if (!file) return;
     if (videos.length >= maxVideos) { setError(`En fazla ${maxVideos} video eklenebilir`); return; }
-    setUploading("video");
+    if (file.size > 500 * 1024 * 1024) { setError("Video max 500MB olabilir"); return; }
+    setUploadingVideo(true);
     setError("");
     try {
-      const url = await uploadFile(file, "video", folder);
+      const url = await uploadFile(file, folder);
       if (onVideosChange) onVideosChange([...videos, url]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Video yükleme hatası");
     } finally {
-      setUploading(null);
+      setUploading(false);
+      setUploadingVideo(false);
       if (videoRef.current) videoRef.current.value = "";
     }
   };
@@ -93,55 +96,77 @@ export function MediaUpload({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {photos.map((url, i) => (
-          <div key={url} className="relative h-24 w-24 shrink-0">
-            <img src={url} alt="" className="h-full w-full rounded-xl object-cover border border-border" />
-            <button type="button" onClick={() => removePhoto(i)}
-              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow">
-              <X className="h-3 w-3" />
-            </button>
-            {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">Kapak</span>}
-          </div>
-        ))}
+      {/* Fotoğraf yükleme butonu — native file picker */}
+      {photos.length < maxPhotos && (
+        <label className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+          {uploading
+            ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
+            : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
+          }
+          <input
+            ref={photoRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            multiple
+            className="sr-only"
+            onChange={handlePhotoFiles}
+            disabled={uploading}
+          />
+        </label>
+      )}
 
-        {videos.map((url, i) => (
-          <div key={url} className="relative h-24 w-24 shrink-0">
-            <div className="flex h-full w-full items-center justify-center rounded-xl border border-border bg-black">
-              <Play className="h-8 w-8 text-white/80" />
+      {/* Video yükleme butonu */}
+      {allowVideo && videos.length < maxVideos && (
+        <label className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 dark:hover:bg-violet-950/40 ${uploadingVideo ? "pointer-events-none opacity-50" : ""}`}>
+          {uploadingVideo
+            ? <><Loader2 className="h-5 w-5 animate-spin" />Video yükleniyor...</>
+            : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
+          }
+          <input
+            ref={videoRef}
+            type="file"
+            accept="video/mp4,video/mov,video/avi,video/webm"
+            className="sr-only"
+            onChange={handleVideoFile}
+            disabled={uploadingVideo}
+          />
+        </label>
+      )}
+
+      {/* Önizlemeler */}
+      {(photos.length > 0 || videos.length > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {photos.map((url, i) => (
+            <div key={url} className="relative h-24 w-24 shrink-0">
+              <img src={url} alt="" className="h-full w-full rounded-xl object-cover border border-border" />
+              <button type="button" onClick={() => removePhoto(i)}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow">
+                <X className="h-3 w-3" />
+              </button>
+              {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">Kapak</span>}
             </div>
-            <button type="button" onClick={() => removeVideo(i)}
-              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow">
-              <X className="h-3 w-3" />
-            </button>
-            <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">VİDEO</span>
-          </div>
-        ))}
+          ))}
 
-        {photos.length < maxPhotos && (
-          <button type="button" onClick={() => photoRef.current?.click()} disabled={uploading === "photo"}
-            className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-50">
-            {uploading === "photo" ? <Loader2 className="h-6 w-6 animate-spin" /> : <><Camera className="h-6 w-6" /><span className="text-[10px] font-medium">Fotoğraf</span></>}
-          </button>
-        )}
-
-        {allowVideo && videos.length < maxVideos && (
-          <button type="button" onClick={() => videoRef.current?.click()} disabled={uploading === "video"}
-            className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition hover:border-violet-500 hover:text-violet-500 disabled:opacity-50">
-            {uploading === "video" ? <Loader2 className="h-6 w-6 animate-spin" /> : <><Video className="h-6 w-6" /><span className="text-[10px] font-medium">Video</span></>}
-          </button>
-        )}
-      </div>
+          {videos.map((url, i) => (
+            <div key={url} className="relative h-24 w-24 shrink-0">
+              <div className="flex h-full w-full items-center justify-center rounded-xl border border-border bg-black">
+                <Play className="h-8 w-8 text-white/80" />
+              </div>
+              <button type="button" onClick={() => removeVideo(i)}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow">
+                <X className="h-3 w-3" />
+              </button>
+              <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">VİDEO</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {error && <p className="text-xs text-red-600">{error}</p>}
       <p className="text-xs text-muted-foreground">
-        {photos.length}/{maxPhotos} fotoğraf
-        {allowVideo && ` · ${videos.length}/${maxVideos} video`}
-        {" · "}Resimler otomatik sıkıştırılır · Video max 100MB
+        Birden fazla fotoğraf aynı anda seçilebilir · WebP&apos;e dönüştürülür
+        {allowVideo && " · Video max 500MB"}
       </p>
-
-      <input ref={photoRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={handlePhotoFiles} />
-      {allowVideo && <input ref={videoRef} type="file" accept="video/mp4,video/mov,video/avi,video/webm" className="hidden" onChange={handleVideoFile} />}
     </div>
   );
 }
