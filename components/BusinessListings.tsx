@@ -35,6 +35,7 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [opMsg, setOpMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
@@ -54,13 +55,18 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
     }
   };
 
-  const setStatus = async (id: string, status: string) => {
-    setListings(p => p.map(l => l.id === id ? { ...l, status } : l));
+  const setStatus = async (id: string, newStatus: string) => {
+    const prev = listings.find(l => l.id === id)?.status ?? "active";
+    setListings(p => p.map(l => l.id === id ? { ...l, status: newStatus } : l));
     try {
-      await api.business.updateListingStatus(id, status);
+      await api.business.updateListingStatus(id, newStatus);
+      const labels: Record<string, string> = { active: "Aktif", pasif: "Pasif", satildi: "Satıldı" };
+      setOpMsg({ text: `İlan "${labels[newStatus] ?? newStatus}" yapıldı`, ok: true });
+      setTimeout(() => setOpMsg(null), 2500);
     } catch (e) {
-      setListings(p => p.map(l => l.id === id ? { ...l, status: status === "pasif" ? "active" : "pasif" } : l));
-      setError(e instanceof Error ? e.message : "Durum güncellenemedi");
+      setListings(p => p.map(l => l.id === id ? { ...l, status: prev } : l));
+      setOpMsg({ text: e instanceof Error ? e.message : "Durum güncellenemedi", ok: false });
+      setTimeout(() => setOpMsg(null), 3000);
     }
   };
 
@@ -92,6 +98,12 @@ export function BusinessListings({ title, emptyText, emptyBtn, headerIcon: Heade
 
   return (
     <div className="space-y-6">
+      {/* İşlem bildirimi */}
+      {opMsg && (
+        <div className={`fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all ${opMsg.ok ? "bg-emerald-600" : "bg-red-600"}`}>
+          {opMsg.text}
+        </div>
+      )}
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">{title}</h1>
