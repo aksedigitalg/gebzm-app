@@ -334,6 +334,10 @@ GET /businesses/:id/gallery (public)
 **DB:** `user_listings` genişledi + `listing_offers` + `listing_favorites`
 **Config:** `lib/listing-categories.ts` — 8 kategori, alt kategoriler, dinamik attributes
 **İşletme:** `/isletme/satis-ilanlari` — 4 adımlı wizard (Kategori→Detay→Foto→Önizleme)
+**Emlakci:** `/isletme/emlak-ilanlari` — gerçek ilan listesi + yeni ilan butonu (→ satis-ilanlari/yeni)
+**Galerici:** `/isletme/vasita-ilanlari` — gerçek ilan listesi + yeni ilan butonu (→ satis-ilanlari/yeni)
+**Sidebar:** emlakci/galerici için "Satış İlanları" gizlenir (kendi özel sayfaları var)
+**API:** `POST /business/listings` — işletme ilanları (emlakci/galerici seed'de de bu kullanılır)
 **Public:** `/ilanlar` + `/ilanlar/[id]` — Sadece API verisi, statik veri yok
 
 ---
