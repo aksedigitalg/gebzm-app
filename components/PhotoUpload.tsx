@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, X, Loader2, Plus } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getBusinessSession } from "@/lib/panel-auth";
@@ -22,8 +22,7 @@ function getToken() {
 }
 
 export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
-  const uid = useId();
-  const inputId = `photo-upload-${uid}`;
+  const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,12 +32,10 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
     if (!files.length) return;
     const remaining = max - photos.length;
     if (remaining <= 0) { setError(`En fazla ${max} fotoğraf eklenebilir`); return; }
-    const toUpload = files.slice(0, remaining);
-    setUploading(true);
-    setError("");
+    setUploading(true); setError("");
     try {
       const urls: string[] = [];
-      for (const file of toUpload) {
+      for (const file of files.slice(0, remaining)) {
         const form = new FormData();
         form.append("photo", file);
         const uploadUrl = folder ? `${API}/upload?folder=${encodeURIComponent(folder)}` : `${API}/upload`;
@@ -54,34 +51,33 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
       onChange([...photos, ...urls]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Yükleme hatası");
-    } finally {
-      setUploading(false);
-    }
+    } finally { setUploading(false); }
   };
-
-  const remove = (index: number) => onChange(photos.filter((_, i) => i !== index));
 
   return (
     <div className="space-y-3">
       {photos.length < max && (
-        <label
-          htmlFor={inputId}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}
-        >
-          {uploading
-            ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
-            : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
-          }
-          <input
-            id={inputId}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic"
-            multiple
-            className="sr-only"
-            onChange={handleFiles}
+        <>
+          <button
+            type="button"
             disabled={uploading}
+            onClick={() => inputRef.current?.click()}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+          >
+            {uploading
+              ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
+              : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
+            }
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleFiles}
           />
-        </label>
+        </>
       )}
 
       {photos.length > 0 && (
@@ -89,13 +85,11 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
           {photos.map((url, i) => (
             <div key={url} className="relative h-24 w-24 shrink-0">
               <img src={url} alt="" className="h-full w-full rounded-xl object-cover border border-border" />
-              <button type="button" onClick={() => remove(i)}
+              <button type="button" onClick={() => photos.length > 0 && onChange(photos.filter((_, idx) => idx !== i))}
                 className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow">
                 <X className="h-3 w-3" />
               </button>
-              {i === 0 && (
-                <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">Kapak</span>
-              )}
+              {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">Kapak</span>}
             </div>
           ))}
         </div>

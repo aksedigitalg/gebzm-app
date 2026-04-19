@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, Video, X, Loader2, Play, Plus } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getBusinessSession } from "@/lib/panel-auth";
@@ -25,6 +25,9 @@ function getToken() {
   return getUser()?.token || "";
 }
 
+let _uid = 0;
+function nextId() { return ++_uid; }
+
 async function uploadFile(file: File, folder?: string) {
   const body = new FormData();
   body.append("photo", file);
@@ -36,16 +39,17 @@ async function uploadFile(file: File, folder?: string) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Yükleme başarısız");
-  return { url: data.url as string, type: data.type as string | undefined, thumbnail: data.thumbnail as string | undefined };
+  return { url: data.url as string, thumbnail: data.thumbnail as string | undefined };
 }
 
 export function MediaUpload({
   photos, videos = [], onPhotosChange, onVideosChange,
   maxPhotos = 20, maxVideos = 1, allowVideo = true, folder,
 }: Props) {
-  const uid = useId();
-  const photoId = `photo-${uid}`;
-  const videoId = `video-${uid}`;
+  const photoId = useRef(`mu-photo-${nextId()}`).current;
+  const videoId = useRef(`mu-video-${nextId()}`).current;
+  const photoRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -58,21 +62,17 @@ export function MediaUpload({
     if (!files.length) return;
     const remaining = maxPhotos - photos.length;
     if (remaining <= 0) { setError(`En fazla ${maxPhotos} fotoğraf eklenebilir`); return; }
-    const toUpload = files.slice(0, remaining);
-    setUploading(true);
-    setError("");
+    setUploading(true); setError("");
     try {
       const urls: string[] = [];
-      for (const file of toUpload) {
-        const result = await uploadFile(file, folder);
-        urls.push(result.url);
+      for (const file of files.slice(0, remaining)) {
+        const r = await uploadFile(file, folder);
+        urls.push(r.url);
       }
       onPhotosChange([...photos, ...urls]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Yükleme hatası");
-    } finally {
-      setUploading(false);
-    }
+    } finally { setUploading(false); }
   };
 
   const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,17 +81,14 @@ export function MediaUpload({
     if (!file) return;
     if (videos.length >= maxVideos) { setError(`En fazla ${maxVideos} video eklenebilir`); return; }
     if (file.size > 500 * 1024 * 1024) { setError("Video max 500MB olabilir"); return; }
-    setUploadingVideo(true);
-    setError("");
+    setUploadingVideo(true); setError("");
     try {
-      const result = await uploadFile(file, folder);
-      if (onVideosChange) onVideosChange([...videos, result.url]);
-      if (result.thumbnail) setVideoThumbs(p => ({ ...p, [result.url]: result.thumbnail! }));
+      const r = await uploadFile(file, folder);
+      if (onVideosChange) onVideosChange([...videos, r.url]);
+      if (r.thumbnail) setVideoThumbs(p => ({ ...p, [r.url]: r.thumbnail! }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Video yükleme hatası");
-    } finally {
-      setUploadingVideo(false);
-    }
+    } finally { setUploadingVideo(false); }
   };
 
   const removePhoto = (i: number) => onPhotosChange(photos.filter((_, idx) => idx !== i));
@@ -103,47 +100,55 @@ export function MediaUpload({
 
   return (
     <div className="space-y-3">
-      {/* Fotoğraf — label>input garantili tüm tarayıcılarda native picker açar */}
+      {/* Fotoğraf — input[type=file] doğrudan tıklanır, accept uzantı bazlı */}
       {photos.length < maxPhotos && (
-        <label
-          htmlFor={photoId}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}
-        >
-          {uploading
-            ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
-            : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
-          }
+        <>
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => photoRef.current?.click()}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+          >
+            {uploading
+              ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
+              : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
+            }
+          </button>
           <input
+            ref={photoRef}
             id={photoId}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic"
+            accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
-            className="sr-only"
+            style={{ display: "none" }}
             onChange={handlePhotoFiles}
-            disabled={uploading}
           />
-        </label>
+        </>
       )}
 
       {/* Video */}
       {allowVideo && videos.length < maxVideos && (
-        <label
-          htmlFor={videoId}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 ${uploadingVideo ? "pointer-events-none opacity-50" : ""}`}
-        >
-          {uploadingVideo
-            ? <><Loader2 className="h-5 w-5 animate-spin" />Video yükleniyor...</>
-            : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
-          }
+        <>
+          <button
+            type="button"
+            disabled={uploadingVideo}
+            onClick={() => videoRef.current?.click()}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 ${uploadingVideo ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+          >
+            {uploadingVideo
+              ? <><Loader2 className="h-5 w-5 animate-spin" />Video yükleniyor...</>
+              : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
+            }
+          </button>
           <input
+            ref={videoRef}
             id={videoId}
             type="file"
-            accept="video/mp4,video/mov,video/avi,video/webm"
-            className="sr-only"
+            accept=".mp4,.mov,.avi,.webm"
+            style={{ display: "none" }}
             onChange={handleVideoFile}
-            disabled={uploadingVideo}
           />
-        </label>
+        </>
       )}
 
       {/* Önizlemeler */}
@@ -159,7 +164,6 @@ export function MediaUpload({
               {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">Kapak</span>}
             </div>
           ))}
-
           {videos.map((url, i) => {
             const thumb = videoThumbs[url];
             return (
