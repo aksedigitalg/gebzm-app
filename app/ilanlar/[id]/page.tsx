@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Clock, Heart, Phone, MessageCircle, Eye, Tag, User, Store, Share2, ChevronRight } from "lucide-react";
+import { MapPin, Clock, Phone, MessageCircle, Eye, Tag, User, Store, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { formatTRY, timeAgoTR } from "@/lib/format";
 
 export const dynamicParams = true;
@@ -40,20 +41,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <div className="pb-36">
         {/* Fotoğraf galerisi */}
         {l.photos?.length > 0 ? (
-          <div className="relative h-64 overflow-hidden bg-muted">
-            <img src={l.photos[0]} alt={l.title} className="h-full w-full object-cover" />
-            {l.photos.length > 1 && (
-              <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">
-                {l.photos.length} foto
-              </span>
-            )}
-            <button className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md">
-              <Heart className="h-4 w-4 text-slate-700" />
-            </button>
-            <button className="absolute right-3 top-[56px] flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md">
-              <Share2 className="h-4 w-4 text-slate-700" />
-            </button>
-          </div>
+          <PhotoGallery photos={l.photos} title={l.title} />
         ) : (
           <div className="flex h-52 items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
             <Tag className="h-16 w-16 text-muted-foreground/30" strokeWidth={1.25} />

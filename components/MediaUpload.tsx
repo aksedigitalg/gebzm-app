@@ -98,7 +98,7 @@ export function MediaUpload({
     <div className="space-y-3">
       {/* Fotoğraf yükleme butonu — native file picker */}
       {photos.length < maxPhotos && (
-        <label className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+        <div className={`relative flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}>
           {uploading
             ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
             : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
@@ -108,16 +108,16 @@ export function MediaUpload({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/heic"
             multiple
-            className="sr-only"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             onChange={handlePhotoFiles}
             disabled={uploading}
           />
-        </label>
+        </div>
       )}
 
       {/* Video yükleme butonu */}
       {allowVideo && videos.length < maxVideos && (
-        <label className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 dark:hover:bg-violet-950/40 ${uploadingVideo ? "pointer-events-none opacity-50" : ""}`}>
+        <div className={`relative flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 dark:hover:bg-violet-950/40 ${uploadingVideo ? "pointer-events-none opacity-50" : ""}`}>
           {uploadingVideo
             ? <><Loader2 className="h-5 w-5 animate-spin" />Video yükleniyor...</>
             : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
@@ -126,11 +126,11 @@ export function MediaUpload({
             ref={videoRef}
             type="file"
             accept="video/mp4,video/mov,video/avi,video/webm"
-            className="sr-only"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             onChange={handleVideoFile}
             disabled={uploadingVideo}
           />
-        </label>
+        </div>
       )}
 
       {/* Önizlemeler */}

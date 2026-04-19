@@ -64,7 +64,7 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
     <div className="space-y-3">
       {/* Native file picker — label wrapper garantili açılır */}
       {photos.length < max && (
-        <label className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+        <div className={`relative flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary ${uploading ? "pointer-events-none opacity-50" : ""}`}>
           {uploading
             ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
             : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
@@ -74,11 +74,11 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
             type="file"
             accept="image/jpeg,image/png,image/webp,image/heic"
             multiple
-            className="sr-only"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             onChange={handleFiles}
             disabled={uploading}
           />
-        </label>
+        </div>
       )}
 
       {/* Önizlemeler */}
