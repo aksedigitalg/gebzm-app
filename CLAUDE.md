@@ -291,4 +291,50 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-19 · Site anında açılıyor, WS mesajlaşma, bildirimler, takvim, şifre sıfırlama
+**Son Güncelleme:** 2026-04-19 · Restoran modülü (menü+galeri+QR) + tam ilan sistemi (8 kategori+wizard+teklif) + admin CRUD + AI yan panel
+
+---
+
+## 🍽️ Restoran Modülü
+
+**DB:** `menu_categories`, `menu_items`, `business_gallery`
+
+**API:**
+```
+GET/POST/PUT/DELETE /business/menu/categories
+GET/POST/PUT/DELETE /business/menu/items
+GET/POST/DELETE     /business/gallery
+GET /businesses/:id/menu  (public)
+GET /businesses/:id/gallery (public)
+```
+
+**Sayfalar:**
+- `/isletme/menu` — Kategori+ürün yönetimi (fotoğraflı, collapse)
+- `/isletme/galeri` — Fotoğraf galerisi
+- `/isletme/qr-menu` — QR kod (api.qrserver.com)
+- `/restoran` + `/restoran/[id]` — Public liste + detay (menü, galeri, rezervasyon)
+
+---
+
+## 📋 İlan Sistemi
+
+**DB:** `user_listings` genişledi + `listing_offers` + `listing_favorites`
+**Config:** `lib/listing-categories.ts` — 8 kategori, alt kategoriler, dinamik attributes
+**İşletme:** `/isletme/satis-ilanlari` — 4 adımlı wizard (Kategori→Detay→Foto→Önizleme)
+**Public:** `/ilanlar` + `/ilanlar/[id]` — Sadece API verisi, statik veri yok
+
+---
+
+## 🤖 AI Yan Panel
+
+- `AiPanel` component — sağdan açılır 400px panel
+- Sidebar AI butonuna tıklayınca navigate etmez, panel açılır
+
+---
+
+## 🔄 DB Reset
+
+```bash
+ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh"
+```
+**Test işletmesi:** Ahmet Kuaför — `info@ahmet.com` / `80148014`
