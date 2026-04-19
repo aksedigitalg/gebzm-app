@@ -90,13 +90,16 @@ export function NotificationBell({ token, endpoint }: Props) {
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => {
+      <button onClick={async () => {
         const opening = !open;
         setOpen(opening);
         if (opening) {
+          // Önce read-all yap, sonra yükle (badge geri gelmesin)
+          if (unread > 0) {
+            await markAllRead();
+            setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+          }
           load();
-          // Popup açılınca tümünü okundu yap
-          if (unread > 0) setTimeout(() => markAllRead(), 1000);
         }
       }}
         className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card transition hover:bg-muted">

@@ -17,15 +17,15 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import { useSearch } from "@/components/SearchProvider";
 
-const navItems: { href: string; label: string; icon: LucideIcon; search?: boolean }[] = [
+const navItems: { href: string; label: string; icon: LucideIcon; search?: boolean; ai?: boolean }[] = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "#", label: "Arama", icon: Search, search: true },
   { href: "/kategoriler", label: "Kategoriler", icon: LayoutGrid },
-  { href: "/ai", label: "Gebzem AI", icon: Sparkles },
+  { href: "#", label: "Gebzem AI", icon: Sparkles, ai: true },
   { href: "/kampanyalar", label: "Kampanyalar", icon: Tag },
 ];
 
-export function DesktopSidebar() {
+export function DesktopSidebar({ onAiClick }: { onAiClick?: () => void }) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const { open: openSearch } = useSearch();
@@ -57,7 +57,15 @@ export function DesktopSidebar() {
           const active = isActive(item.href);
           return (
             <div key={item.label}>
-              {item.search ? (
+              {item.ai ? (
+                <button type="button" onClick={onAiClick}
+                  className="group flex flex-col items-center gap-1 px-2 py-1">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-[12px] border border-border bg-background text-muted-foreground transition group-hover:border-primary/30 group-hover:bg-primary/5 group-hover:text-primary">
+                    <item.icon className="h-5 w-5" strokeWidth={1.75} />
+                  </div>
+                  <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground">{item.label}</span>
+                </button>
+              ) : item.search ? (
                 <button
                   type="button"
                   onClick={openSearch}
@@ -92,6 +100,7 @@ export function DesktopSidebar() {
                   </span>
                 </Link>
               )}
+
             </div>
           );
         })}

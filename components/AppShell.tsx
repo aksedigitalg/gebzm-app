@@ -1,19 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { DesktopTopBar } from "@/components/DesktopTopBar";
+import { AiPanel } from "@/components/AiPanel";
 import { isAuthRoute } from "@/lib/auth";
 import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
 
-// Sayfa geçişi — pathname değişince key değişir → fade-in tetiklenir
 function PageWrapper({ children, k }: { children: React.ReactNode; k: string }) {
   return <div key={k}>{children}</div>;
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [aiOpen, setAiOpen] = useState(false);
   const auth = isAuthRoute(pathname);
   const fullscreen = pathname.startsWith("/ai");
   const panel = isAdminRoute(pathname) || isBusinessRoute(pathname);
@@ -32,11 +34,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-[100dvh]">
         <div className="hidden lg:block">
-          <DesktopSidebar />
+          <DesktopSidebar onAiClick={() => setAiOpen(true)} />
         </div>
         <main className="flex min-w-0 flex-1 flex-col">
           <PageWrapper k={pathname}>{children}</PageWrapper>
         </main>
+        <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       </div>
     );
   }
@@ -44,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh]">
       <div className="hidden lg:block">
-        <DesktopSidebar />
+        <DesktopSidebar onAiClick={() => setAiOpen(true)} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="hidden lg:block">
@@ -57,6 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <BottomNav />
+      <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   );
 }
