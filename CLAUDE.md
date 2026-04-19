@@ -291,6 +291,12 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 5. **AuthProvider:** `hydrated` başlangıçta `typeof window !== "undefined"` — sync init
 6. **İşletme şifresi:** `is_approved=true` olmadan token verilmez
 7. **Manuel rebuild:** Stale build varsa `kill -9 $(ps aux | grep 'next build' | awk '{print $2}')`
+8. **Next.js prerender + forwardRef:** LucideIcon bileşenini (forwardRef) server/prerender boundary'den geçirmek yasak. Çözüm: ilgili `page.tsx`'e `export const dynamic = "force-dynamic"` ekle. Etkilenen sayfalar: `isletme/satis-ilanlari`, `isletme/emlak-ilanlari`, `isletme/vasita-ilanlari`
+9. **React bileşen kimliği:** Alt bileşeni (ör. SidebarFilters, ThumbStrip, VideoOverlay) üst bileşenin **içinde** tanımlamak yasak — her render'da yeni tip oluşur, React unmount/remount yapar, input'lar odak kaybeder. Her zaman dosya scope'unda tanımla.
+10. **Video URL tespiti:** `/\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/")` — CDN imzalı URL'lerde sorgu parametresi olabilir, `$` yerine `(\?|$)` kullan.
+11. **UpdateListingStatus Go API:** `RowsAffected()` mutlaka kontrol et. Kontrol edilmezse DB'de hiçbir şey güncellenmese bile 200 döner (silent failure). Handler: `/opt/gebzem-api/handlers/listings.go:249`
+12. **Opera dosya seçici:** `input.click()` ve şeffaf overlay Opera'da kendi download panelini açtırır. Çözüm: `window.showOpenFilePicker()` (File System Access API) → fallback `showPicker()` → fallback `click()` zinciri. Bkz. `MediaUpload.tsx` `openNativePicker()` fonksiyonu.
+13. **Push öncesi build kontrolü:** Her push öncesi yerel `npm run build` çalıştır. TypeScript hataları ve prerender hataları build'i kırar, siteyi çökertir.
 
 ---
 
@@ -301,10 +307,11 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 3. FCM Push Notification
 4. ~~Medya R2 upload~~ ✅ Cloudflare R2 entegre (`cdn.gebzem.app`)
 5. Flutter Native App
+6. Opera video thumbnail sorunu (CDN URL pattern değişirse `isVideo()` regex güncelle)
 
 ---
 
-**Son Güncelleme:** 2026-04-19 · Tüm 10 kategori sayfaları + evrensel işletme detay sayfası + galeri kaldırıldı + kapsamlı seed scripti + MediaUpload (foto+video)
+**Son Güncelleme:** 2026-04-20 · Galeri tam yeniden yazım + video inline oynatma + Opera dosya seçici + aktif/pasif düzeltme + ilan detay header kaldırıldı
 
 ---
 
@@ -339,8 +346,66 @@ GET /businesses/:id/gallery (public)
 **Sidebar:** emlakci/galerici için "Satış İlanları" gizlenir (kendi özel sayfaları var)
 **API:** `POST /business/listings` — işletme ilanları (emlakci/galerici seed'de de bu kullanılır)
 **Public:** `/ilanlar` + `/ilanlar/[id]` — Sadece API verisi, statik veri yok
+**İlan Detay (`/ilanlar/[id]`):** PageHeader yok — geri butonu galeri üzerine `absolute` konumlandırılmış blur daire
+
+### İlan Durum Yönetimi (BusinessListings.tsx)
+- **API:** `PUT /business/listings/:id/status` → `{ status: "active"|"pasif"|"satildi" }`
+- **Optimistic UI:** Durum değişimini anında gösterir, hata olursa önceki duruma döner
+- **Filtre otomatik geçiş:** Durum değişince aktif filtre yeni durumla uyuşmuyorsa otomatik "Tümü" seçilir (kullanıcı ilanı kaybetmez)
+- **Toast bildirimi:** `opMsg` state — yeşil başarı / kırmızı hata, 2.5-3sn
+
+### Video Desteği İlanlarda
+- `photos` alanına video URL'leri de kaydedilir (`photos: [...photos, ...videos]`)
+- Video URL tespiti: `/\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/")`
+- İlan kartlarında video thumbnail: `<video preload="metadata">` + Play ikonu overlay
 
 ---
+
+## 🖼️ Medya Sistemi
+
+### PhotoGallery (`components/PhotoGallery.tsx`)
+Tam özellikli galeri + lightbox bileşeni. **Bileşenler dosya scope'unda tanımlı** (VideoOverlay, ThumbStrip — asla içeride tanımlama).
+
+**Ana galeri davranışı:**
+- **Resim:** Tıklayınca lightbox açılır (zoom-in)
+- **Video:** Tıklayınca **inline** (lightbox açmadan) oynatılır. İlk frame `preload="metadata"` ile thumbnail olarak gösterilir
+- **Swipe:** 40px eşik, left/right — `onTouchStart` / `onTouchEnd`
+- **Geçiş animasyonu:** 160ms opacity + 28px translateX slide (sağa/sola yönlü)
+- **Video pozisyon hafızası:** `videoTimesRef.current[url]` — başka slide'a gidince pozisyon kaydedilir, geri dönünce `preload="metadata"` + `v.currentTime = savedTime` ile restore edilir
+
+**VideoOverlay davranışı:**
+- Tek tıkla toggle (play/pause) — tüm alan tıklanabilir
+- Oynamaya başlayınca kontrol ikonu 2sn sonra kaybolur
+- Duraklayınca ikon tekrar belirir
+- Unmount'ta `videoTimesRef` güncellenir (cleanup effect)
+
+**Lightbox:**
+- Sadece resimler için açılır (videolar inline oynar)
+- Header yok — her cihazda aynı floating butonlar: `MoreHorizontal` (sol) + sayaç (orta) + `X` (sağ)
+- `MoreHorizontal` dropdown: **İndir** (`<a download>`) + **Paylaş** (`navigator.share()` → clipboard fallback)
+- Prev/Next: `h-12 w-12` buton + `h-7 w-7` ikon
+- Lightbox'ta video gelince VideoOverlay gösterilir, ayrı `key={currentUrl}` ile mount edilir
+
+**ThumbStrip:**
+- `paddingBottom: calc(env(safe-area-inset-bottom, 0px) + 8px)` — iPhone notch uyumlu
+- Aktif slide: `ring-2 ring-white ring-offset-black`
+
+### PhotoUpload (`components/PhotoUpload.tsx`)
+Sadece fotoğraf yükleme — button + hidden input. `openNativePicker()` ile dosya seçimi.
+
+### MediaUpload (`components/MediaUpload.tsx`)
+Fotoğraf + video yükleme. Video max 500MB. Aynı `openNativePicker()` mekanizması.
+
+### Dosya Seçici — Opera / Tüm Tarayıcılar
+```ts
+// openNativePicker() zinciri:
+// 1. window.showOpenFilePicker() — File System Access API, OS native picker
+//    Opera/Chrome/Edge destekler. Opera kendi download panelini GÖSTERMEZ.
+// 2. AbortError ise: kullanıcı iptal etti, boş döner
+// 3. Diğer hata veya API yoksa: showPicker() dene
+// 4. showPicker() hata verirse: input.click() fallback
+```
+Input `position: fixed; top: -9999px` ile DOM'da ama görünmez.
 
 ## 🤖 AI Yan Panel
 
