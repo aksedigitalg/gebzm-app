@@ -219,7 +219,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                 )}
               </div>
             ) : (
-              <div className="grid gap-3 p-4 pb-24 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 p-4 pb-36 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map(l => {
                   const firstMedia = l.photos?.[0];
                   const isVideo = firstMedia ? isVideoUrl(firstMedia) : false;
@@ -280,7 +280,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
       </div>
 
       {/* Sabit alt toggle */}
-      <div className="pointer-events-none fixed bottom-[calc(76px+env(safe-area-inset-bottom,0px)+20px)] left-0 right-0 z-40 flex justify-center lg:bottom-5">
+      <div className="pointer-events-none fixed bottom-[calc(84px+env(safe-area-inset-bottom,0px)+24px)] left-0 right-0 z-40 flex justify-center lg:bottom-5">
         <div className="pointer-events-auto flex overflow-hidden rounded-full border border-border bg-card/95 shadow-2xl backdrop-blur">
           <button onClick={() => setView("liste")}
             className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold transition ${view === "liste" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>

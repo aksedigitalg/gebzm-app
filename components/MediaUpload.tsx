@@ -39,21 +39,24 @@ async function uploadFile(file: File, folder?: string) {
   return { url: data.url as string, thumbnail: data.thumbnail as string | undefined };
 }
 
-/* Şeffaf input overlay — tıklama doğrudan input'a gider, programmatic click yok */
-const OVERLAY: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  opacity: 0,
-  cursor: "pointer",
-  width: "100%",
-  height: "100%",
-  zIndex: 10,
-};
+function triggerPicker(inputRef: React.RefObject<HTMLInputElement>) {
+  const inp = inputRef.current;
+  if (!inp) return;
+  if ("showPicker" in inp) {
+    try {
+      (inp as unknown as { showPicker: () => void }).showPicker();
+      return;
+    } catch {}
+  }
+  inp.click();
+}
 
 export function MediaUpload({
   photos, videos = [], onPhotosChange, onVideosChange,
   maxPhotos = 20, maxVideos = 1, allowVideo = true, folder,
 }: Props) {
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [error, setError] = useState("");
@@ -103,39 +106,51 @@ export function MediaUpload({
 
   return (
     <div className="space-y-3">
-      {/* Fotoğraf butonu — input şeffaf overlay olarak üzerinde */}
+      {/* Fotoğraf butonu */}
       {photos.length < maxPhotos && (
-        <div className="relative">
-          <div className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+        <div>
+          <button
+            type="button"
+            onClick={() => triggerPicker(photoInputRef)}
+            disabled={uploading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none disabled:pointer-events-none disabled:opacity-50"
+          >
             {uploading
               ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
               : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{maxPhotos})</>
             }
-          </div>
+          </button>
           <input
+            ref={photoInputRef}
             type="file"
             accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
-            style={OVERLAY}
+            style={{ position: "fixed", top: -9999, left: -9999, opacity: 0 }}
             onChange={handlePhotoFiles}
             disabled={uploading}
           />
         </div>
       )}
 
-      {/* Video butonu — aynı overlay yaklaşımı */}
+      {/* Video butonu */}
       {allowVideo && videos.length < maxVideos && (
-        <div className="relative">
-          <div className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 select-none ${uploadingVideo ? "pointer-events-none opacity-50" : ""}`}>
+        <div>
+          <button
+            type="button"
+            onClick={() => triggerPicker(videoInputRef)}
+            disabled={uploadingVideo}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/30 py-3 text-sm font-medium text-violet-500 transition hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-violet-950/20 select-none disabled:pointer-events-none disabled:opacity-50"
+          >
             {uploadingVideo
               ? <><Loader2 className="h-5 w-5 animate-spin" />Video yükleniyor...</>
               : <><Video className="h-5 w-5" />Video Ekle (max 500MB)</>
             }
-          </div>
+          </button>
           <input
+            ref={videoInputRef}
             type="file"
             accept=".mp4,.mov,.avi,.webm"
-            style={OVERLAY}
+            style={{ position: "fixed", top: -9999, left: -9999, opacity: 0 }}
             onChange={handleVideoFile}
             disabled={uploadingVideo}
           />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, X, Loader2, Plus } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { getBusinessSession } from "@/lib/panel-auth";
@@ -21,17 +21,20 @@ function getToken() {
   return getUser()?.token || "";
 }
 
-const OVERLAY: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  opacity: 0,
-  cursor: "pointer",
-  width: "100%",
-  height: "100%",
-  zIndex: 10,
-};
+function triggerPicker(inputRef: React.RefObject<HTMLInputElement>) {
+  const inp = inputRef.current;
+  if (!inp) return;
+  if ("showPicker" in inp) {
+    try {
+      (inp as unknown as { showPicker: () => void }).showPicker();
+      return;
+    } catch {}
+  }
+  inp.click();
+}
 
 export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -66,18 +69,24 @@ export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
   return (
     <div className="space-y-3">
       {photos.length < max && (
-        <div className="relative">
-          <div className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+        <div>
+          <button
+            type="button"
+            onClick={() => triggerPicker(inputRef)}
+            disabled={uploading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 py-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:bg-primary/5 hover:text-primary select-none disabled:pointer-events-none disabled:opacity-50"
+          >
             {uploading
               ? <><Loader2 className="h-5 w-5 animate-spin" />Yükleniyor...</>
               : <><Camera className="h-5 w-5" /><Plus className="h-3.5 w-3.5 -ml-1" />Fotoğraf Seç ({photos.length}/{max})</>
             }
-          </div>
+          </button>
           <input
+            ref={inputRef}
             type="file"
             accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
-            style={OVERLAY}
+            style={{ position: "fixed", top: -9999, left: -9999, opacity: 0 }}
             onChange={handleFiles}
             disabled={uploading}
           />
