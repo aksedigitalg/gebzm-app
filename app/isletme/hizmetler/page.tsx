@@ -28,7 +28,10 @@ function Modal({ svc, onClose, onSave }: { svc?: Service | null; onClose: () => 
       if (svc?.id) await api.business.updateService(svc.id, d);
       else await api.business.createService(d);
       onSave(); onClose();
-    } catch (e) { setErr(e instanceof Error ? e.message : "Hata"); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Hata";
+      setErr(msg.includes("401") || msg.includes("403") ? "Oturum süresi dolmuş. Çıkış yapıp tekrar giriş yapın." : msg);
+    }
     finally { setLoading(false); }
   };
 
