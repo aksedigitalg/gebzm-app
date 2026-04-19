@@ -13,6 +13,7 @@ interface Props {
   maxPhotos?: number;
   maxVideos?: number;
   allowVideo?: boolean;
+  folder?: string;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
@@ -24,17 +25,12 @@ function getToken() {
   return getUser()?.token || "";
 }
 
-async function uploadFile(file: File, type: "photo" | "video"): Promise<string> {
-  let body: FormData;
-  if (type === "photo") {
-    body = new FormData();
-    body.append("photo", file);
-  } else {
-    if (file.size > 500 * 1024 * 1024) throw new Error("Video max 500MB olabilir");
-    body = new FormData();
-    body.append("photo", file);
-  }
-  const res = await fetch(`${API}/upload`, {
+async function uploadFile(file: File, type: "photo" | "video", folder?: string): Promise<string> {
+  if (type === "video" && file.size > 500 * 1024 * 1024) throw new Error("Video max 500MB olabilir");
+  const body = new FormData();
+  body.append("photo", file);
+  const url = folder ? `${API}/upload?folder=${encodeURIComponent(folder)}` : `${API}/upload`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${getToken()}` },
     body,
@@ -46,7 +42,7 @@ async function uploadFile(file: File, type: "photo" | "video"): Promise<string> 
 
 export function MediaUpload({
   photos, videos = [], onPhotosChange, onVideosChange,
-  maxPhotos = 20, maxVideos = 1, allowVideo = true,
+  maxPhotos = 20, maxVideos = 1, allowVideo = true, folder,
 }: Props) {
   const [uploading, setUploading] = useState<"photo" | "video" | null>(null);
   const [error, setError] = useState("");
@@ -63,7 +59,7 @@ export function MediaUpload({
     try {
       const urls: string[] = [];
       for (const file of files.slice(0, remaining)) {
-        const url = await uploadFile(file, "photo");
+        const url = await uploadFile(file, "photo", folder);
         urls.push(url);
       }
       onPhotosChange([...photos, ...urls]);
@@ -82,7 +78,7 @@ export function MediaUpload({
     setUploading("video");
     setError("");
     try {
-      const url = await uploadFile(file, "video");
+      const url = await uploadFile(file, "video", folder);
       if (onVideosChange) onVideosChange([...videos, url]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Video yükleme hatası");

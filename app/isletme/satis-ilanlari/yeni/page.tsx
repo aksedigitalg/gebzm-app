@@ -198,7 +198,7 @@ export default function YeniIlanPage() {
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">İlk fotoğraf kapak görseli olarak kullanılır. Max 20.</p>
           </div>
-          <MediaUpload photos={photos} videos={videos} onPhotosChange={setPhotos} onVideosChange={setVideos} maxPhotos={20} maxVideos={3} />
+          <MediaUpload photos={photos} videos={videos} onPhotosChange={setPhotos} onVideosChange={setVideos} maxPhotos={20} maxVideos={3} folder={`listings/${category || "diger"}`} />
           <button onClick={() => setStep("preview")}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
             Önizlemeye Geç <Eye className="h-4 w-4" />

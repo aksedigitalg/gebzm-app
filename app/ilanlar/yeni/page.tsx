@@ -130,7 +130,7 @@ function YeniIlanContent() {
         {/* Fotoğraflar */}
         <section className="rounded-2xl border border-border bg-card p-4">
           <h3 className="mb-3 text-sm font-semibold">Fotoğraflar</h3>
-          <PhotoUpload photos={photos} onChange={setPhotos} max={10} />
+          <PhotoUpload photos={photos} onChange={setPhotos} max={10} folder="listings/genel" />
         </section>
 
         {/* Temel bilgiler */}

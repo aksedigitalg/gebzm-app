@@ -9,6 +9,7 @@ interface Props {
   photos: string[];
   onChange: (photos: string[]) => void;
   max?: number;
+  folder?: string;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
@@ -21,7 +22,7 @@ function getToken() {
 }
 
 
-export function PhotoUpload({ photos, onChange, max = 10 }: Props) {
+export function PhotoUpload({ photos, onChange, max = 10, folder }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +33,8 @@ export function PhotoUpload({ photos, onChange, max = 10 }: Props) {
     try {
       const form = new FormData();
       form.append("photo", file);
-      const res = await fetch(`${API}/upload`, {
+      const uploadUrl = folder ? `${API}/upload?folder=${encodeURIComponent(folder)}` : `${API}/upload`;
+      const res = await fetch(uploadUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${getToken()}` },
         body: form,

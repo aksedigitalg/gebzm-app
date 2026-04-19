@@ -102,7 +102,7 @@ function ItemModal({ item, categories, onClose, onSave }: { item?: Item | null; 
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Fotoğraf</label>
-            <PhotoUpload photos={photos} onChange={setPhotos} max={1} />
+            <PhotoUpload photos={photos} onChange={setPhotos} max={1} folder="menu/items" />
           </div>
           {item && (
             <label className="flex items-center gap-2 cursor-pointer">

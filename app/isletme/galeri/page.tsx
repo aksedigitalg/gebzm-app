@@ -51,7 +51,7 @@ export default function GaleriPage() {
       {/* Yeni fotoğraf ekle */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <h3 className="mb-3 text-sm font-semibold">Fotoğraf Ekle</h3>
-        <PhotoUpload photos={newPhotos} onChange={setNewPhotos} max={10} />
+        <PhotoUpload photos={newPhotos} onChange={setNewPhotos} max={10} folder="businesses/gallery" />
         {newPhotos.length > 0 && (
           <div className="mt-3 space-y-2">
             <input value={caption} onChange={e => setCaption(e.target.value)} placeholder="Açıklama (opsiyonel)"
