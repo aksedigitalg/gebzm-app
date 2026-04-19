@@ -36,7 +36,7 @@ function buildNav(typeId: string | undefined): NavItem[] {
     ...typeModules,
     ...(config.modules.includes("menu") ? [{ href: "/isletme/qr-menu", label: "QR Menü", icon: QrCode }] : []),
     { href: "/isletme/reklam", label: "Reklamlar", icon: Megaphone },
-    { href: "/isletme/satis-ilanlari", label: "Satış İlanları", icon: Tag },
+    ...(["emlakci","galerici"].includes(typeId || "") ? [] : [{ href: "/isletme/satis-ilanlari", label: "Satış İlanları", icon: Tag }]),
     { href: "/isletme/ilanlar", label: "İş İlanlarım", icon: Briefcase },
     { href: "/isletme/mesajlar", label: "Müşteri Mesajları", icon: MessageSquare },
     { href: "/isletme/yorumlar", label: "Yorumlar", icon: Star },
