@@ -3,51 +3,67 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
+// Tıklandığı anda bar başlasın — sayfa gelince tamamlansın
 export function TopProgressBar() {
   const pathname = usePathname();
-  const [progress, setProgress] = useState(0);
+  const [width, setWidth] = useState(0);
   const [visible, setVisible] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevPathRef = useRef(pathname);
+  const prevPath = useRef(pathname);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  useEffect(() => {
-    if (pathname === prevPathRef.current) return;
-    prevPathRef.current = pathname;
+  const clearAll = () => { timers.current.forEach(clearTimeout); timers.current = []; };
 
-    // Başlat
+  const startBar = () => {
+    clearAll();
     setVisible(true);
-    setProgress(0);
+    setWidth(0);
+    timers.current.push(setTimeout(() => setWidth(20), 10));
+    timers.current.push(setTimeout(() => setWidth(50), 150));
+    timers.current.push(setTimeout(() => setWidth(75), 400));
+    timers.current.push(setTimeout(() => setWidth(90), 800));
+  };
 
-    // Hızlıca %80'e git
-    const t1 = setTimeout(() => setProgress(30), 10);
-    const t2 = setTimeout(() => setProgress(60), 100);
-    const t3 = setTimeout(() => setProgress(80), 300);
+  const finishBar = () => {
+    clearAll();
+    setWidth(100);
+    timers.current.push(setTimeout(() => {
+      setVisible(false);
+      setWidth(0);
+    }, 300));
+  };
 
-    // Tamamla
-    const t4 = setTimeout(() => {
-      setProgress(100);
-      timerRef.current = setTimeout(() => {
-        setVisible(false);
-        setProgress(0);
-      }, 300);
-    }, 500);
-
-    return () => {
-      clearTimeout(t1); clearTimeout(t2);
-      clearTimeout(t3); clearTimeout(t4);
-      if (timerRef.current) clearTimeout(timerRef.current);
+  // Link tıklandığında bar başlat
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest("a");
+      if (!target) return;
+      const href = target.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto") || href.startsWith("tel")) return;
+      if (target.getAttribute("target") === "_blank") return;
+      startBar();
     };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  // Pathname değişince tamamla
+  useEffect(() => {
+    if (pathname !== prevPath.current) {
+      prevPath.current = pathname;
+      finishBar();
+    }
   }, [pathname]);
 
-  if (!visible && progress === 0) return null;
+  if (!visible && width === 0) return null;
 
   return (
     <div
-      className="fixed left-0 top-0 z-[9999] h-[3px] bg-primary shadow-sm"
+      className="fixed left-0 top-0 z-[9999] h-[3px] bg-primary"
       style={{
-        width: `${progress}%`,
-        transition: progress === 0 ? "none" : progress === 100 ? "width 0.2s ease, opacity 0.3s ease" : "width 0.4s ease",
-        opacity: progress === 100 && !visible ? 0 : 1,
+        width: `${width}%`,
+        transition: width === 0 ? "none" : width === 100 ? "width 0.15s ease" : "width 0.5s ease",
+        boxShadow: "0 0 8px rgba(var(--color-primary), 0.6)",
       }}
     />
   );
