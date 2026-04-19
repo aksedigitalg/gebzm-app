@@ -33,8 +33,8 @@ sudo -u postgres psql -d gebzem_db << 'SQLEOF'
 -- pgcrypto gerekli
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Tüm test işletmelerini sil (varsa)
-DELETE FROM businesses WHERE email LIKE '%@test.com';
+-- Tüm işletmeleri sil (temiz başlangıç)
+DELETE FROM businesses;
 
 -- 10 işletme ekle
 INSERT INTO businesses (name, type, email, password_hash, phone, is_approved, is_active) VALUES
