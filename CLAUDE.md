@@ -299,7 +299,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 1. Google OAuth (admin toggle var, backend yok)
 2. Netgsm (ıslak imza bekliyor)
 3. FCM Push Notification
-4. Medya R2 upload (şu an `/var/www/uploads`)
+4. ~~Medya R2 upload~~ ✅ Cloudflare R2 entegre (`cdn.gebzem.app`)
 5. Flutter Native App
 
 ---
