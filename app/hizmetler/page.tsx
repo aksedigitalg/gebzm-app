@@ -25,7 +25,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; colo
   galerici: { label: "Galerici", icon: Car,             color: "from-slate-600 to-zinc-700", bookingLabel: "İletişim" },
 };
 
-const TYPE_ORDER = ["restoran", "yemek", "kafe", "market", "magaza", "doktor", "kuafor", "usta", "emlakci", "galerici"];
+const TYPE_ORDER = ["kuafor", "usta", "doktor", "market", "magaza", "restoran", "yemek", "kafe"];
 
 interface Biz {
   id: string; name: string; type: string; phone: string;
@@ -63,7 +63,7 @@ function HizmetlerContent() {
 
   return (
     <>
-      <PageHeader title="Hizmetler & İşletmeler" subtitle="Gebze'deki tüm işletmeler" back="/kategoriler" />
+      <PageHeader title="Hizmetler" subtitle="Kuaför, usta, doktor ve daha fazlası" back="/kategoriler" />
       <div className="px-5 pb-6 pt-4">
         <Link href="/isletme/kayit"
           className="mb-4 flex items-center gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4 transition hover:bg-primary/10">

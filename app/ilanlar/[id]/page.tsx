@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { MapPin, Clock, Heart, Phone, MessageCircle, Eye, Tag, User, Store, Share2 } from "lucide-react";
+import Link from "next/link";
+import { MapPin, Clock, Heart, Phone, MessageCircle, Eye, Tag, User, Store, Share2, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { formatTRY, timeAgoTR } from "@/lib/format";
 
@@ -16,12 +17,22 @@ async function getListing(id: string) {
   } catch { return null; }
 }
 
+async function getBusiness(id: string) {
+  try {
+    const res = await fetch(`${API}/businesses/${id}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
 export async function generateStaticParams() { return []; }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const l = await getListing(id);
   if (!l) notFound();
+
+  const biz = l.business_id ? await getBusiness(l.business_id) : null;
 
   return (
     <>
@@ -99,19 +110,42 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </div>
           )}
 
-          {/* Satıcı */}
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">İlan Sahibi</h3>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                {l.listing_type === "kurumsal" ? <Store className="h-5 w-5" /> : <User className="h-5 w-5" />}
-              </div>
-              <div>
-                <p className="text-sm font-semibold">{l.listing_type === "kurumsal" ? "Kurumsal Satıcı" : "Bireysel Satıcı"}</p>
-                <p className="text-[11px] text-muted-foreground">{new Date(l.created_at).toLocaleDateString("tr-TR")} tarihinde yayınlandı</p>
+          {/* İşletme Profili (business_id varsa) */}
+          {biz && (
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">İlan Sahibi İşletme</h3>
+              <Link href={`/hizmetler/${biz.id}`}
+                className="flex items-center gap-3 rounded-xl bg-muted/50 p-3 transition hover:bg-muted">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary to-secondary text-white">
+                  {biz.logo_url
+                    ? <img src={biz.logo_url} alt="" className="h-full w-full object-cover" />
+                    : <Store className="h-5 w-5" />
+                  }
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{biz.name}</p>
+                  {biz.address && <p className="text-xs text-muted-foreground truncate">{biz.address}</p>}
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            </div>
+          )}
+
+          {/* Bireysel satıcı */}
+          {!biz && (
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">İlan Sahibi</h3>
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  {l.listing_type === "kurumsal" ? <Store className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{l.listing_type === "kurumsal" ? "Kurumsal Satıcı" : "Bireysel Satıcı"}</p>
+                  <p className="text-[11px] text-muted-foreground">{new Date(l.created_at).toLocaleDateString("tr-TR")} tarihinde yayınlandı</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
