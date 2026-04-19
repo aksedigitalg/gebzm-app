@@ -26,7 +26,10 @@ export default function Page() {
 
   const load = () => api.business.getMyListings()
     .then(d => { setListings(d as Listing[]); setLoading(false); })
-    .catch(() => setLoading(false));
+    .catch(err => {
+      console.error("İlanlar yüklenemedi:", err);
+      setLoading(false);
+    });
 
   useEffect(() => { load(); }, []);
 
