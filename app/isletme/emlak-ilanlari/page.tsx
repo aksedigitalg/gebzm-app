@@ -1,3 +1,4 @@
+"use client";
 import { Home } from "lucide-react";
 import { BusinessListings } from "@/components/BusinessListings";
 

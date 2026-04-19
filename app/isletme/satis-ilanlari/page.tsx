@@ -1,3 +1,4 @@
+"use client";
 import { Tag } from "lucide-react";
 import { BusinessListings } from "@/components/BusinessListings";
 
