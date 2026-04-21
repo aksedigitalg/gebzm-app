@@ -303,6 +303,8 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 15. **IlanlarMap XSS:** Leaflet `.setContent()` HTML string alır — `${l.title}` gibi user verisi doğrudan template'e GİRMEZ. `esc()` helper'ı kullan (`components/IlanlarMap.tsx`). React auto-escape burada çalışmaz.
 16. **Go API go build PATH:** SSH ile build yaparken `export PATH=/usr/local/go/bin:/usr/bin:/bin` gerekli. Aksi halde "go: command not found" hatası alınır.
 17. **Nested ternary Turbopack:** Next.js 16 Turbopack ile derin iç içe ternary (`a ? b ? c : d : e`) parse hatası verebilir. `{condition && <JSX/>}` kalıbına çevir.
+18. **Tab focus refresh — iki katman:** `IlanlarClient` (liste) + `TabFocusRefresher` (detay) — ikisi de `visibilitychange` → `router.refresh()`. Detay sayfası server component olduğu için ayrı client component gerekti (`components/TabFocusRefresher.tsx`). Yeni sayfalara eklenecekse aynı component kullanılabilir.
+19. **GetListingByID vs UpdateListing status farkı:** `GetListingByID` (public L236) `status='active'` — pasif ilanlar 404. `UpdateListing` (authenticated L263) `status!='deleted'` — pasif ilan sahibi kendi ilanını düzenleyebilir. Karıştırma.
 
 ---
 
@@ -321,7 +323,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-21 · Cache sistemi yeniden yazıldı + ilan güvenlik açıkları kapatıldı + rate limiting + DB index + pagination
+**Son Güncelleme:** 2026-04-22 · Pasif ilan 404 + tab focus refresh (liste + detay)
 
 ---
 
@@ -358,6 +360,26 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 - Watermark (govips hazır, istediğinde açılır)
 - Sunucu 4GB upgrade
 - Cloudflare Images
+
+---
+
+### 2026-04-22 — Pasif İlan 404 + Tab Focus Refresh
+
+**Sorun tespiti:** Pasif ilan detay sayfası yine de görünüyordu (F5 yoksa), sekme değiştirince liste yenilenmiyordu.
+
+**Çözümler:**
+
+| # | Yapılan | Dosya/Yer |
+|---|---|---|
+| 1 | `GetListingByID` → `status='active'` koşulu — pasif/satıldı ilanlar public endpoint'ten 404 döner | Go API `handlers/listings.go:236` |
+| 2 | `IlanlarClient` → `visibilitychange` listener — sekme değiştirince `router.refresh()` | `components/IlanlarClient.tsx` |
+| 3 | `TabFocusRefresher` client component — `/ilanlar/[id]` detay sayfasına eklendi | `components/TabFocusRefresher.tsx` |
+
+**Kritik not — UpdateListing sorunu:** Python replace sırasında `UpdateListing` handler'ı (L263) da yanlışlıkla `status='active'` olarak değişti, fark edilip geri alındı. `UpdateListing` `status!='deleted'` olmalı (pasif ilanı da düzenleyebilmeli).
+
+**Tab focus davranışı (beklenen):**
+- Detay sayfasındayken diğer sekmede ilan pasif yapılır → detay sekmesine tıklanır → `visibilitychange` → `router.refresh()` → server `status='active'` koşuluna takılır → `notFound()` → 404 ✓
+- Liste sayfasında aynı mekanizma zaten vardı (IlanlarClient), detay sayfasına da eklendi
 
 ---
 

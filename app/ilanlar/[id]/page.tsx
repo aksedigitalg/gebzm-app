@@ -3,6 +3,7 @@ import Link from "next/link";
 import { MapPin, Clock, Phone, MessageCircle, Eye, Tag, User, Store, ChevronRight, ChevronLeft } from "lucide-react";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { formatTRY, timeAgoTR } from "@/lib/format";
+import TabFocusRefresher from "@/components/TabFocusRefresher";
 
 export const dynamicParams = true;
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   return (
     <>
+      <TabFocusRefresher />
       <div className="pb-36">
         {/* Fotoğraf galerisi — floating geri butonu */}
         <div className="relative">
