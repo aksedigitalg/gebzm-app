@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { MapPin, Clock, Tag, SlidersHorizontal, X, Map, List, Search, RotateCcw, Play } from "lucide-react";
@@ -146,10 +146,32 @@ function SidebarFilters({ filters, setF, togglePT, resetFilters }: SidebarProps)
   );
 }
 
+const PAGE_SIZE = 24;
+const API = process.env.NEXT_PUBLIC_API_URL || "https://gebzem.app/api/v1";
+
 export function IlanlarClient({ initialListings }: { initialListings: Listing[] }) {
   const [view, setView] = useState<"liste" | "harita">("liste");
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [mobileFilter, setMobileFilter] = useState(false);
+  const [allListings, setAllListings] = useState<Listing[]>(initialListings);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initialListings.length >= PAGE_SIZE);
+  const pageRef = useRef(1);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const next = pageRef.current + 1;
+      const res = await fetch(`${API}/listings?page=${next}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data: Listing[] = await res.json();
+      setAllListings(prev => [...prev, ...data]);
+      setHasMore(data.length >= PAGE_SIZE);
+      pageRef.current = next;
+    } catch { /* sessiz hata */ } finally {
+      setLoadingMore(false);
+    }
+  }, []);
 
   const setF = useCallback((k: keyof Filters, v: string | string[]) =>
     setFilters(p => ({ ...p, [k]: v })), []);
@@ -164,7 +186,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
 
   const resetFilters = useCallback(() => setFilters(EMPTY), []);
 
-  const filtered = useMemo(() => initialListings.filter(l => {
+  const filtered = useMemo(() => allListings.filter(l => {
     if (filters.category && l.category !== filters.category) return false;
     if (filters.priceMin && l.price < +filters.priceMin) return false;
     if (filters.priceMax && l.price > +filters.priceMax) return false;
@@ -175,7 +197,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
       if (!l.title.toLowerCase().includes(q) && !(l.location || "").toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [initialListings, filters]);
+  }), [allListings, filters]);
 
   return (
     <div className="-mx-5 -mb-6 lg:-mx-6 lg:-my-4">
@@ -206,21 +228,27 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
 
         {/* İçerik */}
         <div className="min-w-0 flex-1" style={{ height: "calc(100dvh - 97px)", overflowY: view === "liste" ? "auto" : "hidden" }}>
-          {view === "liste" ? (
-            filtered.length === 0 ? (
-              <div className="flex flex-col items-center py-20 text-center">
-                <Tag className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
-                <p className="mt-4 text-sm font-semibold">Sonuç bulunamadı</p>
-                {isActive(filters) && (
-                  <button onClick={resetFilters}
-                    className="mt-4 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground">
-                    Filtreleri Sıfırla
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid gap-3 p-4 pb-36 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map(l => {
+          {view === "harita" && (
+            <div className="h-full w-full">
+              <IlanlarMapDynamic listings={filtered} />
+            </div>
+          )}
+          {view === "liste" && filtered.length === 0 && (
+            <div className="flex flex-col items-center py-20 text-center">
+              <Tag className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
+              <p className="mt-4 text-sm font-semibold">Sonuç bulunamadı</p>
+              {isActive(filters) && (
+                <button onClick={resetFilters}
+                  className="mt-4 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground">
+                  Filtreleri Sıfırla
+                </button>
+              )}
+            </div>
+          )}
+          {view === "liste" && filtered.length > 0 && (
+            <>
+              <div className="grid gap-3 p-4 pb-4 sm:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((l) => {
                   const firstMedia = l.photos?.[0];
                   const isVideo = firstMedia ? isVideoUrl(firstMedia) : false;
                   return (
@@ -270,11 +298,18 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                   );
                 })}
               </div>
-            )
-          ) : (
-            <div className="h-full w-full">
-              <IlanlarMapDynamic listings={filtered} />
-            </div>
+              {hasMore && !isActive(filters) && (
+                <div className="flex justify-center pb-36 pt-2">
+                  <button onClick={loadMore} disabled={loadingMore}
+                    className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-semibold transition hover:border-primary hover:text-primary disabled:opacity-50">
+                    {loadingMore ? "Yükleniyor..." : "Daha Fazla Yükle"}
+                  </button>
+                </div>
+              )}
+              {!hasMore && allListings.length > PAGE_SIZE && (
+                <p className="pb-36 pt-2 text-center text-xs text-muted-foreground">Tüm ilanlar yüklendi</p>
+              )}
+            </>
           )}
         </div>
       </div>

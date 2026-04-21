@@ -28,6 +28,15 @@ function formatPrice(p: number) {
   return p.toLocaleString("tr-TR") + " ₺";
 }
 
+function esc(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export default function IlanlarMap({ listings }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -79,9 +88,9 @@ export default function IlanlarMap({ listings }: Props) {
             ? `<img src="${l.photos[0]}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />`
             : `<div style="width:100%;height:80px;background:#f1f5f9;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:24px;">🏷️</div>`
           }
-          <p style="font-size:12px;font-weight:600;margin:0 0 4px;line-height:1.4;">${l.title}</p>
+          <p style="font-size:12px;font-weight:600;margin:0 0 4px;line-height:1.4;">${esc(l.title)}</p>
           <p style="font-size:14px;font-weight:700;color:#0e7490;margin:0 0 8px;">${formatPrice(l.price)}</p>
-          ${l.location ? `<p style="font-size:11px;color:#64748b;margin:0 0 8px;">📍 ${l.location}</p>` : ""}
+          ${l.location ? `<p style="font-size:11px;color:#64748b;margin:0 0 8px;">📍 ${esc(l.location)}</p>` : ""}
           <a href="/ilanlar/${l.id}" style="
             display:block;text-align:center;background:#0e7490;color:white;
             text-decoration:none;border-radius:20px;padding:6px 12px;
