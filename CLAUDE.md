@@ -130,8 +130,8 @@ PUT      /business/notifications/read-all
 ```
 GET /businesses              → Onaylı işletmeler (?type=kuafor)
 GET /businesses/:id          → Tekil işletme (cache: no-store)
-GET /listings                → İlanlar (?category=...)
-GET /listings/:id
+GET /listings                → İlanlar (?category=..., ?page=N)
+GET /listings/:id            → Sadece status='active' ilanlar (pasif → 404)
 ```
 
 ### Admin (`/admin/*` — Bearer token)
@@ -159,7 +159,7 @@ GET      /admin/listings
 | `conversations` | user_id, business_id, last_message, updated_at |
 | `messages` | conversation_id, sender_id, sender_role (user/business), text, photo_url |
 | `reservations` | user_id, business_id, date (DATE), time (TIME), type (rezervasyon/randevu), status (bekliyor/onaylandi/reddedildi/tamamlandi), party_size, note |
-| `user_listings` | user_id, title, category, price, photos (text[]), features (jsonb), status |
+| `user_listings` | user_id, title, category, price, photos (text[]), features (jsonb), status (active/pasif/satildi/deleted) |
 | `settings` | key, value |
 | `otp_codes` | phone, code, expires_at, used |
 | `notifications` | user_id, business_id, admin (bool), type, title, body, is_read |
@@ -184,17 +184,16 @@ app/
 ├── kayit/page.tsx            # Yeni kullanıcı kayıt
 ├── hizmetler/page.tsx        # CLIENT — tüm 10 tip, ?tip= filtre
 ├── hizmetler/[slug]/page.tsx # force-dynamic — TÜM tipler için evrensel detay
-│                             #   food (restoran/yemek/kafe) → menü göster
-│                             #   service (kuafor/usta/doktor) → hizmetler göster
-├── restoran/page.tsx         # revalidate=30, sadece restoran tipi
+├── restoran/page.tsx         # revalidate=30
 ├── restoran/[id]/page.tsx    # force-dynamic, galeri YOK, sadece menü
-├── yemek/page.tsx            # revalidate=30, yemek teslimat listesi
-├── kafe/page.tsx             # revalidate=30, kafe listesi
-├── market/page.tsx           # revalidate=30, market listesi
-├── magaza/page.tsx           # revalidate=30, mağaza listesi
-├── emlakci/page.tsx          # revalidate=30, emlakçı listesi
-├── galerici/page.tsx         # revalidate=30, oto galeri listesi
-├── ilanlar/page.tsx          # revalidate=30
+├── yemek/page.tsx            # revalidate=30
+├── kafe/page.tsx             # revalidate=30
+├── market/page.tsx           # revalidate=30
+├── magaza/page.tsx           # revalidate=30
+├── emlakci/page.tsx          # revalidate=30
+├── galerici/page.tsx         # revalidate=30
+├── ilanlar/page.tsx          # force-dynamic + cache:"no-store"
+├── ilanlar/[id]/page.tsx     # force-dynamic — TabFocusRefresher dahil, geri butonu YOK
 ├── profil/                   # mesajlar(2-panel), rezervasyonlarim(takvim), ilanlarim
 ├── isletme/
 │   ├── giris/page.tsx        # Email+Şifre (tip seçimi yok)
@@ -214,6 +213,10 @@ components/
 ├── BusinessActions.tsx       # CTA: login yoksa /giris'e yönlendir
 ├── NotificationBell.tsx      # Bell: açılınca otomatik read-all
 ├── MessageSheet.tsx          # Mesaj popup (navigate etmez)
+├── PhotoGallery.tsx          # Galeri + lightbox (VideoOverlay, ThumbStrip dosya scope'unda)
+├── TabFocusRefresher.tsx     # visibilitychange → router.refresh() (detay sayfaları için)
+├── IlanlarClient.tsx         # İlan listesi — filtre, pagination, tab focus sync
+├── IlanlarMap.tsx            # Leaflet harita — XSS korumalı esc() helper
 ├── panel/PanelShell.tsx      # notifToken + notifEndpoint prop'ları
 └── ...
 
@@ -233,11 +236,11 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 ```
 
 **Sayfa stratejileri:**
-- `force-dynamic` + `cache:"no-store"` → `/ilanlar`, hizmetler/[slug], restoran/[id], ilanlar/[id] (taze veri zorunlu)
-- `revalidate=30` + `revalidatePath` tetikleyici → ana sayfa, /restoran, /yemek, /kafe, /market, /magaza, /emlakci, /galerici (ISR + on-demand)
+- `force-dynamic` + `cache:"no-store"` → `/ilanlar`, `/ilanlar/[id]`, `hizmetler/[slug]`, `restoran/[id]`
+- `revalidate=30` + `revalidatePath` tetikleyici → ana sayfa, /restoran, /yemek, /kafe, /market, /magaza, /emlakci, /galerici
 - Static → diğer tüm sayfalar (giris, kayit, hakkında vb.)
 
-**Router Cache:** `next.config.ts` → `staleTimes: { static: 0, dynamic: 0 }` — tarayıcı/telefon sayfaları hafızada tutmaz, her navigasyonda sunucudan alır.
+**Router Cache:** `next.config.ts` → `staleTimes: { static: 0, dynamic: 0 }` — tarayıcı/telefon sayfaları hafızada tutmaz.
 
 **AuthProvider:** Korumalı olmayan sayfalarda (/, /hizmetler, vb.) spinner YOK — anında açılır.
 
@@ -294,17 +297,21 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 6. **İşletme şifresi:** `is_approved=true` olmadan token verilmez
 7. **Manuel rebuild:** Stale build varsa `kill -9 $(ps aux | grep 'next build' | awk '{print $2}')`
 8. **Next.js prerender + forwardRef:** LucideIcon bileşenini (forwardRef) server/prerender boundary'den geçirmek yasak. Çözüm: ilgili `page.tsx`'e `export const dynamic = "force-dynamic"` ekle. Etkilenen sayfalar: `isletme/satis-ilanlari`, `isletme/emlak-ilanlari`, `isletme/vasita-ilanlari`
-9. **React bileşen kimliği:** Alt bileşeni (ör. SidebarFilters, ThumbStrip, VideoOverlay) üst bileşenin **içinde** tanımlamak yasak — her render'da yeni tip oluşur, React unmount/remount yapar, input'lar odak kaybeder. Her zaman dosya scope'unda tanımla.
-10. **Video URL tespiti:** `/\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/")` — CDN imzalı URL'lerde sorgu parametresi olabilir, `$` yerine `(\?|$)` kullan.
-11. **UpdateListingStatus Go API:** `RowsAffected()` mutlaka kontrol et. Kontrol edilmezse DB'de hiçbir şey güncellenmese bile 200 döner (silent failure). Handler: `/opt/gebzem-api/handlers/listings.go`
-12. **Opera dosya seçici:** `input.click()` ve şeffaf overlay Opera'da kendi download panelini açtırır. Çözüm: `window.showOpenFilePicker()` (File System Access API) → fallback `showPicker()` → fallback `click()` zinciri. Bkz. `MediaUpload.tsx` `openNativePicker()` fonksiyonu.
-13. **Push öncesi build kontrolü:** Her push öncesi yerel `npm run build` çalıştır. TypeScript hataları ve prerender hataları build'i kırar, siteyi çökertir.
-14. **İlan cache — üç katman:** (a) Next.js Router Cache → `staleTimes:{static:0}` ile sıfır. (b) Next.js Full Route Cache → `revalidatePath` ile anında temizlenir. (c) Tarayıcı HTTP Cache → `/ilanlar` `force-dynamic` olduğu için `Cache-Control: no-store` döner. Üçü birlikte çalışmadığında ilan "yok olur". Yeni bir sayfa eklenince mutlaka `/api/revalidate` route'una da ekle.
-15. **IlanlarMap XSS:** Leaflet `.setContent()` HTML string alır — `${l.title}` gibi user verisi doğrudan template'e GİRMEZ. `esc()` helper'ı kullan (`components/IlanlarMap.tsx`). React auto-escape burada çalışmaz.
-16. **Go API go build PATH:** SSH ile build yaparken `export PATH=/usr/local/go/bin:/usr/bin:/bin` gerekli. Aksi halde "go: command not found" hatası alınır.
-17. **Nested ternary Turbopack:** Next.js 16 Turbopack ile derin iç içe ternary (`a ? b ? c : d : e`) parse hatası verebilir. `{condition && <JSX/>}` kalıbına çevir.
-18. **Tab focus refresh — iki katman:** `IlanlarClient` (liste) + `TabFocusRefresher` (detay) — ikisi de `visibilitychange` → `router.refresh()`. Detay sayfası server component olduğu için ayrı client component gerekti (`components/TabFocusRefresher.tsx`). Yeni sayfalara eklenecekse aynı component kullanılabilir.
-19. **GetListingByID vs UpdateListing status farkı:** `GetListingByID` (public L236) `status='active'` — pasif ilanlar 404. `UpdateListing` (authenticated L263) `status!='deleted'` — pasif ilan sahibi kendi ilanını düzenleyebilir. Karıştırma.
+9. **React bileşen kimliği:** Alt bileşeni (ör. SidebarFilters, ThumbStrip, VideoOverlay) üst bileşenin **içinde** tanımlamak yasak — her render'da yeni tip oluşur, React unmount/remount yapar. Her zaman dosya scope'unda tanımla.
+10. **Video URL tespiti:** `/\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/")` — CDN imzalı URL'lerde sorgu parametresi olabilir.
+11. **UpdateListingStatus Go API:** `RowsAffected()` mutlaka kontrol et — aksi halde silent 200 döner.
+12. **Opera dosya seçici:** `window.showOpenFilePicker()` → fallback `showPicker()` → fallback `click()` zinciri. Bkz. `MediaUpload.tsx`.
+13. **Push öncesi build kontrolü:** Her push öncesi `npm run build` çalıştır. TypeScript/prerender hataları siteyi çökertir.
+14. **İlan cache — üç katman:** (a) Router Cache → `staleTimes:{static:0}` (b) Full Route Cache → `revalidatePath` (c) HTTP Cache → `force-dynamic` ile `no-store`. Üçü birlikte çalışmazsa ilan "yok olur".
+15. **IlanlarMap XSS:** Leaflet `.setContent()` raw HTML alır — user verisi `esc()` ile escape edilmeli. React auto-escape burada çalışmaz.
+16. **Go API go build PATH:** `export PATH=/usr/local/go/bin:/usr/bin:/bin` — SSH'ta olmadan "go: command not found".
+17. **Nested ternary Turbopack:** Derin iç içe ternary parse hatası verir. `{condition && <JSX/>}` kalıbına çevir.
+18. **Tab focus refresh — iki katman:** `IlanlarClient` (liste) + `TabFocusRefresher` (detay sayfaları) — ikisi de `visibilitychange` → `router.refresh()`. Yeni server component sayfalara eklenecekse `<TabFocusRefresher />` import et.
+19. **GetListingByID vs UpdateListing status:** `GetListingByID` (public) `status='active'` — pasif ilanlar 404. `UpdateListing` (authenticated) `status!='deleted'` — ilan sahibi pasif ilanını düzenleyebilir. Karıştırma.
+20. **IlanlarClient initialListings sync:** `useState(initialListings)` sadece ilk render'da çalışır. `router.refresh()` yeni prop getirince `useEffect` ile `allListings` state'i senkronize edilir. Bu olmadan tab focus refresh liste güncellemez.
+21. **Video thumbnail — preload:** `preload="metadata"` iOS Safari'de çalışmaz (siyah kare). `preload="auto" muted` kullan — ilk kare tüm tarayıcılarda yüklenir. VideoOverlay'de ses açık olabilir (muted=false).
+22. **ThumbStrip swipe çakışması:** ThumbStrip scroll hareketi parent `onTouchStart/End`'e bubble eder → ana galeri swipe tetiklenir. `onTouchStart/End={e => e.stopPropagation()}` zorunlu.
+23. **PhotoGallery autoPlay:** `goTo(idx, startPlay=true)` ile video thumbnail'a tıklanınca `VideoOverlay` `autoPlay` prop ile mount edilir → `loadedmetadata` sonrası `play()` çağrılır. Tek tıkla oynatma böyle sağlanır.
 
 ---
 
@@ -315,71 +322,68 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 3. FCM Push Notification
 4. ~~Medya R2 upload~~ ✅ Cloudflare R2 entegre (`cdn.gebzem.app`)
 5. Flutter Native App
-6. Opera video thumbnail sorunu (CDN URL pattern değişirse `isVideo()` regex güncelle)
-7. UptimeRobot kurulumu — ücretsiz, `gebzem.app` ekle (site çökünce bildirim)
-8. Watermark — ilan fotoğraflarına "gebzem.app" — govips Label API hazır, istediğinde açılır
-9. Sunucu 4GB RAM upgrade — 50K+ kullanıcıya hazırlık (DigitalOcean resize, 5 dk)
-10. Cloudflare Images — signed/expiring URL'ler
+6. UptimeRobot kurulumu — ücretsiz, `gebzem.app` ekle
+7. Watermark — ilan fotoğraflarına "gebzem.app" — govips Label API hazır
+8. Sunucu 4GB RAM upgrade — 50K+ kullanıcıya hazırlık (DigitalOcean resize, 5 dk)
+9. Cloudflare Images — signed/expiring URL'ler
+10. Server-side video thumbnail üretimi — upload sırasında ilk kare PNG olarak kaydedilir
 
 ---
 
-**Son Güncelleme:** 2026-04-22 · Pasif ilan 404 + tab focus refresh (liste + detay)
+**Son Güncelleme:** 2026-04-22 · Galeri yeniden yazıldı + tab focus sync + video thumbnail + pasif ilan 404
 
 ---
 
-## 📅 Sohbet Geçmişi / Yapılan İşler
+## 📅 Günlük Raporlar
+
+---
 
 ### 2026-04-21 — Cache, Güvenlik, Performans Sprint
 
-**Sorun tespiti:** Kullanıcı ilan ekleyince sayfada görünmüyor, sayfalar arası gezerken kayboluyor, refresh yapınca geliyor — 3 ayrı cache katmanı çakışıyordu.
+**Sorun:** Kullanıcı ilan ekleyince sayfada görünmüyor, sayfalar arası gezerken kayboluyor — 3 ayrı cache katmanı çakışıyordu.
 
-**Çözümler:**
-
-| # | Yapılan | Dosya/Yer |
+| # | Yapılan | Dosya |
 |---|---|---|
 | 1 | `staleTimes:{static:0,dynamic:0}` → Router Cache sıfırlandı | `next.config.ts` |
-| 2 | `/ilanlar` → `force-dynamic` + `cache:"no-store"` → tarayıcı cache'i yok | `app/ilanlar/page.tsx` |
-| 3 | `/api/revalidate` — 10 sayfa eklendi (sadece `/` ve `/hizmetler` vardı) | `app/api/revalidate/route.ts` |
-| 4 | `CreateListing` + `UpdateListing` + `DeleteListing` + `UpdateListingStatus` → hepsi revalidate tetikliyor | Go API `handlers/listings.go` |
-| 5 | Rate limiting: genel 200 req/dk, auth 10 req/dk (IP bazlı) | Go API `main.go` + `routes/routes.go` |
-| 6 | View counter dedup: `shouldIncrementView()` — IP+ilan başına 6 saatte 1 artış | Go API `handlers/listings.go` |
+| 2 | `/ilanlar` → `force-dynamic` + `cache:"no-store"` | `app/ilanlar/page.tsx` |
+| 3 | `/api/revalidate` — 10 sayfa eklendi | `app/api/revalidate/route.ts` |
+| 4 | Tüm ilan mutasyonları revalidate tetikliyor | Go API `handlers/listings.go` |
+| 5 | Rate limiting: genel 200 req/dk, auth 10 req/dk | Go API `main.go` + `routes/routes.go` |
+| 6 | View counter dedup: IP+ilan başına 6 saatte 1 artış | Go API `handlers/listings.go` |
 | 7 | Input validation: başlık ≤150, açıklama ≤3000, fiyat 0–999M | Go API `handlers/listings.go` |
-| 8 | Harita popup XSS kapatıldı — `esc()` HTML escape helper | `components/IlanlarMap.tsx` |
-| 9 | Pagination: 24'er ilan, "Daha Fazla Yükle" butonu | `components/IlanlarClient.tsx` |
+| 8 | Harita popup XSS kapatıldı — `esc()` helper | `components/IlanlarMap.tsx` |
+| 9 | Pagination: 24'er ilan, "Daha Fazla Yükle" | `components/IlanlarClient.tsx` |
 | 10 | TopProgressBar: aynı sayfaya 2. tıkta 1.5sn sonra kapanır | `components/TopProgressBar.tsx` |
-| 11 | DB index: 9 kritik index eklendi (listings, businesses, messages, notifications, reservations) | PostgreSQL doğrudan |
-
-**False positive olarak doğrulananlar (sorun yok):**
-- Backend auth: Go middleware tüm endpoint'leri koruyor
-- ID manipulation: `WHERE id=$n AND user_id=$n` zaten var
-- CSRF: Bearer token yapısı engelliyor
-- Dosya tipi: `allowedExt` map'i Go API'de mevcut
-
-**Kalan / sonraya bırakılan:**
-- UptimeRobot (kullanıcı kendisi kuracak)
-- Watermark (govips hazır, istediğinde açılır)
-- Sunucu 4GB upgrade
-- Cloudflare Images
+| 11 | DB index: 9 kritik index (listings, businesses, messages...) | PostgreSQL |
 
 ---
 
-### 2026-04-22 — Pasif İlan 404 + Tab Focus Refresh
+### 2026-04-22 — Pasif İlan 404 + Tab Focus Refresh + Galeri Yeniden Yazımı
 
-**Sorun tespiti:** Pasif ilan detay sayfası yine de görünüyordu (F5 yoksa), sekme değiştirince liste yenilenmiyordu.
+**Sabah:** Pasif ilan sorunu ve tab focus refresh implementasyonu.
 
-**Çözümler:**
-
-| # | Yapılan | Dosya/Yer |
+| # | Yapılan | Dosya |
 |---|---|---|
-| 1 | `GetListingByID` → `status='active'` koşulu — pasif/satıldı ilanlar public endpoint'ten 404 döner | Go API `handlers/listings.go:236` |
-| 2 | `IlanlarClient` → `visibilitychange` listener — sekme değiştirince `router.refresh()` | `components/IlanlarClient.tsx` |
-| 3 | `TabFocusRefresher` client component — `/ilanlar/[id]` detay sayfasına eklendi | `components/TabFocusRefresher.tsx` |
+| 1 | `GetListingByID` → `status='active'` — pasif ilanlar public'te 404 | Go API `handlers/listings.go:236` |
+| 2 | `IlanlarClient` → `visibilitychange` → `router.refresh()` | `components/IlanlarClient.tsx` |
+| 3 | `TabFocusRefresher` component — ilan detay sayfasına eklendi | `components/TabFocusRefresher.tsx` |
+| 4 | `IlanlarClient` `useEffect` initialListings sync — tab refresh liste güncelliyor | `components/IlanlarClient.tsx` |
 
-**Kritik not — UpdateListing sorunu:** Python replace sırasında `UpdateListing` handler'ı (L263) da yanlışlıkla `status='active'` olarak değişti, fark edilip geri alındı. `UpdateListing` `status!='deleted'` olmalı (pasif ilanı da düzenleyebilmeli).
+**Öğleden sonra:** Galeri UX sorunları giderildi.
 
-**Tab focus davranışı (beklenen):**
-- Detay sayfasındayken diğer sekmede ilan pasif yapılır → detay sekmesine tıklanır → `visibilitychange` → `router.refresh()` → server `status='active'` koşuluna takılır → `notFound()` → 404 ✓
-- Liste sayfasında aynı mekanizma zaten vardı (IlanlarClient), detay sayfasına da eklendi
+| # | Sorun | Çözüm | Dosya |
+|---|---|---|---|
+| 5 | Video thumbnail mobilde siyah kare | `preload="auto" muted` — ilk kare yüklenir | `PhotoGallery.tsx` |
+| 6 | Videoya 2 kez tıklamak gerekiyor | `goTo(i, startPlay=true)` + `autoPlay` prop → tek tıkla | `PhotoGallery.tsx` |
+| 7 | ThumbStrip scroll ana galeriyi tetikliyor | `onTouchStart/End stopPropagation` | `PhotoGallery.tsx` |
+| 8 | Geri butonu galeri üstünde (mobile UX kötü) | `<Link ChevronLeft>` kaldırıldı | `app/ilanlar/[id]/page.tsx` |
+| 9 | Ana galeri sol/sağ oklar swipe ile çakışıyor | Oklar kaldırıldı (lightbox'takiler kaldı) | `PhotoGallery.tsx` |
+| 10 | Geçiş animasyonu UX'i yavaşlatıyor | 160ms opacity/transform kaldırıldı, direkt geçiş | `PhotoGallery.tsx` |
+| 11 | Thumbnail küçük (56px) + ortalı değil | `h-20 w-20` (80px) + `justify-center` + auto-scroll | `PhotoGallery.tsx` |
+| 12 | Lightbox açılınca sayfa kayıyor | scrollbar compensation (`paddingRight`) | `PhotoGallery.tsx` |
+| 13 | Lightbox kapat butonu sadece X ikonu | X + "Kapat" yazısı eklendi | `PhotoGallery.tsx` |
+
+**Teknik tuzak:** Python `replace` ile Go API'de `status!='deleted'` → `status='active'` yaparken `UpdateListing` handler'ı da yanlışlıkla değişti. `UpdateListing` `status!='deleted'` olmalı (pasif ilan sahibi düzenleyebilmeli), sadece `GetListingByID` `status='active'` olmalı. Fark edilip düzeltildi.
 
 ---
 
@@ -406,96 +410,84 @@ GET /businesses/:id/gallery (public)
 
 ## 📋 İlan Sistemi
 
-**DB:** `user_listings` genişledi + `listing_offers` + `listing_favorites`
+**DB:** `user_listings` + `listing_offers` + `listing_favorites`
 **Config:** `lib/listing-categories.ts` — 8 kategori, alt kategoriler, dinamik attributes
 **İşletme:** `/isletme/satis-ilanlari` — 4 adımlı wizard (Kategori→Detay→Foto→Önizleme)
-**Emlakci:** `/isletme/emlak-ilanlari` — gerçek ilan listesi + yeni ilan butonu (→ satis-ilanlari/yeni)
-**Galerici:** `/isletme/vasita-ilanlari` — gerçek ilan listesi + yeni ilan butonu (→ satis-ilanlari/yeni)
-**Sidebar:** emlakci/galerici için "Satış İlanları" gizlenir (kendi özel sayfaları var)
-**API:** `POST /business/listings` — işletme ilanları (emlakci/galerici seed'de de bu kullanılır)
+**Emlakci:** `/isletme/emlak-ilanlari` — gerçek ilan listesi + yeni ilan butonu
+**Galerici:** `/isletme/vasita-ilanlari` — gerçek ilan listesi + yeni ilan butonu
+**Sidebar:** emlakci/galerici için "Satış İlanları" gizlenir
 **Public:** `/ilanlar` + `/ilanlar/[id]` — Sadece API verisi, statik veri yok
-**İlan Detay (`/ilanlar/[id]`):** PageHeader yok — geri butonu galeri üzerine `absolute` konumlandırılmış blur daire
+**İlan Detay:** Geri butonu YOK — browser native back kullanılır
 
-### İlan Durum Yönetimi (BusinessListings.tsx)
+### İlan Durum Yönetimi
 - **API:** `PUT /business/listings/:id/status` → `{ status: "active"|"pasif"|"satildi" }`
-- **Optimistic UI:** Durum değişimini anında gösterir, hata olursa önceki duruma döner
-- **Filtre otomatik geçiş:** Durum değişince aktif filtre yeni durumla uyuşmuyorsa otomatik "Tümü" seçilir (kullanıcı ilanı kaybetmez)
-- **Toast bildirimi:** `opMsg` state — yeşil başarı / kırmızı hata, 2.5-3sn
+- **Optimistic UI:** Hata olursa önceki duruma döner
+- **Filtre otomatik geçiş:** Durum değişince uyuşmayan filtre "Tümü"ye geçer
+- **Toast:** `opMsg` state — yeşil başarı / kırmızı hata, 2.5-3sn
 
 ### İlan Cache Mimarisi (KRİTİK)
 `/ilanlar` sayfası `force-dynamic` + `cache: "no-store"` — tarayıcı hiç cache'lemiyor.
-Go API'de tüm ilan mutasyonları (oluştur/güncelle/sil/durum) `revalidatePath` tetikler:
+Go API'de tüm ilan mutasyonları revalidate tetikler:
 ```go
 go func() { http.Get("http://localhost:3000/api/revalidate") }()
 ```
-`/api/revalidate` route'u 10 sayfayı temizler: `/`, `/ilanlar`, `/hizmetler`, `/restoran`, `/yemek`, `/kafe`, `/market`, `/magaza`, `/emlakci`, `/galerici`
-
-**next.config.ts:** `staleTimes: { static: 0, dynamic: 0 }` — Router Cache devre dışı, her navigasyonda sunucudan taze veri.
+`/api/revalidate` 10 sayfayı temizler: `/`, `/ilanlar`, `/hizmetler`, `/restoran`, `/yemek`, `/kafe`, `/market`, `/magaza`, `/emlakci`, `/galerici`
 
 ### İlan Güvenliği (Go API)
-- **Sahiplik kontrolü:** Her UPDATE/DELETE `WHERE id=$n AND user_id=$n` (veya business_id) — başkasının ilanı düzenlenemez
-- **Input validation:** başlık max 150 karakter, açıklama max 3.000 karakter, fiyat 0–999.999.999 TL
-- **Rate limiting:** genel 200 istek/dk, auth endpointleri 10 istek/dk (IP bazlı, fiber limiter)
-- **View counter dedup:** `shouldIncrementView(ip, listingID)` — IP+ilan başına 6 saatte 1 artış, bellek 10K üzerinde temizlenir
+- **Sahiplik:** `WHERE id=$n AND user_id=$n` (veya business_id)
+- **Validation:** başlık ≤150, açıklama ≤3000, fiyat 0–999.999.999
+- **Rate limit:** genel 200/dk, auth 10/dk (IP bazlı)
+- **View dedup:** IP+ilan başına 6 saatte 1 artış
 
 ### İlan Pagination
-- Backend: `GET /listings?page=N` — limit 24 sabit, Go API'de hardcoded
-- Frontend (`IlanlarClient`): `allListings` state + `loadMore()` → `?page=N` fetch, append
-- "Daha Fazla Yükle" butonu: filtre aktifken gizlenir (client-side filter tüm yüklü datayı tarar)
-- `hasMore = son sayfa 24 ilan döndürdüyse true`
-
-### Video Desteği İlanlarda
-- `photos` alanına video URL'leri de kaydedilir (`photos: [...photos, ...videos]`)
-- Video URL tespiti: `/\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/")`
-- İlan kartlarında video thumbnail: `<video preload="metadata">` + Play ikonu overlay
+- Backend: `GET /listings?page=N` — limit 24
+- Frontend: `allListings` state + `loadMore()` → append
+- "Daha Fazla Yükle": filtre aktifken gizlenir
 
 ---
 
 ## 🖼️ Medya Sistemi
 
 ### PhotoGallery (`components/PhotoGallery.tsx`)
-Tam özellikli galeri + lightbox bileşeni. **Bileşenler dosya scope'unda tanımlı** (VideoOverlay, ThumbStrip — asla içeride tanımlama).
+Tam özellikli galeri + lightbox. **Tüm alt bileşenler (VideoOverlay, ThumbStrip) dosya scope'unda tanımlı.**
 
 **Ana galeri davranışı:**
-- **Resim:** Tıklayınca lightbox açılır (zoom-in)
-- **Video:** Tıklayınca **inline** (lightbox açmadan) oynatılır. İlk frame `preload="metadata"` ile thumbnail olarak gösterilir
-- **Swipe:** 40px eşik, left/right — `onTouchStart` / `onTouchEnd`
-- **Geçiş animasyonu:** 160ms opacity + 28px translateX slide (sağa/sola yönlü)
-- **Video pozisyon hafızası:** `videoTimesRef.current[url]` — başka slide'a gidince pozisyon kaydedilir, geri dönünce `preload="metadata"` + `v.currentTime = savedTime` ile restore edilir
+- **Resim:** Tıkla → lightbox açılır
+- **Video:** Tıkla → `autoPlay=true` ile `VideoOverlay` mount edilir → tek tıkla oynatılır
+- **Thumbnail:** `preload="auto" muted` — ilk kare tüm tarayıcılarda görünür
+- **Swipe:** 40px eşik — ThumbStrip swipe'ı parent'a bubble ETMEZ (`stopPropagation`)
+- **Geçiş:** Animasyon YOK — direkt swap
+- **Oklar:** Ana galeride YOK — sadece swipe. Lightbox'ta var.
 
 **VideoOverlay davranışı:**
-- Tek tıkla toggle (play/pause) — tüm alan tıklanabilir
-- Oynamaya başlayınca kontrol ikonu 2sn sonra kaybolur
-- Duraklayınca ikon tekrar belirir
-- Unmount'ta `videoTimesRef` güncellenir (cleanup effect)
+- `autoPlay` prop: mount'ta `loadedmetadata` sonrası `play()` çağrılır
+- Tek tıkla toggle (play/pause)
+- 2sn sonra kontrol ikonu kaybolur, duraklatınca geri gelir
+- Unmount'ta `videoTimesRef` güncellenir (pozisyon hafızası)
+
+**ThumbStrip davranışı:**
+- `h-20 w-20` (80px), `justify-center`, `overflow-x-auto`
+- Aktif item: `scrollIntoView({ behavior: "instant", inline: "center" })`
+- `onTouchStart/End stopPropagation` — ana galeri swipe'ını tetiklemez
 
 **Lightbox:**
-- Sadece resimler için açılır (videolar inline oynar)
-- Header yok — her cihazda aynı floating butonlar: `MoreHorizontal` (sol) + sayaç (orta) + `X` (sağ)
-- `MoreHorizontal` dropdown: **İndir** (`<a download>`) + **Paylaş** (`navigator.share()` → clipboard fallback)
-- Prev/Next: `h-12 w-12` buton + `h-7 w-7` ikon
-- Lightbox'ta video gelince VideoOverlay gösterilir, ayrı `key={currentUrl}` ile mount edilir
+- Sadece resimler için (video inline oynar)
+- Sol üst: `MoreHorizontal` → İndir / Paylaş dropdown
+- Orta: sayaç
+- Sağ üst: X + "Kapat" butonu
+- Sol/Sağ: prev/next oklar
+- Açılırken scrollbar compensation (`paddingRight = scrollbarWidth`)
 
-**ThumbStrip:**
-- `paddingBottom: calc(env(safe-area-inset-bottom, 0px) + 8px)` — iPhone notch uyumlu
-- Aktif slide: `ring-2 ring-white ring-offset-black`
+### MediaUpload / PhotoUpload
+- `openNativePicker()` zinciri: `showOpenFilePicker()` → `showPicker()` → `click()` fallback
+- Opera'da native OS picker açılır, download panel tetiklenmez
 
-### PhotoUpload (`components/PhotoUpload.tsx`)
-Sadece fotoğraf yükleme — button + hidden input. `openNativePicker()` ile dosya seçimi.
+### Tab Focus Refresh
+- `TabFocusRefresher` (`components/TabFocusRefresher.tsx`): `visibilitychange` → `router.refresh()`
+- `/ilanlar/[id]` sayfasına eklenmiş — sekme değiştirince pasif ilan otomatik 404 verir
+- `IlanlarClient`: `visibilitychange` + `useEffect(initialListings sync)` — liste de güncellenir
 
-### MediaUpload (`components/MediaUpload.tsx`)
-Fotoğraf + video yükleme. Video max 500MB. Aynı `openNativePicker()` mekanizması.
-
-### Dosya Seçici — Opera / Tüm Tarayıcılar
-```ts
-// openNativePicker() zinciri:
-// 1. window.showOpenFilePicker() — File System Access API, OS native picker
-//    Opera/Chrome/Edge destekler. Opera kendi download panelini GÖSTERMEZ.
-// 2. AbortError ise: kullanıcı iptal etti, boş döner
-// 3. Diğer hata veya API yoksa: showPicker() dene
-// 4. showPicker() hata verirse: input.click() fallback
-```
-Input `position: fixed; top: -9999px` ile DOM'da ama görünmez.
+---
 
 ## 🤖 AI Yan Panel
 
