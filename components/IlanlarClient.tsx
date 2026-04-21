@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { MapPin, Clock, Tag, SlidersHorizontal, X, Map, List, Search, RotateCcw, Play } from "lucide-react";
@@ -150,6 +151,7 @@ const PAGE_SIZE = 24;
 const API = process.env.NEXT_PUBLIC_API_URL || "https://gebzem.app/api/v1";
 
 export function IlanlarClient({ initialListings }: { initialListings: Listing[] }) {
+  const router = useRouter();
   const [view, setView] = useState<"liste" | "harita">("liste");
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [mobileFilter, setMobileFilter] = useState(false);
@@ -157,6 +159,14 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialListings.length >= PAGE_SIZE);
   const pageRef = useRef(1);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [router]);
 
   const loadMore = useCallback(async () => {
     setLoadingMore(true);
