@@ -17,10 +17,12 @@ function VideoOverlay({
   src,
   savedTime,
   onSaveTime,
+  autoPlay = false,
 }: {
   src: string;
   savedTime: number;
   onSaveTime: (t: number) => void;
+  autoPlay?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -29,14 +31,20 @@ function VideoOverlay({
   const cbRef = useRef(onSaveTime);
   useEffect(() => { cbRef.current = onSaveTime; }, [onSaveTime]);
 
+  /* restore saved time on mount, then autoPlay if requested */
   useEffect(() => {
     const v = ref.current;
-    if (!v || savedTime <= 0) return;
-    const go = () => { v.currentTime = savedTime; };
-    if (v.readyState >= 1) go(); else v.addEventListener("loadedmetadata", go, { once: true });
+    if (!v) return;
+    const start = () => {
+      if (savedTime > 0) v.currentTime = savedTime;
+      if (autoPlay) v.play().catch(() => {});
+    };
+    if (v.readyState >= 1) start();
+    else v.addEventListener("loadedmetadata", start, { once: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* save time on unmount */
   useEffect(() => () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     if (ref.current) cbRef.current(ref.current.currentTime);
@@ -64,7 +72,8 @@ function VideoOverlay({
         src={src}
         className="h-full w-full object-contain"
         playsInline
-        preload="metadata"
+        muted={false}
+        preload="auto"
         onPlay={() => { setPlaying(true); scheduleHide(); }}
         onPause={() => { setPlaying(false); setCtrlVis(true); if (hideTimer.current) clearTimeout(hideTimer.current); }}
         onEnded={() => { setPlaying(false); setCtrlVis(true); }}
@@ -87,6 +96,7 @@ function ThumbStrip({
 }: { photos: string[]; active: number; onSelect: (i: number) => void }) {
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
+  /* active thumbnail her zaman görünür alanda kalır */
   useEffect(() => {
     const el = itemRefs.current[active];
     if (el) el.scrollIntoView({ behavior: "instant", block: "nearest", inline: "center" });
@@ -96,6 +106,9 @@ function ThumbStrip({
     <div
       className="flex justify-center gap-1.5 overflow-x-auto bg-black/90 p-2 scrollbar-hide"
       style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}
+      /* ThumbStrip scroll hareketinin ana galeri swipe'ını tetiklememesi için */
+      onTouchStart={e => e.stopPropagation()}
+      onTouchEnd={e => e.stopPropagation()}
     >
       {photos.map((url, i) => (
         <button
@@ -105,9 +118,18 @@ function ThumbStrip({
           className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg ${i === active ? "ring-2 ring-white ring-offset-1 ring-offset-black" : "opacity-60 hover:opacity-100"}`}
         >
           {isVideo(url) ? (
-            <div className="h-full w-full bg-zinc-700 flex items-center justify-center">
-              <Play className="h-5 w-5 text-white" fill="white" />
-            </div>
+            <>
+              <video
+                src={url}
+                className="h-full w-full object-cover"
+                muted
+                playsInline
+                preload="auto"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <Play className="h-4 w-4 text-white" fill="white" />
+              </div>
+            </>
           ) : (
             <img src={url} alt="" className="h-full w-full object-cover" />
           )}
@@ -128,26 +150,27 @@ async function shareMedia(url: string, title: string) {
 export function PhotoGallery({ photos, title = "" }: Props) {
   const [active, setActive] = useState(0);
   const [lightbox, setLightbox] = useState(false);
-  const [mainPlayingUrl, setMainPlayingUrl] = useState<string | null>(null);
+  /* null = thumbnail göster, string = o URL'i VideoOverlay ile oynat */
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [autoPlayNext, setAutoPlayNext] = useState(false);
   const [menu, setMenu] = useState(false);
   const videoTimesRef = useRef<Record<string, number>>({});
   const touchX = useRef<number | null>(null);
 
-  const prev = useCallback(() => {
-    setMainPlayingUrl(null);
-    setActive(i => (i - 1 + photos.length) % photos.length);
-  }, [photos.length]);
-
-  const next = useCallback(() => {
-    setMainPlayingUrl(null);
-    setActive(i => (i + 1) % photos.length);
-  }, [photos.length]);
-
-  const goTo = useCallback((idx: number) => {
-    setMainPlayingUrl(null);
+  const goTo = useCallback((idx: number, startPlay = false) => {
+    setPlayingUrl(null);
+    setAutoPlayNext(false);
     setActive(idx);
-  }, []);
+    if (startPlay && isVideo(photos[idx])) {
+      /* kısa gecikme: setActive işlendikten sonra VideoOverlay mount edilsin */
+      setTimeout(() => { setPlayingUrl(photos[idx]); setAutoPlayNext(true); }, 0);
+    }
+  }, [photos]);
 
+  const prev = useCallback(() => goTo((active - 1 + photos.length) % photos.length), [active, photos.length, goTo]);
+  const next = useCallback(() => goTo((active + 1) % photos.length), [active, photos.length, goTo]);
+
+  /* lightbox: keyboard, body overflow, scrollbar compensation */
   useEffect(() => {
     if (!lightbox) { setMenu(false); return; }
     const scrollbarW = window.innerWidth - document.documentElement.clientWidth;
@@ -186,20 +209,31 @@ export function PhotoGallery({ photos, title = "" }: Props) {
         <div className="relative h-72 overflow-hidden sm:h-96">
           <div className="h-full w-full">
             {activeIsVideo ? (
-              mainPlayingUrl === currentUrl ? (
+              playingUrl === currentUrl ? (
                 <VideoOverlay
                   key={currentUrl}
                   src={currentUrl}
                   savedTime={videoTimesRef.current[currentUrl] || 0}
                   onSaveTime={t => { videoTimesRef.current[currentUrl] = t; }}
+                  autoPlay={autoPlayNext}
                 />
               ) : (
+                /* Video thumbnail: preload="auto" muted → ilk kare görünür */
                 <div
-                  className="relative h-full w-full bg-zinc-900 cursor-pointer flex items-center justify-center"
-                  onClick={() => setMainPlayingUrl(currentUrl)}
+                  className="relative h-full w-full bg-black cursor-pointer"
+                  onClick={() => { setPlayingUrl(currentUrl); setAutoPlayNext(true); }}
                 >
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition hover:bg-black/75">
-                    <Play className="h-9 w-9 translate-x-0.5" fill="white" />
+                  <video
+                    src={currentUrl}
+                    className="h-full w-full object-contain"
+                    muted
+                    playsInline
+                    preload="auto"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/70">
+                      <Play className="h-7 w-7 translate-x-0.5" fill="white" />
+                    </div>
                   </div>
                 </div>
               )
@@ -221,11 +255,15 @@ export function PhotoGallery({ photos, title = "" }: Props) {
         </div>
 
         {photos.length > 1 && (
-          <ThumbStrip photos={photos} active={active} onSelect={goTo} />
+          <ThumbStrip
+            photos={photos}
+            active={active}
+            onSelect={i => goTo(i, true)}
+          />
         )}
       </div>
 
-      {/* ===== Lightbox ===== */}
+      {/* ===== Lightbox (resimler için, video varsa inline oynar) ===== */}
       {lightbox && (
         <div
           className="fixed inset-0 z-[100] flex flex-col bg-black/96 backdrop-blur-sm"
@@ -265,9 +303,10 @@ export function PhotoGallery({ photos, title = "" }: Props) {
 
             <button
               onClick={e => { e.stopPropagation(); setLightbox(false); }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition hover:bg-black/70"
+              className="flex items-center gap-2 rounded-full bg-black/50 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-black/70"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
+              <span>Kapat</span>
             </button>
           </div>
 
@@ -281,6 +320,7 @@ export function PhotoGallery({ photos, title = "" }: Props) {
                     src={currentUrl}
                     savedTime={videoTimesRef.current[currentUrl] || 0}
                     onSaveTime={t => { videoTimesRef.current[currentUrl] = t; }}
+                    autoPlay
                   />
                 </div>
               ) : (
@@ -308,7 +348,7 @@ export function PhotoGallery({ photos, title = "" }: Props) {
 
           {photos.length > 1 && (
             <div onClick={e => e.stopPropagation()}>
-              <ThumbStrip photos={photos} active={active} onSelect={goTo} />
+              <ThumbStrip photos={photos} active={active} onSelect={i => goTo(i, true)} />
             </div>
           )}
         </div>

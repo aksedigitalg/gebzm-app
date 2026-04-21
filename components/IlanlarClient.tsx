@@ -168,6 +168,13 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [router]);
 
+  // router.refresh() sunucudan yeni initialListings getirir ama useState senkronize etmez — burada sync edilir
+  useEffect(() => {
+    setAllListings(initialListings);
+    setHasMore(initialListings.length >= PAGE_SIZE);
+    pageRef.current = 1;
+  }, [initialListings]);
+
   const loadMore = useCallback(async () => {
     setLoadingMore(true);
     try {
