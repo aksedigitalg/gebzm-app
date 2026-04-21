@@ -233,9 +233,11 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 ```
 
 **Sayfa stratejileri:**
-- `force-dynamic` → sadece hizmetler/[slug] (yeni işletme anında görünsün)
-- `revalidate=30` → ana sayfa, ilanlar (30sn cache, hızlı)
-- Static → diğer tüm sayfalar
+- `force-dynamic` + `cache:"no-store"` → `/ilanlar`, hizmetler/[slug], restoran/[id], ilanlar/[id] (taze veri zorunlu)
+- `revalidate=30` + `revalidatePath` tetikleyici → ana sayfa, /restoran, /yemek, /kafe, /market, /magaza, /emlakci, /galerici (ISR + on-demand)
+- Static → diğer tüm sayfalar (giris, kayit, hakkında vb.)
+
+**Router Cache:** `next.config.ts` → `staleTimes: { static: 0, dynamic: 0 }` — tarayıcı/telefon sayfaları hafızada tutmaz, her navigasyonda sunucudan alır.
 
 **AuthProvider:** Korumalı olmayan sayfalarda (/, /hizmetler, vb.) spinner YOK — anında açılır.
 
@@ -294,9 +296,13 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 8. **Next.js prerender + forwardRef:** LucideIcon bileşenini (forwardRef) server/prerender boundary'den geçirmek yasak. Çözüm: ilgili `page.tsx`'e `export const dynamic = "force-dynamic"` ekle. Etkilenen sayfalar: `isletme/satis-ilanlari`, `isletme/emlak-ilanlari`, `isletme/vasita-ilanlari`
 9. **React bileşen kimliği:** Alt bileşeni (ör. SidebarFilters, ThumbStrip, VideoOverlay) üst bileşenin **içinde** tanımlamak yasak — her render'da yeni tip oluşur, React unmount/remount yapar, input'lar odak kaybeder. Her zaman dosya scope'unda tanımla.
 10. **Video URL tespiti:** `/\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/")` — CDN imzalı URL'lerde sorgu parametresi olabilir, `$` yerine `(\?|$)` kullan.
-11. **UpdateListingStatus Go API:** `RowsAffected()` mutlaka kontrol et. Kontrol edilmezse DB'de hiçbir şey güncellenmese bile 200 döner (silent failure). Handler: `/opt/gebzem-api/handlers/listings.go:249`
+11. **UpdateListingStatus Go API:** `RowsAffected()` mutlaka kontrol et. Kontrol edilmezse DB'de hiçbir şey güncellenmese bile 200 döner (silent failure). Handler: `/opt/gebzem-api/handlers/listings.go`
 12. **Opera dosya seçici:** `input.click()` ve şeffaf overlay Opera'da kendi download panelini açtırır. Çözüm: `window.showOpenFilePicker()` (File System Access API) → fallback `showPicker()` → fallback `click()` zinciri. Bkz. `MediaUpload.tsx` `openNativePicker()` fonksiyonu.
 13. **Push öncesi build kontrolü:** Her push öncesi yerel `npm run build` çalıştır. TypeScript hataları ve prerender hataları build'i kırar, siteyi çökertir.
+14. **İlan cache — üç katman:** (a) Next.js Router Cache → `staleTimes:{static:0}` ile sıfır. (b) Next.js Full Route Cache → `revalidatePath` ile anında temizlenir. (c) Tarayıcı HTTP Cache → `/ilanlar` `force-dynamic` olduğu için `Cache-Control: no-store` döner. Üçü birlikte çalışmadığında ilan "yok olur". Yeni bir sayfa eklenince mutlaka `/api/revalidate` route'una da ekle.
+15. **IlanlarMap XSS:** Leaflet `.setContent()` HTML string alır — `${l.title}` gibi user verisi doğrudan template'e GİRMEZ. `esc()` helper'ı kullan (`components/IlanlarMap.tsx`). React auto-escape burada çalışmaz.
+16. **Go API go build PATH:** SSH ile build yaparken `export PATH=/usr/local/go/bin:/usr/bin:/bin` gerekli. Aksi halde "go: command not found" hatası alınır.
+17. **Nested ternary Turbopack:** Next.js 16 Turbopack ile derin iç içe ternary (`a ? b ? c : d : e`) parse hatası verebilir. `{condition && <JSX/>}` kalıbına çevir.
 
 ---
 
@@ -308,10 +314,50 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 4. ~~Medya R2 upload~~ ✅ Cloudflare R2 entegre (`cdn.gebzem.app`)
 5. Flutter Native App
 6. Opera video thumbnail sorunu (CDN URL pattern değişirse `isVideo()` regex güncelle)
+7. UptimeRobot kurulumu — ücretsiz, `gebzem.app` ekle (site çökünce bildirim)
+8. Watermark — ilan fotoğraflarına "gebzem.app" — govips Label API hazır, istediğinde açılır
+9. Sunucu 4GB RAM upgrade — 50K+ kullanıcıya hazırlık (DigitalOcean resize, 5 dk)
+10. Cloudflare Images — signed/expiring URL'ler
 
 ---
 
-**Son Güncelleme:** 2026-04-20 · Galeri tam yeniden yazım + video inline oynatma + Opera dosya seçici + aktif/pasif düzeltme + ilan detay header kaldırıldı
+**Son Güncelleme:** 2026-04-21 · Cache sistemi yeniden yazıldı + ilan güvenlik açıkları kapatıldı + rate limiting + DB index + pagination
+
+---
+
+## 📅 Sohbet Geçmişi / Yapılan İşler
+
+### 2026-04-21 — Cache, Güvenlik, Performans Sprint
+
+**Sorun tespiti:** Kullanıcı ilan ekleyince sayfada görünmüyor, sayfalar arası gezerken kayboluyor, refresh yapınca geliyor — 3 ayrı cache katmanı çakışıyordu.
+
+**Çözümler:**
+
+| # | Yapılan | Dosya/Yer |
+|---|---|---|
+| 1 | `staleTimes:{static:0,dynamic:0}` → Router Cache sıfırlandı | `next.config.ts` |
+| 2 | `/ilanlar` → `force-dynamic` + `cache:"no-store"` → tarayıcı cache'i yok | `app/ilanlar/page.tsx` |
+| 3 | `/api/revalidate` — 10 sayfa eklendi (sadece `/` ve `/hizmetler` vardı) | `app/api/revalidate/route.ts` |
+| 4 | `CreateListing` + `UpdateListing` + `DeleteListing` + `UpdateListingStatus` → hepsi revalidate tetikliyor | Go API `handlers/listings.go` |
+| 5 | Rate limiting: genel 200 req/dk, auth 10 req/dk (IP bazlı) | Go API `main.go` + `routes/routes.go` |
+| 6 | View counter dedup: `shouldIncrementView()` — IP+ilan başına 6 saatte 1 artış | Go API `handlers/listings.go` |
+| 7 | Input validation: başlık ≤150, açıklama ≤3000, fiyat 0–999M | Go API `handlers/listings.go` |
+| 8 | Harita popup XSS kapatıldı — `esc()` HTML escape helper | `components/IlanlarMap.tsx` |
+| 9 | Pagination: 24'er ilan, "Daha Fazla Yükle" butonu | `components/IlanlarClient.tsx` |
+| 10 | TopProgressBar: aynı sayfaya 2. tıkta 1.5sn sonra kapanır | `components/TopProgressBar.tsx` |
+| 11 | DB index: 9 kritik index eklendi (listings, businesses, messages, notifications, reservations) | PostgreSQL doğrudan |
+
+**False positive olarak doğrulananlar (sorun yok):**
+- Backend auth: Go middleware tüm endpoint'leri koruyor
+- ID manipulation: `WHERE id=$n AND user_id=$n` zaten var
+- CSRF: Bearer token yapısı engelliyor
+- Dosya tipi: `allowedExt` map'i Go API'de mevcut
+
+**Kalan / sonraya bırakılan:**
+- UptimeRobot (kullanıcı kendisi kuracak)
+- Watermark (govips hazır, istediğinde açılır)
+- Sunucu 4GB upgrade
+- Cloudflare Images
 
 ---
 
@@ -353,6 +399,28 @@ GET /businesses/:id/gallery (public)
 - **Optimistic UI:** Durum değişimini anında gösterir, hata olursa önceki duruma döner
 - **Filtre otomatik geçiş:** Durum değişince aktif filtre yeni durumla uyuşmuyorsa otomatik "Tümü" seçilir (kullanıcı ilanı kaybetmez)
 - **Toast bildirimi:** `opMsg` state — yeşil başarı / kırmızı hata, 2.5-3sn
+
+### İlan Cache Mimarisi (KRİTİK)
+`/ilanlar` sayfası `force-dynamic` + `cache: "no-store"` — tarayıcı hiç cache'lemiyor.
+Go API'de tüm ilan mutasyonları (oluştur/güncelle/sil/durum) `revalidatePath` tetikler:
+```go
+go func() { http.Get("http://localhost:3000/api/revalidate") }()
+```
+`/api/revalidate` route'u 10 sayfayı temizler: `/`, `/ilanlar`, `/hizmetler`, `/restoran`, `/yemek`, `/kafe`, `/market`, `/magaza`, `/emlakci`, `/galerici`
+
+**next.config.ts:** `staleTimes: { static: 0, dynamic: 0 }` — Router Cache devre dışı, her navigasyonda sunucudan taze veri.
+
+### İlan Güvenliği (Go API)
+- **Sahiplik kontrolü:** Her UPDATE/DELETE `WHERE id=$n AND user_id=$n` (veya business_id) — başkasının ilanı düzenlenemez
+- **Input validation:** başlık max 150 karakter, açıklama max 3.000 karakter, fiyat 0–999.999.999 TL
+- **Rate limiting:** genel 200 istek/dk, auth endpointleri 10 istek/dk (IP bazlı, fiber limiter)
+- **View counter dedup:** `shouldIncrementView(ip, listingID)` — IP+ilan başına 6 saatte 1 artış, bellek 10K üzerinde temizlenir
+
+### İlan Pagination
+- Backend: `GET /listings?page=N` — limit 24 sabit, Go API'de hardcoded
+- Frontend (`IlanlarClient`): `allListings` state + `loadMore()` → `?page=N` fetch, append
+- "Daha Fazla Yükle" butonu: filtre aktifken gizlenir (client-side filter tüm yüklü datayı tarar)
+- `hasMore = son sayfa 24 ilan döndürdüyse true`
 
 ### Video Desteği İlanlarda
 - `photos` alanına video URL'leri de kaydedilir (`photos: [...photos, ...videos]`)
