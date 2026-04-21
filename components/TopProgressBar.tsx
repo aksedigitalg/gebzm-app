@@ -21,6 +21,8 @@ export function TopProgressBar() {
     timers.current.push(setTimeout(() => setWidth(50), 150));
     timers.current.push(setTimeout(() => setWidth(75), 400));
     timers.current.push(setTimeout(() => setWidth(90), 800));
+    // Aynı sayfaya tıklanınca pathname değişmez → bar takılır. 1.5sn sonra kapat.
+    timers.current.push(setTimeout(() => finishBar(), 1500));
   };
 
   const finishBar = () => {
