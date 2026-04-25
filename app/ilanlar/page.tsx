@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { IlanlarClient } from "@/components/IlanlarClient";
 
 export const metadata = { title: "İlanlar — Gebzem" };
@@ -15,5 +16,9 @@ async function getAllListings() {
 
 export default async function Page() {
   const listings = await getAllListings();
-  return <IlanlarClient initialListings={listings} />;
+  return (
+    <Suspense>
+      <IlanlarClient initialListings={listings} />
+    </Suspense>
+  );
 }

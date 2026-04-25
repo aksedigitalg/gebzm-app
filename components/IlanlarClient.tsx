@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { MapPin, Clock, Tag, SlidersHorizontal, X, Map, List, Search, RotateCcw, Play } from "lucide-react";
-import { listingCategories } from "@/lib/listing-categories";
+import { MapPin, Clock, Tag, Map, List, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import { listingCategories, getCategoryById } from "@/lib/listing-categories";
 import { formatTRY, timeAgoTR } from "@/lib/format";
 
 const IlanlarMapDynamic = dynamic(() => import("@/components/IlanlarMap"), {
@@ -20,155 +20,209 @@ const IlanlarMapDynamic = dynamic(() => import("@/components/IlanlarMap"), {
 interface Listing {
   id: string; title: string; price: number; price_type: string;
   location?: string; created_at?: string; photos?: string[];
-  listing_type: string; category: string;
-}
-
-interface Filters {
-  category: string; priceMin: string; priceMax: string;
-  listingType: string; priceTypes: string[]; search: string;
-}
-
-const EMPTY: Filters = { category: "", priceMin: "", priceMax: "", listingType: "", priceTypes: [], search: "" };
-
-function isActive(f: Filters) {
-  return !!(f.category || f.priceMin || f.priceMax || f.listingType || f.priceTypes.length || f.search);
+  listing_type: string; category: string; subcategory?: string;
 }
 
 function isVideoUrl(url: string) {
   return /\.(mp4|mov|webm|avi)(\?|$)/i.test(url) || url.includes("/video/");
 }
 
-/* ---- Sidebar bileşeni parent dışında tanımlandı (her render'da yeniden mount olmaz) ---- */
-interface SidebarProps {
-  filters: Filters;
-  setF: (k: keyof Filters, v: string | string[]) => void;
-  togglePT: (v: string) => void;
-  resetFilters: () => void;
+/* ─── SLIDES ─────────────────────────────────────────────────────────── */
+const SLIDES = [
+  { title: "Gebze'nin İlan Panosu", sub: "Binlerce ilan tek adreste", from: "#0e7490", to: "#10b981" },
+  { title: "Emlak İlanları", sub: "Satılık & kiralık konutlar", from: "#1d4ed8", to: "#0891b2" },
+  { title: "Vasıta İlanları", sub: "İkinci el araç ilanları", from: "#ea580c", to: "#ca8a04" },
+  { title: "Elektronik & Teknoloji", sub: "Telefon, bilgisayar ve daha fazlası", from: "#7c3aed", to: "#db2777" },
+];
+
+/* ─── HERO SLIDER ─────────────────────────────────────────────────────── */
+interface HeroProps {
+  activeSlide: number;
+  setSlide: (i: number) => void;
 }
 
-function SidebarFilters({ filters, setF, togglePT, resetFilters }: SidebarProps) {
+function HeroSlider({ activeSlide, setSlide }: HeroProps) {
+  const s = SLIDES[activeSlide];
   return (
-    <div className="space-y-5 text-sm">
-      {/* Arama */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={filters.search}
-          onChange={e => setF("search", e.target.value)}
-          placeholder="İlan ara..."
-          className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-xs outline-none focus:border-primary"
+    <div className="relative h-44 overflow-hidden">
+      {SLIDES.map((sl, i) => (
+        <div
+          key={i}
+          className="absolute inset-0 transition-opacity duration-500"
+          style={{ opacity: i === activeSlide ? 1 : 0, background: `linear-gradient(135deg, ${sl.from}, ${sl.to})` }}
         />
+      ))}
+      <div className="absolute inset-0 bg-black/20" />
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center">
+        <p className="text-xl font-bold text-white drop-shadow">{s.title}</p>
+        <p className="mt-1 text-sm text-white/80">{s.sub}</p>
       </div>
 
-      {/* Kategori */}
-      <div>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Kategori</p>
-        <div className="space-y-0.5">
-          <button onClick={() => setF("category", "")}
-            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${!filters.category ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}>
-            <Tag className="h-3.5 w-3.5" />Tümü
-          </button>
-          {listingCategories.map(c => (
-            <button key={c.id} onClick={() => setF("category", filters.category === c.id ? "" : c.id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${filters.category === c.id ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}>
-              <span>{c.icon}</span>{c.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <button
+        onClick={() => setSlide((activeSlide - 1 + SLIDES.length) % SLIDES.length)}
+        className="absolute left-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 text-white"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => setSlide((activeSlide + 1) % SLIDES.length)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 text-white"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
 
-      <hr className="border-border" />
-
-      {/* Fiyat aralığı */}
-      <div>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fiyat Aralığı (₺)</p>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.priceMin}
-            onChange={e => setF("priceMin", e.target.value)}
-            className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+      <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
+        {SLIDES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setSlide(i)}
+            className="h-1.5 rounded-full bg-white transition-all"
+            style={{ width: i === activeSlide ? 20 : 6, opacity: i === activeSlide ? 1 : 0.45 }}
           />
-          <span className="shrink-0 text-[10px] text-muted-foreground">—</span>
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.priceMax}
-            onChange={e => setF("priceMax", e.target.value)}
-            className="h-8 w-full rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
-          />
-        </div>
-      </div>
-
-      <hr className="border-border" />
-
-      {/* İlan tipi */}
-      <div>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">İlan Tipi</p>
-        {[["", "Tümü"], ["kurumsal", "Kurumsal (PRO)"], ["bireysel", "Bireysel"]].map(([v, lb]) => (
-          <button key={v} onClick={() => setF("listingType", v)}
-            className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${filters.listingType === v ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}>
-            <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border-2 ${filters.listingType === v ? "border-primary" : "border-border"}`}>
-              {filters.listingType === v && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-            </span>{lb}
-          </button>
         ))}
       </div>
-
-      <hr className="border-border" />
-
-      {/* Fiyat türü */}
-      <div>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fiyat Türü</p>
-        {[["sabit", "Sabit Fiyat"], ["pazarlik", "Pazarlık Var"], ["takas", "Takas Olur"]].map(([v, lb]) => {
-          const on = filters.priceTypes.includes(v);
-          return (
-            <button key={v} onClick={() => togglePT(v)}
-              className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${on ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}>
-              <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border-2 transition ${on ? "border-primary bg-primary" : "border-border"}`}>
-                {on && <svg className="h-2 w-2 text-white" viewBox="0 0 8 8"><path d="M1.5 4l1.8 2L6.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
-              </span>{lb}
-            </button>
-          );
-        })}
-      </div>
-
-      {isActive(filters) && (
-        <>
-          <hr className="border-border" />
-          <button onClick={resetFilters}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-semibold text-muted-foreground hover:bg-muted transition">
-            <RotateCcw className="h-3 w-3" />Filtreleri Sıfırla
-          </button>
-        </>
-      )}
     </div>
   );
 }
 
+/* ─── KATEGORİ BAR ───────────────────────────────────────────────────── */
+interface CatBarProps {
+  activeCategory: string;
+  onSelect: (cat: string) => void;
+}
+
+function CategoryBar({ activeCategory, onSelect }: CatBarProps) {
+  return (
+    <div className="border-b border-border bg-background px-4 py-3">
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+        {listingCategories.map(c => (
+          <button
+            key={c.id}
+            onClick={() => onSelect(activeCategory === c.id ? "" : c.id)}
+            style={{ width: 90, height: 90 }}
+            className={`flex flex-col items-center justify-center rounded-2xl border text-center transition mx-auto
+              ${activeCategory === c.id
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card hover:border-primary/50 hover:text-primary"}`}
+          >
+            <span className="text-xs font-semibold leading-tight px-1">{c.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── MOBİL ALT KATEGORİ BAR ─────────────────────────────────────────── */
+interface MobileSubcatBarProps {
+  categoryId: string;
+  activeSubcat: string;
+  onSelect: (sub: string) => void;
+}
+
+function MobileSubcatBar({ categoryId, activeSubcat, onSelect }: MobileSubcatBarProps) {
+  const cat = getCategoryById(categoryId);
+  if (!cat) return null;
+  return (
+    <div className="border-b border-border bg-muted/30 lg:hidden">
+      <div className="flex gap-1.5 overflow-x-auto px-4 py-2 [&::-webkit-scrollbar]:hidden">
+        <button
+          onClick={() => onSelect("")}
+          className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition
+            ${!activeSubcat
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border bg-background hover:border-primary/40"}`}
+        >
+          Tümü
+        </button>
+        {cat.subcategories.map(s => (
+          <button
+            key={s.id}
+            onClick={() => onSelect(activeSubcat === s.id ? "" : s.id)}
+            className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition
+              ${activeSubcat === s.id
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-background hover:border-primary/40"}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── DESKTOP ALT KATEGORİ PANELİ ───────────────────────────────────── */
+interface SubcatPanelProps {
+  categoryId: string;
+  activeSubcat: string;
+  onSelect: (sub: string) => void;
+}
+
+function SubcategoryPanel({ categoryId, activeSubcat, onSelect }: SubcatPanelProps) {
+  const cat = getCategoryById(categoryId);
+  if (!cat) return null;
+  return (
+    <aside
+      className="hidden w-44 shrink-0 overflow-y-auto border-r border-border bg-card/60 py-3 lg:block sticky top-[97px]"
+      style={{ height: "calc(100dvh - 97px)" }}
+    >
+      <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        {cat.label}
+      </p>
+      <div className="space-y-0.5 px-2">
+        <button
+          onClick={() => onSelect("")}
+          className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs font-medium transition
+            ${!activeSubcat ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}
+        >
+          Tümü
+          {!activeSubcat && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+        </button>
+        {cat.subcategories.map(s => (
+          <button
+            key={s.id}
+            onClick={() => onSelect(activeSubcat === s.id ? "" : s.id)}
+            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs font-medium transition
+              ${activeSubcat === s.id ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}
+          >
+            {s.label}
+            {activeSubcat === s.id && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+/* ─── ANA BİLEŞEN ───────────────────────────────────────────────────── */
 const PAGE_SIZE = 24;
 const API = process.env.NEXT_PUBLIC_API_URL || "https://gebzem.app/api/v1";
 
 export function IlanlarClient({ initialListings }: { initialListings: Listing[] }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [view, setView] = useState<"liste" | "harita">("liste");
-  const [filters, setFilters] = useState<Filters>(EMPTY);
-  const [mobileFilter, setMobileFilter] = useState(false);
+  const [category, setCategory] = useState(params.get("k") || "");
+  const [subcategory, setSubcategory] = useState(params.get("s") || "");
   const [allListings, setAllListings] = useState<Listing[]>(initialListings);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialListings.length >= PAGE_SIZE);
+  const [activeSlide, setActiveSlide] = useState(0);
   const pageRef = useRef(1);
 
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    const t = setInterval(() => setActiveSlide(i => (i + 1) % SLIDES.length), 4500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === "visible") router.refresh(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, [router]);
 
-  // router.refresh() sunucudan yeni initialListings getirir ama useState senkronize etmez — burada sync edilir
   useEffect(() => {
     setAllListings(initialListings);
     setHasMore(initialListings.length >= PAGE_SIZE);
@@ -185,86 +239,94 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
       setAllListings(prev => [...prev, ...data]);
       setHasMore(data.length >= PAGE_SIZE);
       pageRef.current = next;
-    } catch { /* sessiz hata */ } finally {
-      setLoadingMore(false);
-    }
+    } catch { } finally { setLoadingMore(false); }
   }, []);
 
-  const setF = useCallback((k: keyof Filters, v: string | string[]) =>
-    setFilters(p => ({ ...p, [k]: v })), []);
+  const handleCatSelect = useCallback((cat: string) => {
+    setCategory(cat);
+    setSubcategory("");
+    const url = cat ? `/ilanlar?k=${cat}` : "/ilanlar";
+    router.replace(url, { scroll: false });
+  }, [router]);
 
-  const togglePT = useCallback((v: string) =>
-    setFilters(p => ({
-      ...p,
-      priceTypes: p.priceTypes.includes(v)
-        ? p.priceTypes.filter(x => x !== v)
-        : [...p.priceTypes, v],
-    })), []);
-
-  const resetFilters = useCallback(() => setFilters(EMPTY), []);
+  const handleSubcatSelect = useCallback((sub: string) => {
+    setSubcategory(sub);
+    const url = sub ? `/ilanlar?k=${category}&s=${sub}` : `/ilanlar?k=${category}`;
+    router.replace(url, { scroll: false });
+  }, [router, category]);
 
   const filtered = useMemo(() => allListings.filter(l => {
-    if (filters.category && l.category !== filters.category) return false;
-    if (filters.priceMin && l.price < +filters.priceMin) return false;
-    if (filters.priceMax && l.price > +filters.priceMax) return false;
-    if (filters.listingType && l.listing_type !== filters.listingType) return false;
-    if (filters.priceTypes.length && !filters.priceTypes.includes(l.price_type)) return false;
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      if (!l.title.toLowerCase().includes(q) && !(l.location || "").toLowerCase().includes(q)) return false;
-    }
+    if (category && l.category !== category) return false;
+    if (subcategory && l.subcategory !== subcategory) return false;
     return true;
-  }), [allListings, filters]);
+  }), [allListings, category, subcategory]);
+
+  const hasFilter = !!(category || subcategory);
 
   return (
     <div className="-mx-5 -mb-6 lg:-mx-6 lg:-my-4">
-      {/* Üst bilgi çubuğu */}
-      <div className="flex items-center justify-between border-b border-border bg-background/80 px-4 py-2.5 backdrop-blur-sm">
+
+      {/* HERO */}
+      <HeroSlider activeSlide={activeSlide} setSlide={setActiveSlide} />
+
+      {/* KATEGORİ BAR */}
+      <CategoryBar activeCategory={category} onSelect={handleCatSelect} />
+
+      {/* MOBİL ALT KATEGORİ */}
+      {category && (
+        <MobileSubcatBar categoryId={category} activeSubcat={subcategory} onSelect={handleSubcatSelect} />
+      )}
+
+      {/* SONUÇ ÇUBUĞU */}
+      <div className="sticky top-[57px] z-30 flex items-center justify-between border-b border-border bg-background/90 px-4 py-2 backdrop-blur-sm">
         <p className="text-sm font-semibold text-muted-foreground">
           <span className="font-bold text-foreground">{filtered.length}</span> ilan
-          {isActive(filters) && (
-            <button onClick={resetFilters}
-              className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-              <X className="h-2.5 w-2.5" />filtre aktif
+          {hasFilter && (
+            <button
+              onClick={() => { setCategory(""); setSubcategory(""); }}
+              className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary"
+            >
+              ✕ temizle
             </button>
           )}
         </p>
-        <button onClick={() => setMobileFilter(true)}
-          className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium lg:hidden">
-          <SlidersHorizontal className="h-3.5 w-3.5" />Filtrele
-        </button>
       </div>
 
-      {/* Grid: sidebar + içerik */}
+      {/* SIDEBAR + İÇERİK */}
       <div className="flex">
-        {/* Desktop sidebar */}
-        <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-border bg-card/50 p-4 lg:block"
-          style={{ height: "calc(100dvh - 97px)" }}>
-          <SidebarFilters filters={filters} setF={setF} togglePT={togglePT} resetFilters={resetFilters} />
-        </aside>
+
+        {/* Desktop alt kategori paneli */}
+        {category && (
+          <SubcategoryPanel categoryId={category} activeSubcat={subcategory} onSelect={handleSubcatSelect} />
+        )}
 
         {/* İçerik */}
-        <div className="min-w-0 flex-1" style={{ height: "calc(100dvh - 97px)", overflowY: view === "liste" ? "auto" : "hidden" }}>
+        <div className="min-w-0 flex-1">
+
           {view === "harita" && (
-            <div className="h-full w-full">
+            <div style={{ height: "calc(100dvh - 97px)" }}>
               <IlanlarMapDynamic listings={filtered} />
             </div>
           )}
+
           {view === "liste" && filtered.length === 0 && (
             <div className="flex flex-col items-center py-20 text-center">
               <Tag className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
-              <p className="mt-4 text-sm font-semibold">Sonuç bulunamadı</p>
-              {isActive(filters) && (
-                <button onClick={resetFilters}
-                  className="mt-4 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground">
-                  Filtreleri Sıfırla
+              <p className="mt-4 text-sm font-semibold">İlan bulunamadı</p>
+              {hasFilter && (
+                <button
+                  onClick={() => { setCategory(""); setSubcategory(""); }}
+                  className="mt-4 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground"
+                >
+                  Tümünü Göster
                 </button>
               )}
             </div>
           )}
+
           {view === "liste" && filtered.length > 0 && (
             <>
-              <div className="grid gap-3 p-4 pb-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((l) => {
                   const firstMedia = l.photos?.[0];
                   const isVideo = firstMedia ? isVideoUrl(firstMedia) : false;
@@ -272,18 +334,18 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                     <Link key={l.id} href={`/ilanlar/${l.id}`}
                       className="flex gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/30 hover:shadow-md">
                       <div className="relative flex h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted">
-                        {firstMedia ? (
-                          isVideo ? (
-                            <>
-                              <video src={firstMedia} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                <Play className="h-6 w-6 text-white" fill="white" />
-                              </div>
-                            </>
-                          ) : (
-                            <img src={firstMedia} alt="" className="h-full w-full object-cover" />
-                          )
-                        ) : (
+                        {firstMedia && !isVideo && (
+                          <img src={firstMedia} alt="" className="h-full w-full object-cover" />
+                        )}
+                        {firstMedia && isVideo && (
+                          <>
+                            <video src={firstMedia} className="h-full w-full object-cover" muted playsInline preload="auto" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <Play className="h-6 w-6 text-white" fill="white" />
+                            </div>
+                          </>
+                        )}
+                        {!firstMedia && (
                           <Tag className="m-auto h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
                         )}
                         {l.listing_type === "kurumsal" && (
@@ -315,7 +377,8 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
                   );
                 })}
               </div>
-              {hasMore && !isActive(filters) && (
+
+              {hasMore && !hasFilter && (
                 <div className="flex justify-center pb-36 pt-2">
                   <button onClick={loadMore} disabled={loadingMore}
                     className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-semibold transition hover:border-primary hover:text-primary disabled:opacity-50">
@@ -331,7 +394,7 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
         </div>
       </div>
 
-      {/* Sabit alt toggle */}
+      {/* Liste / Harita toggle */}
       <div className="pointer-events-none fixed bottom-[calc(84px+env(safe-area-inset-bottom,0px)+24px)] left-0 right-0 z-40 flex justify-center lg:bottom-5">
         <div className="pointer-events-auto flex overflow-hidden rounded-full border border-border bg-card/95 shadow-2xl backdrop-blur">
           <button onClick={() => setView("liste")}
@@ -344,26 +407,6 @@ export function IlanlarClient({ initialListings }: { initialListings: Listing[] 
           </button>
         </div>
       </div>
-
-      {/* Mobil filtre sheet */}
-      {mobileFilter && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileFilter(false)} />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85svh] overflow-y-auto rounded-t-3xl bg-card p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="font-bold">Filtrele</p>
-              <button onClick={() => setMobileFilter(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <SidebarFilters filters={filters} setF={setF} togglePT={togglePT} resetFilters={resetFilters} />
-            <button onClick={() => setMobileFilter(false)}
-              className="mt-5 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground">
-              {filtered.length} İlan Göster
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
