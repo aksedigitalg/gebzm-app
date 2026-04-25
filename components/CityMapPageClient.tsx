@@ -7,6 +7,8 @@ import {
   Banknote,
   Building2,
   Bus,
+  Camera,
+  Car,
   Coffee,
   CreditCard,
   Fuel,
@@ -14,6 +16,7 @@ import {
   Hospital,
   Loader2,
   Menu,
+  MonitorSmartphone,
   ParkingSquare,
   Pill,
   Search,
@@ -29,17 +32,20 @@ import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
   | "durak"
+  | "akilli-durak"
+  | "taksi"
+  | "petrol"
+  | "otopark"
+  | "eds"
   | "park"
   | "eczane"
   | "hastane"
   | "atm"
-  | "benzin"
   | "cami"
   | "okul"
   | "restoran"
   | "kafe"
   | "market"
-  | "otopark"
   | "banka";
 
 interface CategoryDef {
@@ -47,21 +53,25 @@ interface CategoryDef {
   label: string;
   color: string;
   overpassFilter?: string;
+  localUrl?: string;
 }
 
 const CATEGORIES: CategoryDef[] = [
-  { key: "durak", label: "Duraklar", color: "#0ea5e9" },
+  { key: "durak", label: "Duraklar", color: "#0ea5e9", localUrl: "/data/bus-stops.json" },
+  { key: "akilli-durak", label: "Akıllı Durak", color: "#0891b2", localUrl: "/data/poi/akilli-durak.json" },
+  { key: "taksi", label: "Taksi", color: "#eab308", localUrl: "/data/poi/taksi.json" },
+  { key: "petrol", label: "Petrol", color: "#f97316", localUrl: "/data/poi/petrol.json" },
+  { key: "otopark", label: "Otopark", color: "#64748b", localUrl: "/data/poi/otopark.json" },
+  { key: "eds", label: "EDS Kamera", color: "#dc2626", localUrl: "/data/poi/eds.json" },
   { key: "park", label: "Parklar", color: "#22c55e", overpassFilter: '"leisure"="park"' },
   { key: "eczane", label: "Eczane", color: "#ef4444", overpassFilter: '"amenity"="pharmacy"' },
   { key: "hastane", label: "Sağlık", color: "#f43f5e", overpassFilter: '"amenity"~"hospital|clinic|doctors"' },
   { key: "atm", label: "ATM", color: "#06b6d4", overpassFilter: '"amenity"="atm"' },
-  { key: "benzin", label: "Benzin", color: "#f97316", overpassFilter: '"amenity"="fuel"' },
   { key: "cami", label: "Cami", color: "#8b5cf6", overpassFilter: '"amenity"="place_of_worship"' },
   { key: "okul", label: "Okul", color: "#a855f7", overpassFilter: '"amenity"~"school|kindergarten|university|college"' },
   { key: "restoran", label: "Restoran", color: "#ec4899", overpassFilter: '"amenity"="restaurant"' },
   { key: "kafe", label: "Kafe", color: "#d97706", overpassFilter: '"amenity"="cafe"' },
   { key: "market", label: "Market", color: "#0d9488", overpassFilter: '"shop"~"supermarket|convenience"' },
-  { key: "otopark", label: "Otopark", color: "#64748b", overpassFilter: '"amenity"="parking"' },
   { key: "banka", label: "Banka", color: "#6366f1", overpassFilter: '"amenity"="bank"' },
 ];
 
@@ -71,33 +81,39 @@ const CATEGORY_BY_KEY: Record<CategoryKey, CategoryDef> = Object.fromEntries(
 
 const CATEGORY_ICON: Record<CategoryKey, typeof Bus> = {
   durak: Bus,
+  "akilli-durak": MonitorSmartphone,
+  taksi: Car,
+  petrol: Fuel,
+  otopark: ParkingSquare,
+  eds: Camera,
   park: Trees,
   eczane: Pill,
   hastane: Hospital,
   atm: CreditCard,
-  benzin: Fuel,
   cami: Building2,
   okul: GraduationCap,
   restoran: UtensilsCrossed,
   kafe: Coffee,
   market: ShoppingBag,
-  otopark: ParkingSquare,
   banka: Banknote,
 };
 
 const CATEGORY_FALLBACK_NAME: Record<CategoryKey, string> = {
   durak: "Durak",
+  "akilli-durak": "Akıllı Durak",
+  taksi: "Taksi Durağı",
+  petrol: "Petrol İstasyonu",
+  otopark: "Otopark",
+  eds: "EDS Noktası",
   park: "Park",
   eczane: "Eczane",
   hastane: "Sağlık Merkezi",
   atm: "ATM",
-  benzin: "Benzin İstasyonu",
   cami: "Cami",
   okul: "Okul",
   restoran: "Restoran",
   kafe: "Kafe",
   market: "Market",
-  otopark: "Otopark",
   banka: "Banka",
 };
 
@@ -113,8 +129,9 @@ interface POI {
   website?: string;
 }
 
-const KOCAELI_CENTER = { lat: 40.7654, lng: 29.9408 };
-// [south, west, north, east]
+// Gebze merkez — başlangıçta odaklı görünüm
+const GEBZE_CENTER = { lat: 40.8030, lng: 29.4310 };
+// Overpass POI sorguları için Kocaeli geneli bbox [south, west, north, east]
 const KOCAELI_BBOX = [40.55, 29.0, 41.1, 30.5] as const;
 
 function esc(s: string): string {
@@ -132,16 +149,26 @@ async function fetchPois(cat: CategoryDef): Promise<POI[]> {
   const cached = poiCache.get(cat.key);
   if (cached) return cached;
 
-  if (cat.key === "durak") {
-    const res = await fetch("/data/bus-stops.json", { cache: "force-cache" });
-    if (!res.ok) throw new Error("bus-stops fetch failed");
-    const stops = (await res.json()) as { id: string; name: string; lat: number; lng: number }[];
-    const list: POI[] = stops.map(s => ({
-      id: `stop-${s.id}`,
-      name: s.name,
-      lat: s.lat,
-      lng: s.lng,
-      category: "durak",
+  if (cat.localUrl) {
+    const res = await fetch(cat.localUrl, { cache: "force-cache" });
+    if (!res.ok) throw new Error("local fetch failed");
+    const arr = (await res.json()) as Array<{
+      id?: string;
+      name?: string;
+      lat: number;
+      lng: number;
+      address?: string;
+      phone?: string;
+      ilce?: string;
+      mahalle?: string;
+    }>;
+    const list: POI[] = arr.map((it, i) => ({
+      id: it.id || `${cat.key}-${i}`,
+      name: it.name || CATEGORY_FALLBACK_NAME[cat.key],
+      lat: it.lat,
+      lng: it.lng,
+      category: cat.key,
+      address: it.address || [it.mahalle, it.ilce].filter(Boolean).join(" / ") || undefined,
     }));
     poiCache.set(cat.key, list);
     return list;
@@ -386,8 +413,8 @@ export default function CityMapPageClient() {
     delete (L.Icon.Default.prototype as any)._getIconUrl;
 
     const map: LeafletMap = L.map(containerRef.current, {
-      center: [KOCAELI_CENTER.lat, KOCAELI_CENTER.lng],
-      zoom: 13,
+      center: [GEBZE_CENTER.lat, GEBZE_CENTER.lng],
+      zoom: 12,
       zoomControl: false,
       attributionControl: false,
     });
