@@ -1,7 +1,7 @@
-import BusStopsPageClient from "@/components/BusStopsPageClient";
+import CityMapPageClient from "@/components/CityMapPageClient";
 
-export const metadata = { title: "Otobüs Durakları" };
+export const metadata = { title: "Gebze Haritası" };
 
-export default function DuraklarPage() {
-  return <BusStopsPageClient />;
+export default function HaritaPage() {
+  return <CityMapPageClient />;
 }

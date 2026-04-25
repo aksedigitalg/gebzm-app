@@ -18,6 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [aiOpen, setAiOpen] = useState(false);
   const auth = isAuthRoute(pathname);
   const fullscreen = pathname.startsWith("/ai");
+  const mapPage = pathname === "/duraklar";
   const panel = isAdminRoute(pathname) || isBusinessRoute(pathname);
 
   if (panel) return <>{children}</>;
@@ -41,6 +42,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
         <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       </div>
+    );
+  }
+
+  if (mapPage) {
+    return (
+      <main className="fixed inset-0 z-0">
+        <PageWrapper k={pathname}>{children}</PageWrapper>
+        <BottomNav />
+      </main>
     );
   }
 

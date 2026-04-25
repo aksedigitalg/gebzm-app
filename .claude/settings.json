@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
       "WebFetch(*)",
       "WebSearch(*)"
     ]
