@@ -15,8 +15,8 @@ import {
   GraduationCap,
   Hospital,
   Loader2,
-  Menu,
   MonitorSmartphone,
+  Navigation,
   ParkingSquare,
   Pill,
   Search,
@@ -402,7 +402,6 @@ export default function CityMapPageClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Init map once
   useEffect(() => {
@@ -544,7 +543,7 @@ export default function CityMapPageClient() {
         />
       </aside>
 
-      {/* MOBILE TOP BAR */}
+      {/* MOBILE TOP BAR — back + search */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 lg:hidden">
         <div className="pointer-events-auto flex items-center gap-2">
           <Link
@@ -574,39 +573,6 @@ export default function CityMapPageClient() {
               </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Liste"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card shadow-md"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="pointer-events-auto mt-3 -mx-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex gap-2 pr-3">
-            {CATEGORIES.map(cat => {
-              const Icon = CATEGORY_ICON[cat.key];
-              const isActive = cat.key === active;
-              return (
-                <button
-                  key={cat.key}
-                  type="button"
-                  onClick={() => setActive(cat.key)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-md transition"
-                  style={{
-                    backgroundColor: isActive ? cat.color : "rgb(var(--card-rgb, 255 255 255) / 0.95)",
-                    color: isActive ? "white" : undefined,
-                    borderColor: isActive ? cat.color : undefined,
-                  }}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
 
@@ -622,48 +588,128 @@ export default function CityMapPageClient() {
 
       {/* ERROR TOAST */}
       {error && (
-        <div className="absolute bottom-24 left-1/2 z-[600] -translate-x-1/2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
+        <div className="absolute bottom-44 left-1/2 z-[600] -translate-x-1/2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
           {error}
         </div>
       )}
 
-      {/* MOBILE DRAWER */}
-      {drawerOpen && (
-        <div
-          className="absolute inset-0 z-[700] bg-black/40 lg:hidden"
-          onClick={() => setDrawerOpen(false)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="absolute inset-x-0 bottom-0 flex max-h-[85%] flex-col rounded-t-3xl bg-card shadow-2xl"
-            style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
-          >
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="text-base font-bold">{activeCat.label}</h2>
+      {/* MOBILE BOTTOM PANEL — kategori kartları + POI bilgi kartları */}
+      <MobileBottomPanel
+        active={active}
+        setActive={setActive}
+        filtered={filtered}
+        loading={loading}
+        focusPoi={focusPoi}
+      />
+    </div>
+  );
+}
+
+interface MobileBottomPanelProps {
+  active: CategoryKey;
+  setActive: (k: CategoryKey) => void;
+  filtered: POI[];
+  loading: boolean;
+  focusPoi: (poi: POI) => void;
+}
+
+function MobileBottomPanel({
+  active,
+  setActive,
+  filtered,
+  loading,
+  focusPoi,
+}: MobileBottomPanelProps) {
+  const stop = (e: React.TouchEvent | React.PointerEvent) => e.stopPropagation();
+  const visibleCards = filtered.slice(0, 50);
+
+  return (
+    <div
+      onTouchStart={stop}
+      onTouchMove={stop}
+      onTouchEnd={stop}
+      onPointerDown={stop}
+      className="pointer-events-auto absolute inset-x-0 bottom-0 z-[450] flex flex-col gap-2 px-3 pb-3 lg:hidden"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+    >
+      {/* Üst sıra: 80×80 kategori kartları, sol-sağ scroll */}
+      <div className="-mx-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-2">
+          {CATEGORIES.map(cat => {
+            const Icon = CATEGORY_ICON[cat.key];
+            const isActive = cat.key === active;
+            return (
               <button
+                key={cat.key}
                 type="button"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="Kapat"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border"
+                onClick={() => setActive(cat.key)}
+                className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border bg-white shadow-md transition"
+                style={{
+                  backgroundColor: isActive ? cat.color : "white",
+                  color: isActive ? "white" : "#0f172a",
+                  borderColor: isActive ? cat.color : "#e5e7eb",
+                }}
               >
-                <X className="h-4 w-4" />
+                <Icon className="h-6 w-6" />
+                <span className="text-[10px] font-semibold leading-tight text-center px-1">
+                  {cat.label}
+                </span>
               </button>
-            </div>
-            <SidebarPanel
-              active={active}
-              setActive={setActive}
-              query={query}
-              setQuery={setQuery}
-              filtered={filtered}
-              loading={loading}
-              totalCount={pois.length}
-              focusPoi={focusPoi}
-              hideHeader
-              onClose={() => setDrawerOpen(false)}
-            />
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
+
+      {/* Alt sıra: POI bilgi kartları, sol-sağ scroll */}
+      <div className="-mx-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-2">
+          {loading && (
+            <div className="flex h-20 w-72 shrink-0 items-center justify-center gap-2 rounded-2xl border border-border bg-white text-sm text-muted-foreground shadow-md">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Yükleniyor...
+            </div>
+          )}
+          {!loading && visibleCards.length === 0 && (
+            <div className="flex h-20 w-72 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-sm text-muted-foreground shadow-md">
+              Sonuç yok
+            </div>
+          )}
+          {!loading &&
+            visibleCards.map(poi => {
+              const cat = CATEGORY_BY_KEY[poi.category];
+              return (
+                <button
+                  key={poi.id}
+                  type="button"
+                  onClick={() => focusPoi(poi)}
+                  className="flex w-72 shrink-0 items-center gap-3 rounded-2xl border border-border bg-white p-3 text-left shadow-md active:scale-[0.98] transition"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold leading-tight text-slate-900">
+                      {poi.name}
+                    </p>
+                    {poi.address && (
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {poi.address}
+                      </p>
+                    )}
+                    {!poi.address && (
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {cat.label}
+                      </p>
+                    )}
+                  </div>
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    <Navigation className="h-4 w-4 text-white" />
+                  </div>
+                </button>
+              );
+            })}
+        </div>
+      </div>
     </div>
   );
 }
