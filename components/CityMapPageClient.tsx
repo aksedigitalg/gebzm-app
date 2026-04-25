@@ -13,7 +13,6 @@ import {
   GraduationCap,
   Hospital,
   Loader2,
-  Locate,
   Menu,
   ParkingSquare,
   Pill,
@@ -370,7 +369,6 @@ export default function CityMapPageClient() {
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<any>(null);
   const markerByIdRef = useRef<Map<string, LeafletMarker>>(new Map());
-  const userMarkerRef = useRef<LeafletMarker | null>(null);
 
   const [active, setActive] = useState<CategoryKey>("durak");
   const [pois, setPois] = useState<POI[]>([]);
@@ -395,8 +393,6 @@ export default function CityMapPageClient() {
     });
     mapRef.current = map;
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
-
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
       subdomains: "abcd",
@@ -418,7 +414,6 @@ export default function CityMapPageClient() {
       mapRef.current = null;
       clusterRef.current = null;
       markerByIdRef.current.clear();
-      userMarkerRef.current = null;
     };
   }, []);
 
@@ -494,35 +489,6 @@ export default function CityMapPageClient() {
     const marker = markerByIdRef.current.get(poi.id);
     if (!map || !cluster || !marker) return;
     cluster.zoomToShowLayer(marker, () => marker.openPopup());
-  }, []);
-
-  const locateMe = useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (!navigator.geolocation) {
-      setError("Konum servisi desteklenmiyor");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const L = require("leaflet");
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        if (userMarkerRef.current) {
-          map.removeLayer(userMarkerRef.current);
-        }
-        const userIcon = L.divIcon({
-          className: "",
-          html: `<div style="width:16px;height:16px;border-radius:50%;background:#10b981;border:3px solid white;box-shadow:0 0 0 4px rgba(16,185,129,0.25);"></div>`,
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
-        });
-        userMarkerRef.current = L.marker([lat, lng], { icon: userIcon }).addTo(map);
-        map.flyTo([lat, lng], 16, { duration: 0.6 });
-      },
-      () => setError("Konum alınamadı"),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
-    );
   }, []);
 
   useEffect(() => {
@@ -616,27 +582,6 @@ export default function CityMapPageClient() {
           </div>
         </div>
       </div>
-
-      {/* LOCATE BUTTON — top right */}
-      <button
-        type="button"
-        onClick={locateMe}
-        aria-label="Konumum"
-        className="absolute right-4 top-4 z-[500] hidden h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-md lg:flex"
-      >
-        <Locate className="h-5 w-5 text-primary" />
-      </button>
-
-      {/* LOCATE BUTTON — mobile, above bottom nav */}
-      <button
-        type="button"
-        onClick={locateMe}
-        aria-label="Konumum"
-        className="absolute right-4 z-[500] flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-md lg:hidden"
-        style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px) + 16px)" }}
-      >
-        <Locate className="h-5 w-5 text-primary" />
-      </button>
 
       {/* LOADING INDICATOR */}
       {loading && (
