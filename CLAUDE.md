@@ -210,12 +210,13 @@ app/
 components/
 ├── AppShell.tsx              # Layout — animasyon YOK (hız için)
 ├── AuthProvider.tsx          # Korumalı olmayan sayfalarda spinner YOK
-├── BusinessActions.tsx       # CTA: login yoksa /giris'e yönlendir
+├── AuthModal.tsx             # Giriş modal — credentials→OTP→set-password, onSuccess callback
+├── BusinessActions.tsx       # CTA: login yoksa AuthModal açar (artık /giris'e yönlendirmez)
 ├── NotificationBell.tsx      # Bell: açılınca otomatik read-all
 ├── MessageSheet.tsx          # Mesaj popup (navigate etmez)
 ├── PhotoGallery.tsx          # Galeri + lightbox (VideoOverlay, ThumbStrip dosya scope'unda)
 ├── TabFocusRefresher.tsx     # visibilitychange → router.refresh() (detay sayfaları için)
-├── IlanlarClient.tsx         # İlan listesi — filtre, pagination, tab focus sync
+├── IlanlarClient.tsx         # İlan listesi — hero slider + kategori kartları + subcategory panel + URL params
 ├── IlanlarMap.tsx            # Leaflet harita — XSS korumalı esc() helper
 ├── panel/PanelShell.tsx      # notifToken + notifEndpoint prop'ları
 └── ...
@@ -330,11 +331,27 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-22 · Galeri yeniden yazıldı + tab focus sync + video thumbnail + pasif ilan 404
+**Son Güncelleme:** 2026-04-25 · İlanlar sayfası yeniden tasarlandı + AuthModal
 
 ---
 
 ## 📅 Günlük Raporlar
+
+---
+
+### 2026-04-25 — İlanlar Sayfası Yeniden Tasarımı + AuthModal
+
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | Hero slider: 4 slayt, gradient arka plan, otomatik geçiş | `components/IlanlarClient.tsx` |
+| 2 | Kategori kartları: 90×90 grid, ikonsuz, eşit boyut | `components/IlanlarClient.tsx` |
+| 3 | Sol subcategory paneli (desktop) + mobil yatay bar | `components/IlanlarClient.tsx` |
+| 4 | URL params: `?k=emlak&s=konut-satilik` — refresh'te state korunuyor | `components/IlanlarClient.tsx` |
+| 5 | Sol filtre sidebar'ı kaldırıldı (fiyat/tip filtreleri) | `components/IlanlarClient.tsx` |
+| 6 | `AuthModal` — giriş akışı modal içinde, sayfadan çıkmadan | `components/AuthModal.tsx` |
+| 7 | `BusinessActions` → `router.push("/giris")` yerine `AuthModal` açıyor | `components/BusinessActions.tsx` |
+| 8 | `onSuccess` callback: giriş sonrası otomatik rezervasyon/soru dialogu açılır | `components/BusinessActions.tsx` |
+| 9 | `/ilanlar/page.tsx` → `<Suspense>` wrap (useSearchParams zorunluluğu) | `app/ilanlar/page.tsx` |
 
 ---
 

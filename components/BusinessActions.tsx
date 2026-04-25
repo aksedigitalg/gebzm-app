@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { CalendarCheck2, MessageCircle, Send, Check, LogIn } from "lucide-react";
+import { CalendarCheck2, MessageCircle, Send, Check } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
+import { AuthModal } from "@/components/AuthModal";
 import { api } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 
@@ -32,23 +32,32 @@ interface Props {
 }
 
 export function BusinessActions({ businessName, businessType, bookingLabel = "Rezervasyon", services, businessId }: Props) {
-  const router = useRouter();
   const [openBooking, setOpenBooking] = useState(false);
   const [openQuestion, setOpenQuestion] = useState(false);
+  const [authModal, setAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"booking" | "question" | null>(null);
 
-  const requireLogin = () => {
-    router.push("/giris");
+  const requireLogin = (action: "booking" | "question") => {
+    setPendingAction(action);
+    setAuthModal(true);
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthModal(false);
+    if (pendingAction === "booking") setOpenBooking(true);
+    if (pendingAction === "question") setOpenQuestion(true);
+    setPendingAction(null);
   };
 
   const handleBooking = () => {
     const user = getUser();
-    if (!user?.token) { requireLogin(); return; }
+    if (!user?.token) { requireLogin("booking"); return; }
     setOpenBooking(true);
   };
 
   const handleQuestion = () => {
     const user = getUser();
-    if (!user?.token) { requireLogin(); return; }
+    if (!user?.token) { requireLogin("question"); return; }
     setOpenQuestion(true);
   };
 
@@ -67,6 +76,13 @@ export function BusinessActions({ businessName, businessType, bookingLabel = "Re
           </button>
         </div>
       </div>
+
+      <AuthModal
+        open={authModal}
+        onClose={() => { setAuthModal(false); setPendingAction(null); }}
+        onSuccess={handleAuthSuccess}
+        message={pendingAction === "booking" ? `${bookingLabel} yapmak için giriş yapın` : "Soru sormak için giriş yapın"}
+      />
 
       <BookingDialog
         open={openBooking}
