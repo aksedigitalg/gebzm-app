@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# GTFS ham veri (Kocaeli toplu ulaşım) — script ile slim JSON üretilir, ham dosyalar repo'ya girmez
+/data/gtfs-raw/

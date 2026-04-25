@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Map, Compass, Bus, PhoneCall,
-  ChevronRight, Wrench, Scissors, Tag,
+  ChevronRight, Wrench, Scissors, Tag, MapPin,
 } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { AdSlider } from "@/components/AdSlider";
@@ -16,6 +16,7 @@ const quickLinks = [
   { href: "/hizmetler", label: "Hizmetler", description: "Usta, kuaför, doktor", icon: Wrench, color: "from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400" },
   { href: "/ilanlar", label: "İlanlar", description: "Emlak, araç, elektronik", icon: Tag, color: "from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400" },
   { href: "/ulasim", label: "Ulaşım", description: "Marmaray, otobüs, YHT", icon: Bus, color: "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400" },
+  { href: "/duraklar", label: "Otobüs Durakları", description: "Kocaeli geneli 8000+ durak", icon: MapPin, color: "from-sky-500/15 to-sky-500/5 text-sky-600 dark:text-sky-400" },
   { href: "/acil", label: "Acil Numaralar", description: "Hızlı erişim", icon: PhoneCall, color: "from-red-500/15 to-red-500/5 text-red-600 dark:text-red-400" },
   { href: "/kategoriler", label: "Tüm Kategoriler", description: "Tüm hizmetleri keşfet", icon: Compass, color: "from-rose-500/15 to-rose-500/5 text-rose-600 dark:text-rose-400" },
 ];
@@ -86,7 +87,7 @@ export default async function HomePage() {
         {/* Hızlı Erişim */}
         <section>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Hızlı Erişim</h3>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-7">
             {quickLinks.map((link) => {
               const Icon = link.icon;
               return (

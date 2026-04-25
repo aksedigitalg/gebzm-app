@@ -58,6 +58,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* İlan detay sayfası — komple dark tema */
+html.dark-page {
+  --background: #0f0f0f;
+  --foreground: #f5f5f5;
+  --card: #1a1a1a;
+  --card-foreground: #f5f5f5;
+  --primary: #22d3ee;
+  --primary-foreground: #0f0f0f;
+  --secondary: #34d399;
+  --muted: #262626;
+  --muted-foreground: #737373;
+  --border: #262626;
+  --accent: #38bdf8;
+}
+
 /* Sayfa içeriği fade-in — transform KULLANMA (fixed child'ları bozar) */
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(3px); }

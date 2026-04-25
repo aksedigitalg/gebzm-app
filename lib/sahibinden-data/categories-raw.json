@@ -1,0 +1,121 @@
+{
+  "main_categories": [
+    "Emlak",
+    "Vasıta",
+    "Yedek Parça, Aksesuar, Donanım & Tuning",
+    "İkinci El ve Sıfır Alışveriş",
+    "İş Makineleri & Sanayi",
+    "Ustalar ve Hizmetler",
+    "Özel Ders Verenler",
+    "İş İlanları",
+    "Hayvanlar Alemi",
+    "Yardımcı Arayanlar"
+  ],
+  "category_tree": {
+    "Emlak": {
+      "Konut": {
+        "Satılık": ["Daire","Rezidans","Müstakil Ev","Villa","Çiftlik Evi","Köşk & Konak","Yalı","Yalı Dairesi","Yazlık","Kooperatif"],
+        "Kiralık": ["Daire","Rezidans","Müstakil Ev","Villa","Çiftlik Evi","Köşk & Konak","Yalı","Yalı Dairesi"],
+        "Turistik Günlük Kiralık": ["Daire","Rezidans","Müstakil Ev","Villa","Devre Mülk","Apart & Pansiyon"],
+        "Devren Satılık Konut": ["Daire","Villa"]
+      },
+      "İş Yeri": {
+        "Satılık": ["Akaryakıt İstasyonu","Apartman Dairesi","Atölye","AVM","Büfe","Büro & Ofis","Çiftlik","Depo & Antrepo","Düğün Salonu","Dükkan & Mağaza","Enerji Santrali","Fabrika & Üretim Tesisi","Garaj & Park Yeri","İmalathane","İş Hanı Katı & Ofisi","Kafe & Bar","Kantin","Kır & Kahvaltı Bahçesi","Kıraathane","Komple Bina","Maden Ocağı","Otopark & Garaj","Oto Yıkama & Kuaför","Pastane, Fırın & Tatlıcı","Pazar Yeri","Plaza","Plaza Katı & Ofisi","Radyo İstasyonu & TV Kanalı","Restoran & Lokanta","Rezidans Katı & Ofisi","Sağlık Merkezi","Sinema & Konferans Salonu","SPA, Hamam & Sauna","Spor Tesisi","Villa","Yurt"],
+        "Kiralık": ["Akaryakıt İstasyonu","Apartman Dairesi","Atölye","AVM","Büfe","Büro & Ofis","Çiftlik","Depo & Antrepo","Düğün Salonu","Dükkan & Mağaza","Eczane & Medikal","Fabrika & Üretim Tesisi","Fotoğraf Stüdyosu","Garaj & Park Yeri","Hazır & Sanal Ofis","İmalathane","İş Hanı Katı & Ofisi","Kafe & Bar","Kantin","Kır & Kahvaltı Bahçesi","Kıraathane","Komple Bina","Kuaför & Güzellik Merkezi","Maden Ocağı","Market","Muayenehane","Okul & Kurs","Otopark","Oto Yıkama & Kuaför","Pastane & Fırın & Tatlıcı","Pazar Yeri","Plaza","Plaza Katı & Ofisi","Prova & Kayıt Stüdyosu","Radyo İstasyonu & TV Kanalı","Restoran & Lokanta","Rezidans Katı & Ofisi","Sağlık Merkezi","Sinema & Konferans Salonu","Spa, Hamam & Sauna","Spor Tesisi","Taksi Durağı","Tamirhane","Villa","Yurt"],
+        "Devren Satılık": ["Acente","Akaryakıt İstasyonu","Aktar & Baharatçı","Anaokulu & Kreş","Apartman Dairesi","Araç Showroom & Servis","Atölye","AVM Standı","Balıkçı","Bar","Bijuteri","Börekçi","Büfe","Büro & Ofis","Cep Telefonu Dükkanı","Çamaşırhane","Çay Ocağı","Çiçekçi & Fidanlık","Çiftlik","Çiğ Köfteci","Depo & Antrepo","Düğün Salonu","Dükkan & Mağaza","Eczane & Medikal","Elektrikçi & Hırdavatçı","Elektronik Mağazası","Enerji Santrali","Etkinlik Alanı","Fabrika & Üretim Tesisi","Fatura Merkezi","Fotoğraf Stüdyosu","Gece Kulübü & Disko","Giyim Mağazası","Gözlükçü","Halı Yıkama","Huzur Evi","İmalathane","İnternet & Oyun Kafe","İş Hanı","İş Hanı Katı & Ofisi","Kafe","Kantin","Kasap","Kır & Kahvaltı Bahçesi","Kıraathane","Kırtasiye","Kozmetik Mağazası","Kuaför & Güzellik Merkezi","Kurs & Eğitim Merkezi","Kuru Temizleme","Kuruyemişçi","Kuyumcu","Lunapark","Maden Ocağı","Manav","Market","Matbaa","Modaevi","Muayenehane","Nakliyat & Kargo","Nalbur","Okul & Kurs","Otopark / Garaj","Oto Servis & Bakım","Oto Yedek Parça","Oto Yıkama & Kuaför","Öğrenci Yurdu","Pastane, Fırın & Tatlıcı","Pazar Yeri","Pet Shop","Plaza","Plaza Katı & Ofisi","Prova & Kayıt Stüdyosu","Radyo İstasyonu & TV Kanalı","Restoran & Lokanta","Rezidans Katı & Ofisi","Saat Mağazası","Sağlık Merkezi","Sebze & Meyve Hali","Sinema & Konferans Salonu","Soğuk Hava Deposu","SPA, Hamam & Sauna","Spor Tesisi","Su & Tüp Bayi","Şans Oyunları Bayisi","Şarküteri","Taksi Durağı","Tamirhane","Tekel Bayi","Teknik Servis","Terzi","Tuhafiye","Tuvalet","Veteriner","Züccaciye"],
+        "Devren Kiralık": ["Acente","Akaryakıt İstasyonu","Aktar & Baharatçı","Anaokulu & Kreş","Apartman Dairesi","Araç Showroom & Servis","Atölye","AVM Standı","Balıkçı","Bar","Bijuteri","Börekçi","Büfe","Büro & Ofis","Cep Telefonu Dükkanı","Çamaşırhane","Çay Ocağı","Çiçekçi & Fidanlık","Çiftlik","Çiğ Köfteci","Depo & Antrepo","Düğün Salonu","Dükkan & Mağaza","Eczane & Medikal","Elektrikçi & Hırdavatçı","Elektronik Mağazası","Enerji Santrali","Etkinlik Alanı","Fabrika & Üretim Tesisi","Fatura Merkezi","Fotoğraf Stüdyosu","Gece Kulübü & Disko","Giyim Mağazası","Gözlükçü","Halı Yıkama","Huzur Evi","İmalathane","İnternet & Oyun Kafe","İş Hanı","İş Hanı Katı & Ofisi","Kafe","Kasap","Kıraathane","Kırtasiye","Kozmetik Mağazası","Kuaför & Güzellik Merkezi","Kurs & Eğitim Merkezi","Kuru Temizleme","Kuruyemişçi","Kuyumcu","Lunapark","Maden Ocağı","Manav","Market","Matbaa","Medikal Market","Modaevi","Muayenehane","Nakliyat & Kargo","Nalbur","Okul","Otopark & Garaj","Oto Servis & Bakım","Oto Yedek Parça","Oto Yıkama & Kuaför","Öğrenci Yurdu","Pastane, Fırın & Tatlıcı","Pazar Yeri","Pet Shop","Piknik Alanı & Kahvaltı Bahçesi","Plaza","Plaza Katı & Ofisi","Prova & Kayıt Stüdyosu","Radyo İstasyonu & TV Kanalı","Restoran & Lokanta","Rezidans Katı & Ofisi","Saat Mağazası","Sağlık Merkezi","Sebze & Meyve Hali","Sinema & Konferans Salonu","Soğuk Hava Deposu","SPA, Hamam & Sauna","Spor Tesisi","Su & Tüp Bayi","Şans Oyunları Bayisi","Şarküteri","Taksi Durağı","Tamirhane","Tekel Bayi","Teknik Servis","Terzi","Tuhafiye","Tuvalet","Veteriner","Züccaciye"]
+      },
+      "Arsa": {
+        "Kat Karşılığı Satılık": null,
+        "Satılık": null,
+        "Kiralık": null
+      },
+      "Bina": {
+        "Satılık": null,
+        "Kiralık": null
+      },
+      "Devre Mülk": {
+        "Satılık": null
+      },
+      "Turistik Tesis": {
+        "Satılık": null,
+        "Kiralık": null
+      }
+    },
+    "Vasıta": {
+      "Otomobil": {
+        "_cascade": ["Yıl","Marka","Seri/Model","Yakıt","Kasa Tipi","Vites","Alt Model"],
+        "Yıl": ["2025","2024","2023","2022","2021","2020","2019","2018","2017","2016","2015","2014","2013","2012","2011","2010","2009","2008","2007","2006","2005","2004","2003","2002","2001","2000","1999","1998","1997","1996","1995","1994","1993","1992","1991","1990","1989","1988","1987","1986","1985","1984","1983","1982","1981","1980","1979","1978","1977","1976","1975","1974","1973","1972","1971","1970"]
+      },
+      "_subcategories": ["Otomobil","Arazi, SUV & Pickup","Elektrikli Araçlar","Motosiklet","Minivan & Panelvan","Ticari Araçlar","Deniz Araçları","Hasarlı Araçlar","Karavan","Klasik Araçlar","Hava Araçları","ATV","UTV","Engelli Plakalı Araçlar"]
+    },
+    "Yedek Parça, Aksesuar, Donanım & Tuning": {
+      "Otomotiv Ekipmanları": ["Yedek Parça","Aksesuar & Tuning","Jant & Lastik","Ses & Görüntü Sistemleri"],
+      "Motosiklet Ekipmanları": null,
+      "Deniz Aracı Ekipmanları": null,
+      "Yedek Parça": ["Otomobil & Arazi Aracı","Minivan & Panelvan","Ticari Araçlar","Karavan","Go Kart"]
+    },
+    "İkinci El ve Sıfır Alışveriş": {
+      "_subcategories": ["Bilgisayar","Cep Telefonu & Aksesuar","Fotoğraf & Kamera","Ev Dekorasyon","Ev Elektroniği","Elektrikli Ev Aletleri","Giyim & Aksesuar","Saat","Anne & Bebek","Kişisel Bakım & Kozmetik","Hobi & Oyuncak","Oyunculara Özel","Kitap, Dergi & Film","Müzik","Spor","Takı & Mücevher","Koleksiyon","Antika","Bahçe & Yapı Market","Teknik Elektronik","Ofis & Kırtasiye","Yiyecek & İçecek","Diğer Her Şey"]
+    },
+    "İş Makineleri & Sanayi": {
+      "_subcategories": ["İş Makineleri","Tarım Makineleri","Sanayi","Elektrik & Enerji"]
+    },
+    "Ustalar ve Hizmetler": {
+      "_subcategories": ["Ev Tadilat & Dekorasyon","Nakliye","Araç Servis & Bakım","Tamirat & Teknik Servis","Düğün & Etkinlik","Diğer"]
+    },
+    "Özel Ders Verenler": {
+      "_subcategories": ["Lise & Üniversite","İlkokul & Ortaokul","Yabancı Dil","Bilgisayar","Direksiyon","Spor","Sanat","Dans","Müzik & Enstrüman","Tiyatro & Oyunculuk","Kişisel Gelişim","Mesleki Dersler","Özel Eğitim","Çocuk Gelişimi","Güzel Konuşma & Diksiyon","Fotoğrafçılık"]
+    },
+    "İş İlanları": {
+      "_subcategories": ["Avukatlık & Hukuki Danışmanlık","Eğitim","Eğlence & Aktivite","Güzellik & Bakım","IT & Yazılım Geliştirme","İnsan Kaynakları","İnşaat & Yapı","İşletme & Stratejik Yönetim","Koruma & Güvenlik","Lojistik & Taşıma","Mağazacılık ve Perakendecilik","Muhasebe, Finans & Bankacılık","Mühendislik","Müşteri Hizmetleri","Ofis Yönetimi & İdari İşler","Part Time & Ek İş Fırsatları","Pazarlama & Ürün Yönetimi","Radyo, Sinema & Televizyon","Restoran & Konaklama","Sağlık","Satış","Tamir & Bakım","Tarım & Hayvancılık","Tasarım & Yaratıcılık","Tekstil & Konfeksiyon","Üretim & İmalat"]
+    },
+    "Hayvanlar Alemi": {
+      "_subcategories": ["Aksesuar & Ekipman","Yem & Mama","Evcil Hayvanlar","Akvaryum Balıkları","Kümes Hayvanları","Büyükbaş Hayvanlar","Küçükbaş Hayvanlar","Deniz Canlıları","Sürüngenler","Böcekler"]
+    },
+    "Yardımcı Arayanlar": {
+      "_subcategories": ["Bebek & Çocuk Bakıcısı","Yaşlı & Hasta Bakıcısı","Temizlikçi & Ev İşlerine Yardımcı"]
+    }
+  },
+  "form_schemas": {
+    "Emlak > Konut > Satılık > Daire": [
+      {"section":"İlan Detayları","key":"baslik","label":"İlan Başlığı","type":"text","required":true},
+      {"section":"İlan Detayları","key":"aciklama","label":"Açıklama","type":"richtext","required":true},
+      {"section":"İlan Detayları","key":"fiyat","label":"Fiyat","type":"number","required":true,"unit":"TL"},
+      {"section":"İlan Detayları","key":"m2_brut","label":"m² (Brüt)","type":"number","required":true,"unit":"m²"},
+      {"section":"İlan Detayları","key":"m2_net","label":"m² (Net)","type":"number","required":true,"unit":"m²"},
+      {"section":"İlan Detayları","key":"oda_sayisi","label":"Oda Sayısı","type":"select","required":true,"locked":true,"options":["1+0","1+1","2+1","3+1","4+1","5+1","6+"]},
+      {"section":"İlan Detayları","key":"bina_yasi","label":"Bina Yaşı","type":"select","required":true,"locked":false},
+      {"section":"İlan Detayları","key":"bulundugu_kat","label":"Bulunduğu Kat","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"kat_sayisi","label":"Kat Sayısı","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"isitma","label":"Isıtma","type":"select","required":true,"locked":false},
+      {"section":"İlan Detayları","key":"banyo_sayisi","label":"Banyo Sayısı","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"mutfak","label":"Mutfak","type":"select","required":true,"locked":false},
+      {"section":"İlan Detayları","key":"balkon","label":"Balkon","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"asansor","label":"Asansör","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"otopark","label":"Otopark","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"esyali","label":"Eşyalı","type":"checkbox","required":false},
+      {"section":"İlan Detayları","key":"kullanim_durumu","label":"Kullanım Durumu","type":"select","required":true},
+      {"section":"İlan Detayları","key":"aidat","label":"Aidat (TL)","type":"number","required":false,"unit":"TL"},
+      {"section":"İlan Detayları","key":"krediye_uygun","label":"Krediye Uygun","type":"checkbox","required":false},
+      {"section":"İlan Detayları","key":"enerji_kimlik","label":"Enerji Kimlik Belgesi","type":"select","required":false,"locked":true},
+      {"section":"İlan Detayları","key":"tapu_durumu","label":"Tapu Durumu","type":"select","required":true,"locked":true},
+      {"section":"İlan Detayları","key":"tasinmaz_no","label":"Taşınmaz Numarası","type":"text","required":false},
+      {"section":"İlan Detayları","key":"kimden","label":"Kimden","type":"select","required":false,"locked":true,"default":"Sahibinden"},
+      {"section":"Adres Bilgileri","key":"il","label":"İl","type":"select","required":true},
+      {"section":"Adres Bilgileri","key":"ilce","label":"İlçe","type":"select","required":true,"depends_on":"il"},
+      {"section":"Adres Bilgileri","key":"mahalle","label":"Mahalle","type":"select","required":false,"depends_on":"ilce"},
+      {"section":"Detaylı Bilgi","key":"cephe","label":"Cephe","type":"multiselect","required":true,"options":["Batı","Doğu","Güney","Kuzey"]},
+      {"section":"Detaylı Bilgi","key":"ic_ozellikler","label":"İç Özellikler","type":"multiselect","required":true,"options":[]},
+      {"section":"Detaylı Bilgi","key":"dis_ozellikler","label":"Dış Özellikler","type":"multiselect","required":true,"options":[]},
+      {"section":"Detaylı Bilgi","key":"ulasim","label":"Ulaşım","type":"multiselect","required":true,"options":[]},
+      {"section":"Detaylı Bilgi","key":"manzara","label":"Manzara","type":"multiselect","required":true,"options":[]},
+      {"section":"Detaylı Bilgi","key":"konut_tipi","label":"Konut Tipi","type":"multiselect","required":true,"options":[]},
+      {"section":"Detaylı Bilgi","key":"engelli_yasli","label":"Engelliye ve Yaşlıya Uygun","type":"multiselect","required":true,"options":[]},
+      {"section":"Fotoğraf","key":"fotograflar","label":"Fotoğraf","type":"file","maxCount":20},
+      {"section":"Video","key":"video","label":"Video","type":"file","accept":["3gp","mp4","mov"],"maxDuration":"1 dakika"},
+      {"section":"İletişim Bilgileri","key":"iletisim_yontemi","label":"Size nasıl ulaşılsın?","type":"radio","options":["Telefon numaralarım ile","Telefonla ulaşılmak istemiyorum"]},
+      {"section":"İletişim Bilgileri","key":"site_mesaj_izni","label":"Mesaj izni","type":"checkbox","default":true}
+    ]
+  }
+}
