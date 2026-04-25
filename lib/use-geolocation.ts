@@ -36,10 +36,14 @@ export interface UseGeolocationResult {
   clear: () => void;
 }
 
+// W3C `maximumAge` = tarayıcının kendi "kullanıcının konumu" cache'inin
+// kabul edilebilir maksimum yaşı. Yüksek değer = eski/yanlış konum riski.
+// Bizim 30 dk localStorage cache'imizden ayrı: bunu 0 tutuyoruz ki istek
+// her zaman taze cihaz konumunu zorlasın.
 const DEFAULT_OPTS: Required<UseGeolocationOptions> = {
   enableHighAccuracy: true,
-  timeout: 10000,
-  maximumAge: GEO_CACHE_TTL_MS,
+  timeout: 15000,
+  maximumAge: 0,
   hydrateFromCache: true,
 };
 
@@ -95,6 +99,9 @@ export function useGeolocation(
 
     setStatus("requesting");
     setError(null);
+    // Kullanıcı bilinçli olarak konum istiyor — eski localStorage cache'ini at,
+    // taze cihaz konumunu zorla.
+    clearGeoCache();
 
     return new Promise<Coords | null>(resolve => {
       navigator.geolocation.getCurrentPosition(

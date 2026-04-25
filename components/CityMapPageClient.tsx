@@ -412,6 +412,7 @@ export default function CityMapPageClient() {
   const clusterRef = useRef<any>(null);
   const markerByIdRef = useRef<Map<string, LeafletMarker>>(new Map());
   const userMarkerRef = useRef<LeafletMarker | null>(null);
+  const userAccuracyRef = useRef<any>(null);
 
   const [active, setActive] = useState<CategoryKey>("durak");
   const [pois, setPois] = useState<POI[]>([]);
@@ -461,6 +462,7 @@ export default function CityMapPageClient() {
       clusterRef.current = null;
       markerByIdRef.current.clear();
       userMarkerRef.current = null;
+      userAccuracyRef.current = null;
     };
   }, []);
 
@@ -566,14 +568,32 @@ export default function CityMapPageClient() {
     }
   }, [geo]);
 
-  // Konum bilindiğinde haritada kullanıcı marker'ı çiz + oraya uç
+  // Konum bilindiğinde haritada kullanıcı marker'ı + doğruluk halkası çiz
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !geo.coords) return;
     const L = require("leaflet");
+
     if (userMarkerRef.current) {
       map.removeLayer(userMarkerRef.current);
     }
+    if (userAccuracyRef.current) {
+      map.removeLayer(userAccuracyRef.current);
+    }
+
+    // Doğruluk halkası — gerçek hassasiyeti görsel olarak gösterir
+    const accuracyMeters = geo.coords.accuracy ?? 0;
+    if (accuracyMeters > 0) {
+      userAccuracyRef.current = L.circle([geo.coords.lat, geo.coords.lng], {
+        radius: accuracyMeters,
+        color: "#10b981",
+        fillColor: "#10b981",
+        fillOpacity: 0.1,
+        weight: 1,
+        interactive: false,
+      }).addTo(map);
+    }
+
     const userIcon = L.divIcon({
       className: "",
       html: `<div style="position:relative;width:20px;height:20px;">
@@ -587,9 +607,25 @@ export default function CityMapPageClient() {
       interactive: false,
       keyboard: false,
     }).addTo(map);
-    map.flyTo([geo.coords.lat, geo.coords.lng], Math.max(map.getZoom(), 14), {
-      duration: 0.6,
-    });
+
+    // Halkayı tam sığdıracak zoom seviyesi
+    if (accuracyMeters > 0 && userAccuracyRef.current) {
+      map.fitBounds(userAccuracyRef.current.getBounds(), {
+        padding: [60, 60],
+        maxZoom: 16,
+        animate: true,
+        duration: 0.6,
+      });
+    } else {
+      map.flyTo([geo.coords.lat, geo.coords.lng], 15, { duration: 0.6 });
+    }
+
+    // Hassasiyet düşükse uyar
+    if (accuracyMeters > 500) {
+      setError(
+        `Konum hassasiyeti ~${Math.round(accuracyMeters)} m. GPS açık telefondan daha doğru sonuç alırsın.`
+      );
+    }
   }, [geo.coords]);
 
   useEffect(() => {

@@ -64,7 +64,8 @@ export function formatDistance(km: number): string {
 
 // Konum cache anahtarları
 export const GEO_CACHE_KEY = "gebzem_geo_cache";
-export const GEO_CACHE_TTL_MS = 30 * 60 * 1000; // 30 dk
+// Konum hareketli — hızlı sayfa geçişlerini desteklemek için kısa TTL.
+export const GEO_CACHE_TTL_MS = 5 * 60 * 1000; // 5 dk
 
 // Cache'den oku — TTL geçmişse null
 export function readGeoCache(): Coords | null {
