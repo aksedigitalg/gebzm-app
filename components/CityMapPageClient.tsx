@@ -14,6 +14,7 @@ import {
   Fuel,
   GraduationCap,
   Hospital,
+  Crosshair,
   Loader2,
   Locate,
   MonitorSmartphone,
@@ -421,6 +422,7 @@ export default function CityMapPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
 
   const geo = useGeolocation();
 
@@ -568,6 +570,35 @@ export default function CityMapPageClient() {
     }
   }, [geo]);
 
+  // Manuel mod — KVKK rızası yine zorunlu (konum işlenecek)
+  const handleManualClick = useCallback(() => {
+    if (readConsent() !== "granted") {
+      setConsentOpen(true);
+      return;
+    }
+    setManualMode(prev => !prev);
+  }, []);
+
+  // Manuel mod aktifken haritaya tıklama → konumu o noktaya ayarla
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const container = map.getContainer();
+    container.style.cursor = manualMode ? "crosshair" : "";
+
+    if (!manualMode) return;
+
+    const handleMapClick = (e: any) => {
+      geo.setManual(e.latlng.lat, e.latlng.lng);
+      setManualMode(false);
+    };
+    map.on("click", handleMapClick);
+    return () => {
+      map.off("click", handleMapClick);
+      container.style.cursor = "";
+    };
+  }, [manualMode, geo]);
+
   // Konum bilindiğinde haritada kullanıcı marker'ı + doğruluk halkası çiz
   useEffect(() => {
     const map = mapRef.current;
@@ -687,46 +718,140 @@ export default function CityMapPageClient() {
         </div>
       </div>
 
-      {/* LOCATE BUTTON — desktop: harita sağ üst */}
-      <button
-        type="button"
-        onClick={handleLocateClick}
-        aria-label="Konumumu göster"
-        title="Konumumu göster"
-        className="absolute right-4 top-4 z-[500] hidden h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-md transition hover:bg-muted lg:flex"
-        style={geo.coords ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {}}
-      >
-        {locating ? (
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        ) : (
-          <Locate
-            className="h-5 w-5"
-            style={{ color: geo.coords ? "white" : undefined }}
-          />
-        )}
-      </button>
+      {/* LOCATE & MANUAL BUTTONS — desktop: harita sağ üst */}
+      <div className="absolute right-4 top-4 z-[500] hidden flex-col gap-2 lg:flex">
+        <button
+          type="button"
+          onClick={handleLocateClick}
+          aria-label="Konumumu göster (GPS)"
+          title="Konumumu göster (GPS)"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-md transition hover:bg-muted"
+          style={
+            geo.coords && (geo.coords.accuracy ?? 0) > 0
+              ? { backgroundColor: "#10b981", borderColor: "#10b981" }
+              : {}
+          }
+        >
+          {locating ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : (
+            <Locate
+              className="h-5 w-5"
+              style={{
+                color:
+                  geo.coords && (geo.coords.accuracy ?? 0) > 0
+                    ? "white"
+                    : undefined,
+              }}
+            />
+          )}
+        </button>
 
-      {/* LOCATE BUTTON — mobile: alt panelin üstünde sağda floating */}
-      <button
-        type="button"
-        onClick={handleLocateClick}
-        aria-label="Konumumu göster"
-        className="absolute right-4 z-[460] flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card shadow-lg transition active:scale-95 lg:hidden"
-        style={{
-          bottom: "calc(196px + env(safe-area-inset-bottom, 0px))",
-          backgroundColor: geo.coords ? "#10b981" : undefined,
-          borderColor: geo.coords ? "#10b981" : undefined,
-        }}
-      >
-        {locating ? (
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        ) : (
-          <Locate
+        <button
+          type="button"
+          onClick={handleManualClick}
+          aria-label="Konumu manuel seç"
+          title="Konumu manuel seç (haritaya tıkla)"
+          className="flex h-11 w-11 items-center justify-center rounded-full border shadow-md transition"
+          style={{
+            backgroundColor: manualMode
+              ? "#0e7490"
+              : geo.coords && geo.coords.accuracy === 0
+                ? "#0e7490"
+                : "white",
+            borderColor: manualMode || (geo.coords && geo.coords.accuracy === 0)
+              ? "#0e7490"
+              : "var(--border, #e5e7eb)",
+          }}
+        >
+          <Crosshair
             className="h-5 w-5"
-            style={{ color: geo.coords ? "white" : undefined }}
+            style={{
+              color:
+                manualMode || (geo.coords && geo.coords.accuracy === 0)
+                  ? "white"
+                  : "#0f172a",
+            }}
           />
-        )}
-      </button>
+        </button>
+      </div>
+
+      {/* LOCATE & MANUAL BUTTONS — mobile: alt panelin üstünde sağda */}
+      <div
+        className="absolute right-4 z-[460] flex flex-col gap-2 lg:hidden"
+        style={{ bottom: "calc(196px + env(safe-area-inset-bottom, 0px))" }}
+      >
+        <button
+          type="button"
+          onClick={handleManualClick}
+          aria-label="Konumu manuel seç"
+          className="flex h-12 w-12 items-center justify-center rounded-full border shadow-lg transition active:scale-95"
+          style={{
+            backgroundColor: manualMode
+              ? "#0e7490"
+              : geo.coords && geo.coords.accuracy === 0
+                ? "#0e7490"
+                : "white",
+            borderColor:
+              manualMode || (geo.coords && geo.coords.accuracy === 0)
+                ? "#0e7490"
+                : "var(--border, #e5e7eb)",
+          }}
+        >
+          <Crosshair
+            className="h-5 w-5"
+            style={{
+              color:
+                manualMode || (geo.coords && geo.coords.accuracy === 0)
+                  ? "white"
+                  : "#0f172a",
+            }}
+          />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleLocateClick}
+          aria-label="Konumumu göster (GPS)"
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card shadow-lg transition active:scale-95"
+          style={
+            geo.coords && (geo.coords.accuracy ?? 0) > 0
+              ? { backgroundColor: "#10b981", borderColor: "#10b981" }
+              : {}
+          }
+        >
+          {locating ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : (
+            <Locate
+              className="h-5 w-5"
+              style={{
+                color:
+                  geo.coords && (geo.coords.accuracy ?? 0) > 0
+                    ? "white"
+                    : undefined,
+              }}
+            />
+          )}
+        </button>
+      </div>
+
+      {/* MANUEL MOD BANNER */}
+      {manualMode && (
+        <div className="pointer-events-none absolute left-1/2 top-20 z-[600] -translate-x-1/2 lg:top-6">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-[#0e7490] px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+            <Crosshair className="h-4 w-4" />
+            <span>Konumun olacağı yere haritaya tıkla</span>
+            <button
+              type="button"
+              onClick={() => setManualMode(false)}
+              className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold hover:bg-white/30"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KVKK rıza modal'ı */}
       <LocationConsentDialog

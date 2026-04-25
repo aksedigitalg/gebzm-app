@@ -34,6 +34,8 @@ export interface UseGeolocationResult {
   stopWatch: () => void;
   // Cache'i ve memory'deki koordinatı temizle (rıza geri çekildiğinde)
   clear: () => void;
+  // Manuel konum belirle — desktop'ta GPS olmadığında veya kullanıcı doğru noktayı bilmiyorsa
+  setManual: (lat: number, lng: number) => void;
 }
 
 // W3C `maximumAge` = tarayıcının kendi "kullanıcının konumu" cache'inin
@@ -192,6 +194,19 @@ export function useGeolocation(
     clearGeoCache();
   }, []);
 
+  const setManual = useCallback((lat: number, lng: number) => {
+    const c: Coords = {
+      lat,
+      lng,
+      accuracy: 0, // manuel = nokta atışı
+      timestamp: Date.now(),
+    };
+    setCoords(c);
+    setStatus("success");
+    setError(null);
+    writeGeoCache(c);
+  }, []);
+
   return {
     coords,
     status,
@@ -201,5 +216,6 @@ export function useGeolocation(
     startWatch,
     stopWatch,
     clear,
+    setManual,
   };
 }
