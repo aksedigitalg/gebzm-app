@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Hospital,
   Loader2,
+  Locate,
   MonitorSmartphone,
   Navigation,
   ParkingSquare,
@@ -28,6 +29,10 @@ import {
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import { useGeolocation } from "@/lib/use-geolocation";
+import { readConsent } from "@/lib/geolocation-consent";
+import { formatDistance, haversineKm } from "@/lib/geolocation";
+import { LocationConsentDialog } from "@/components/LocationConsentDialog";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -127,6 +132,7 @@ interface POI {
   phone?: string;
   opening_hours?: string;
   website?: string;
+  distanceKm?: number;
 }
 
 // Gebze merkez — başlangıçta odaklı görünüm
@@ -376,12 +382,21 @@ function SidebarPanel({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold leading-tight">{poi.name}</p>
-                  {poi.address && (
-                    <p className="truncate text-xs text-muted-foreground">{poi.address}</p>
-                  )}
-                  {!poi.address && poi.phone && (
-                    <p className="truncate text-xs text-muted-foreground">{poi.phone}</p>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {poi.distanceKm != null && (
+                      <span
+                        className="text-xs font-bold"
+                        style={{ color: activeCat.color }}
+                      >
+                        {formatDistance(poi.distanceKm)}
+                      </span>
+                    )}
+                    {(poi.address || poi.phone) && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {poi.address || poi.phone}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </button>
             );
@@ -396,12 +411,17 @@ export default function CityMapPageClient() {
   const mapRef = useRef<LeafletMap | null>(null);
   const clusterRef = useRef<any>(null);
   const markerByIdRef = useRef<Map<string, LeafletMarker>>(new Map());
+  const userMarkerRef = useRef<LeafletMarker | null>(null);
 
   const [active, setActive] = useState<CategoryKey>("durak");
   const [pois, setPois] = useState<POI[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const geo = useGeolocation();
 
   // Init map once
   useEffect(() => {
@@ -440,6 +460,7 @@ export default function CityMapPageClient() {
       mapRef.current = null;
       clusterRef.current = null;
       markerByIdRef.current.clear();
+      userMarkerRef.current = null;
     };
   }, []);
 
@@ -504,10 +525,23 @@ export default function CityMapPageClient() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
-    if (!q) return pois.slice(0, 200);
-    if (q.length < 2) return [];
-    return pois.filter(p => p.name.toLocaleLowerCase("tr").includes(q)).slice(0, 200);
-  }, [query, pois]);
+    let list: POI[] =
+      q.length >= 2
+        ? pois.filter(p => p.name.toLocaleLowerCase("tr").includes(q))
+        : !q
+          ? pois
+          : [];
+
+    // Konum varsa: uzaklık hesapla + uzaklığa göre sırala
+    if (geo.coords) {
+      const here = geo.coords;
+      list = list
+        .map(p => ({ ...p, distanceKm: haversineKm(here, p) }))
+        .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+    }
+
+    return list.slice(0, 200);
+  }, [query, pois, geo.coords]);
 
   const focusPoi = useCallback((poi: POI) => {
     const map = mapRef.current;
@@ -516,6 +550,47 @@ export default function CityMapPageClient() {
     if (!map || !cluster || !marker) return;
     cluster.zoomToShowLayer(marker, () => marker.openPopup());
   }, []);
+
+  // Konum butonu — KVKK rızası yoksa modal aç, varsa direkt iste
+  const handleLocateClick = useCallback(async () => {
+    if (readConsent() !== "granted") {
+      setConsentOpen(true);
+      return;
+    }
+    setLocating(true);
+    const c = await geo.request();
+    setLocating(false);
+    if (!c) {
+      const msg = geo.error?.message || "Konum alınamadı";
+      setError(msg);
+    }
+  }, [geo]);
+
+  // Konum bilindiğinde haritada kullanıcı marker'ı çiz + oraya uç
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !geo.coords) return;
+    const L = require("leaflet");
+    if (userMarkerRef.current) {
+      map.removeLayer(userMarkerRef.current);
+    }
+    const userIcon = L.divIcon({
+      className: "",
+      html: `<div style="position:relative;width:20px;height:20px;">
+        <div style="position:absolute;inset:0;border-radius:50%;background:#10b981;border:3px solid white;box-shadow:0 0 0 6px rgba(16,185,129,0.25);"></div>
+      </div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+    userMarkerRef.current = L.marker([geo.coords.lat, geo.coords.lng], {
+      icon: userIcon,
+      interactive: false,
+      keyboard: false,
+    }).addTo(map);
+    map.flyTo([geo.coords.lat, geo.coords.lng], Math.max(map.getZoom(), 14), {
+      duration: 0.6,
+    });
+  }, [geo.coords]);
 
   useEffect(() => {
     if (!error) return;
@@ -575,6 +650,62 @@ export default function CityMapPageClient() {
           </div>
         </div>
       </div>
+
+      {/* LOCATE BUTTON — desktop: harita sağ üst */}
+      <button
+        type="button"
+        onClick={handleLocateClick}
+        aria-label="Konumumu göster"
+        title="Konumumu göster"
+        className="absolute right-4 top-4 z-[500] hidden h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-md transition hover:bg-muted lg:flex"
+        style={geo.coords ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {}}
+      >
+        {locating ? (
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        ) : (
+          <Locate
+            className="h-5 w-5"
+            style={{ color: geo.coords ? "white" : undefined }}
+          />
+        )}
+      </button>
+
+      {/* LOCATE BUTTON — mobile: alt panelin üstünde sağda floating */}
+      <button
+        type="button"
+        onClick={handleLocateClick}
+        aria-label="Konumumu göster"
+        className="absolute right-4 z-[460] flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card shadow-lg transition active:scale-95 lg:hidden"
+        style={{
+          bottom: "calc(196px + env(safe-area-inset-bottom, 0px))",
+          backgroundColor: geo.coords ? "#10b981" : undefined,
+          borderColor: geo.coords ? "#10b981" : undefined,
+        }}
+      >
+        {locating ? (
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        ) : (
+          <Locate
+            className="h-5 w-5"
+            style={{ color: geo.coords ? "white" : undefined }}
+          />
+        )}
+      </button>
+
+      {/* KVKK rıza modal'ı */}
+      <LocationConsentDialog
+        open={consentOpen}
+        onClose={() => setConsentOpen(false)}
+        onAccept={async () => {
+          setConsentOpen(false);
+          setLocating(true);
+          const c = await geo.request();
+          setLocating(false);
+          if (!c) {
+            setError(geo.error?.message || "Konum alınamadı");
+          }
+        }}
+      />
 
       {/* LOADING INDICATOR */}
       {loading && (
@@ -688,16 +819,19 @@ function MobileBottomPanel({
                     <p className="truncate text-sm font-bold leading-tight text-slate-900">
                       {poi.name}
                     </p>
-                    {poi.address && (
-                      <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {poi.address}
-                      </p>
-                    )}
-                    {!poi.address && (
-                      <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {cat.label}
-                      </p>
-                    )}
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      {poi.distanceKm != null && (
+                        <span
+                          className="shrink-0 text-xs font-bold"
+                          style={{ color: cat.color }}
+                        >
+                          {formatDistance(poi.distanceKm)}
+                        </span>
+                      )}
+                      <span className="truncate text-xs text-slate-500">
+                        {poi.address || cat.label}
+                      </span>
+                    </div>
                   </div>
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
