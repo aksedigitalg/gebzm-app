@@ -23,6 +23,7 @@ import {
   Pill,
   Search,
   ShoppingBag,
+  Target,
   Trees,
   UtensilsCrossed,
   Wallet,
@@ -49,6 +50,12 @@ import {
   simulateBuses,
   type GhostBus,
 } from "@/lib/bus-positions";
+import {
+  type JourneyOption,
+  type JourneyOriginInput,
+  type PlannerStop,
+} from "@/lib/journey-planner";
+import { JourneyPlannerSheet } from "@/components/JourneyPlannerSheet";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -480,7 +487,9 @@ export default function CityMapPageClient() {
   const userMarkerRef = useRef<LeafletMarker | null>(null);
   const userAccuracyRef = useRef<any>(null);
   const selectedShapesRef = useRef<any[]>([]);
-  const ghostBusMarkersRef = useRef<any[]>([]);
+  // Stable ID → marker mapping. Aynı sefer (kalkış slot'u) her refresh'te
+  // aynı ID döner → setLatLng ile pozisyon güncellenir → CSS transition smooth.
+  const ghostBusMarkersRef = useRef<Map<string, any>>(new Map());
   const ghostBusIntervalRef = useRef<number | null>(null);
   // popupHtml'de stopRoutes / routeStopCounts / routesById lookup için (closure güncel)
   const stopRoutesRef = useRef<Record<string, StopRouteRef[]> | null>(null);
@@ -500,6 +509,19 @@ export default function CityMapPageClient() {
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [ghostBusCount, setGhostBusCount] = useState(0);
+  // Journey planner state
+  const [allBusStops, setAllBusStops] = useState<PlannerStop[]>([]);
+  const [taxiPois, setTaxiPois] = useState<
+    Array<{ id: string; name: string; lat: number; lng: number; phone?: string; address?: string }>
+  >([]);
+  const [searchablePois, setSearchablePois] = useState<
+    Array<{ id: string; name: string; lat: number; lng: number; category: string; address?: string }>
+  >([]);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [destination, setDestination] = useState<JourneyOriginInput | null>(null);
+  const [pickingDestOnMap, setPickingDestOnMap] = useState(false);
+  const journeyLayersRef = useRef<any[]>([]);
+  const destMarkerRef = useRef<any>(null);
   // Şu an seçili hattın shape verisi — interval refresh'te tekrar fetch etmemek için
   const selectedShapeDataRef = useRef<{
     shapes: RouteShape[];
@@ -550,7 +572,7 @@ export default function CityMapPageClient() {
       userMarkerRef.current = null;
       userAccuracyRef.current = null;
       selectedShapesRef.current = [];
-      ghostBusMarkersRef.current = [];
+      ghostBusMarkersRef.current.clear();
       if (ghostBusIntervalRef.current !== null) {
         window.clearInterval(ghostBusIntervalRef.current);
         ghostBusIntervalRef.current = null;
@@ -688,25 +710,39 @@ export default function CityMapPageClient() {
     setManualMode(prev => !prev);
   }, []);
 
-  // Manuel mod aktifken haritaya tıklama → konumu o noktaya ayarla
+  // Manuel mod / Destination picking — haritaya tıklama
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const container = map.getContainer();
-    container.style.cursor = manualMode ? "crosshair" : "";
+    const cursorOn = manualMode || pickingDestOnMap;
+    container.style.cursor = cursorOn ? "crosshair" : "";
 
-    if (!manualMode) return;
+    if (!cursorOn) return;
 
     const handleMapClick = (e: any) => {
-      geo.setManual(e.latlng.lat, e.latlng.lng);
-      setManualMode(false);
+      if (pickingDestOnMap) {
+        const dest: JourneyOriginInput = {
+          lat: e.latlng.lat,
+          lng: e.latlng.lng,
+          label: "Haritada seçilen nokta",
+        };
+        setDestination(dest);
+        setPickingDestOnMap(false);
+        setPlannerOpen(true);
+        return;
+      }
+      if (manualMode) {
+        geo.setManual(e.latlng.lat, e.latlng.lng);
+        setManualMode(false);
+      }
     };
     map.on("click", handleMapClick);
     return () => {
       map.off("click", handleMapClick);
       container.style.cursor = "";
     };
-  }, [manualMode, geo]);
+  }, [manualMode, pickingDestOnMap, geo]);
 
   // Konum bilindiğinde haritada kullanıcı marker'ı + doğruluk halkası çiz
   useEffect(() => {
@@ -784,11 +820,9 @@ export default function CityMapPageClient() {
         setStopRoutes(sr);
         stopRoutesRef.current = sr;
         routeStopsRef.current = rs;
-        // Her hat için toplam durak sayısı (ETA hesabında kullanılır)
         const counts: Record<string, number> = {};
         for (const k in rs) counts[k] = rs[k].length;
         routeStopCountsRef.current = counts;
-        // routes.json → id → BusRoute lookup (frekans hesabında)
         const byId: Record<string, BusRoute> = {};
         for (const route of r) byId[route.id] = route;
         routesByIdRef.current = byId;
@@ -801,13 +835,78 @@ export default function CityMapPageClient() {
     };
   }, []);
 
+  // Mount: yolculuk planlayıcı için POI'leri yükle (paralel, async)
+  useEffect(() => {
+    let cancelled = false;
+    // Bus stops (PlannerStop formatı)
+    fetch("/data/bus-stops.json", { cache: "force-cache" })
+      .then(r => r.json())
+      .then(arr => {
+        if (cancelled) return;
+        setAllBusStops(
+          arr.map((s: any) => ({
+            id: String(s.id),
+            name: String(s.name || ""),
+            lat: Number(s.lat),
+            lng: Number(s.lng),
+          }))
+        );
+      })
+      .catch(() => {});
+    // Taksi (telefon dahil — ileride aramak için)
+    fetch("/data/poi/taksi.json", { cache: "force-cache" })
+      .then(r => r.json())
+      .then(arr => {
+        if (cancelled) return;
+        setTaxiPois(
+          arr.map((t: any) => ({
+            id: String(t.id),
+            name: String(t.name || "Taksi Durağı"),
+            lat: Number(t.lat),
+            lng: Number(t.lng),
+            phone: t.phone,
+            address: t.address,
+          }))
+        );
+      })
+      .catch(() => {});
+    // Aranabilir POI: bus-stops + petrol + otopark + akıllı durak + kentkart + taksi + eds
+    Promise.all([
+      fetch("/data/bus-stops.json", { cache: "force-cache" }).then(r => r.json()),
+      fetch("/data/poi/petrol.json", { cache: "force-cache" }).then(r => r.json()),
+      fetch("/data/poi/otopark.json", { cache: "force-cache" }).then(r => r.json()),
+      fetch("/data/poi/kentkart.json", { cache: "force-cache" }).then(r => r.json()),
+      fetch("/data/poi/taksi.json", { cache: "force-cache" }).then(r => r.json()),
+    ])
+      .then(([buses, petrol, otopark, kentkart, taksi]) => {
+        if (cancelled) return;
+        const list: Array<{ id: string; name: string; lat: number; lng: number; category: string; address?: string }> = [];
+        for (const s of buses)
+          list.push({ id: `bs-${s.id}`, name: s.name, lat: s.lat, lng: s.lng, category: "durak" });
+        for (const p of petrol)
+          list.push({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, category: "petrol", address: p.address });
+        for (const p of otopark)
+          list.push({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, category: "otopark", address: p.address });
+        for (const p of kentkart)
+          list.push({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, category: "kentkart", address: p.address });
+        for (const p of taksi)
+          list.push({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, category: "taksi", address: p.address });
+        setSearchablePois(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Eski ghost bus marker'larını ve interval'i temizler
   const clearGhostBuses = useCallback(() => {
     const map = mapRef.current;
+    const ghostMap = ghostBusMarkersRef.current;
     if (map) {
-      ghostBusMarkersRef.current.forEach(m => map.removeLayer(m));
+      ghostMap.forEach(m => map.removeLayer(m));
     }
-    ghostBusMarkersRef.current = [];
+    ghostMap.clear();
     if (ghostBusIntervalRef.current !== null) {
       window.clearInterval(ghostBusIntervalRef.current);
       ghostBusIntervalRef.current = null;
@@ -847,7 +946,7 @@ export default function CityMapPageClient() {
 
       const color = `#${route.color || "0e7490"}`;
       const short = (route.short || "").trim() || "?";
-      const pool = ghostBusMarkersRef.current;
+      const ghostMap = ghostBusMarkersRef.current;
 
       const buildIcon = () =>
         L.divIcon({
@@ -872,17 +971,17 @@ export default function CityMapPageClient() {
           iconAnchor: [15, 15],
         });
 
-      // Pool reuse: mevcut marker'ları setLatLng ile güncelle
-      // (silmek yerine — CSS transition aktif olabilsin)
-      for (let i = 0; i < allBuses.length; i++) {
-        const b = allBuses[i];
+      const newIds = new Set<string>();
+
+      // Stable ID ile match: aynı sefer = aynı marker → setLatLng → smooth.
+      for (const b of allBuses) {
+        newIds.add(b.id);
         const tooltip = `<b>${esc(route.short || "?")}</b> — yaklaşık ${Math.round(b.elapsedMin)} dk yolda<br><span style="font-size:10px;color:#94a3b8;">tahmini konum, gerçek değil</span>`;
-        if (i < pool.length) {
-          // Mevcut marker — pozisyonu güncelle (smooth kayar)
-          pool[i].setLatLng([b.lat, b.lng]);
-          pool[i].setTooltipContent(tooltip);
+        const existing = ghostMap.get(b.id);
+        if (existing) {
+          existing.setLatLng([b.lat, b.lng]);
+          existing.setTooltipContent(tooltip);
         } else {
-          // Yeni marker oluştur
           const marker = L.marker([b.lat, b.lng], {
             icon: buildIcon(),
             interactive: true,
@@ -893,14 +992,16 @@ export default function CityMapPageClient() {
             offset: [0, -8],
             opacity: 0.95,
           });
-          pool.push(marker);
+          ghostMap.set(b.id, marker);
         }
       }
 
-      // Fazla marker'ları sil (sefer azaldıysa)
-      while (pool.length > allBuses.length) {
-        const m = pool.pop();
-        if (m) map.removeLayer(m);
+      // Aktif olmayan seferleri sil (trip tamamlandı)
+      for (const [id, marker] of ghostMap) {
+        if (!newIds.has(id)) {
+          map.removeLayer(marker);
+          ghostMap.delete(id);
+        }
       }
 
       setGhostBusCount(allBuses.length);
@@ -993,6 +1094,136 @@ export default function CityMapPageClient() {
     setSelectedRoute(null);
   }, [clearGhostBuses]);
 
+  // Yolculuk rotalarını haritadan temizle
+  const clearJourneyLayers = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    journeyLayersRef.current.forEach(l => map.removeLayer(l));
+    journeyLayersRef.current = [];
+    if (destMarkerRef.current) {
+      map.removeLayer(destMarkerRef.current);
+      destMarkerRef.current = null;
+    }
+  }, []);
+
+  // Bir yolculuk seçeneğini haritaya çiz (yürü kesik + bus polyline + destination pin)
+  const drawJourneyOnMap = useCallback(
+    async (option: JourneyOption) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const L = require("leaflet");
+      clearJourneyLayers();
+
+      // Önce hat polyline'ını çiz (bus segmenti)
+      const busLeg = option.legs.find(l => l.type === "bus");
+      if (busLeg && busLeg.type === "bus") {
+        try {
+          const shapes = await loadRouteShapes(busLeg.routeId);
+          // En uygun shape'i seç: from/to durak hattaki dist'lerine göre
+          // Basitçe ilk shape'i kullanalım (gidiş yönü)
+          const shape = shapes[0];
+          if (shape && shape.coords.length > 1) {
+            const polyline = L.polyline(shape.coords, {
+              color: `#${busLeg.routeColor || "0e7490"}`,
+              weight: 5,
+              opacity: 0.85,
+              lineCap: "round",
+              lineJoin: "round",
+              interactive: false,
+            }).addTo(map);
+            journeyLayersRef.current.push(polyline);
+          }
+        } catch {
+          /* polyline yüklenemedi, devam */
+        }
+
+        // Bus from/to durak işaretleri (büyük noktalar)
+        const fromIcon = L.divIcon({
+          className: "",
+          html: `<div style="width:18px;height:18px;border-radius:50%;background:#10b981;border:3px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        });
+        const toIcon = L.divIcon({
+          className: "",
+          html: `<div style="width:18px;height:18px;border-radius:50%;background:#dc2626;border:3px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        });
+        const fromMarker = L.marker([busLeg.fromStopLat, busLeg.fromStopLng], {
+          icon: fromIcon,
+          interactive: true,
+        })
+          .addTo(map)
+          .bindTooltip(`Bin: ${busLeg.fromStopName}`, { direction: "top" });
+        const toMarker = L.marker([busLeg.toStopLat, busLeg.toStopLng], {
+          icon: toIcon,
+          interactive: true,
+        })
+          .addTo(map)
+          .bindTooltip(`İn: ${busLeg.toStopName}`, { direction: "top" });
+        journeyLayersRef.current.push(fromMarker, toMarker);
+      }
+
+      // Yürüyüş segmentleri (kesik mavi çizgi)
+      for (const leg of option.legs) {
+        if (leg.type !== "walk") continue;
+        const line = L.polyline(
+          [
+            [leg.fromLat, leg.fromLng],
+            [leg.toLat, leg.toLng],
+          ],
+          {
+            color: "#0e7490",
+            weight: 4,
+            opacity: 0.7,
+            dashArray: "8, 8",
+            interactive: false,
+          }
+        ).addTo(map);
+        journeyLayersRef.current.push(line);
+      }
+
+      // Hedef pin
+      const lastLeg = option.legs[option.legs.length - 1];
+      const destLat = lastLeg.type === "walk" ? lastLeg.toLat : 0;
+      const destLng = lastLeg.type === "walk" ? lastLeg.toLng : 0;
+      const destIcon = L.divIcon({
+        className: "",
+        html: `<div style="
+          display:flex;align-items:center;justify-content:center;
+          width:28px;height:28px;border-radius:50%;
+          background:#dc2626;border:3px solid white;
+          box-shadow:0 3px 8px rgba(0,0,0,0.5);
+        "><div style="width:8px;height:8px;border-radius:50%;background:white;"></div></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+      destMarkerRef.current = L.marker([destLat, destLng], {
+        icon: destIcon,
+        interactive: false,
+        zIndexOffset: 2000,
+      }).addTo(map);
+
+      // Tüm rotayı sığdır
+      const all: Array<[number, number]> = [];
+      for (const leg of option.legs) {
+        if (leg.type === "walk") {
+          all.push([leg.fromLat, leg.fromLng]);
+          all.push([leg.toLat, leg.toLng]);
+        } else {
+          all.push([leg.fromStopLat, leg.fromStopLng]);
+          all.push([leg.toStopLat, leg.toStopLng]);
+        }
+      }
+      if (all.length > 1) {
+        const bounds = L.latLngBounds(all);
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+      }
+    },
+    [clearJourneyLayers]
+  );
+
   // Popup içinde [data-route-id] butonuna tıklama — event delegation
   useEffect(() => {
     const map = mapRef.current;
@@ -1064,6 +1295,18 @@ export default function CityMapPageClient() {
           </div>
         </div>
       </div>
+
+      {/* NEREYE? — büyük buton, üst-orta (mobilde search'ün hemen altı) */}
+      <button
+        type="button"
+        onClick={() => setPlannerOpen(true)}
+        className="absolute z-[510] flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-lg transition hover:opacity-90 active:scale-95
+          left-1/2 -translate-x-1/2
+          top-[68px] lg:top-4 lg:left-[396px] lg:translate-x-0"
+      >
+        <Navigation className="h-4 w-4" />
+        Nereye gideceksin?
+      </button>
 
       {/* LOCATE & MANUAL BUTTONS — desktop: harita sağ üst */}
       <div className="absolute right-4 top-4 z-[500] hidden flex-col gap-2 lg:flex">
@@ -1200,6 +1443,26 @@ export default function CityMapPageClient() {
         </div>
       )}
 
+      {/* DESTINATION PICK BANNER */}
+      {pickingDestOnMap && (
+        <div className="pointer-events-none absolute left-1/2 top-32 z-[600] -translate-x-1/2 lg:top-6">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-rose-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+            <Target className="h-4 w-4" />
+            <span>Hedef noktanı haritaya tıkla</span>
+            <button
+              type="button"
+              onClick={() => {
+                setPickingDestOnMap(false);
+                setPlannerOpen(true);
+              }}
+              className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold hover:bg-white/30"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* SEÇİLİ HAT OVERLAY */}
       {selectedRoute && (
         <div className="pointer-events-none absolute left-1/2 top-20 z-[610] -translate-x-1/2 px-3 lg:top-6 lg:left-[400px] lg:translate-x-0">
@@ -1267,6 +1530,32 @@ export default function CityMapPageClient() {
         filtered={filtered}
         loading={loading}
         focusPoi={focusPoi}
+      />
+
+      {/* YOLCULUK PLANLAYICI */}
+      <JourneyPlannerSheet
+        open={plannerOpen}
+        onClose={() => setPlannerOpen(false)}
+        origin={
+          geo.coords
+            ? { lat: geo.coords.lat, lng: geo.coords.lng, label: "Konumum" }
+            : null
+        }
+        destination={destination}
+        setDestination={setDestination}
+        onPickFromMap={() => {
+          setPlannerOpen(false);
+          setPickingDestOnMap(true);
+        }}
+        onSelectOption={opt => {
+          drawJourneyOnMap(opt);
+        }}
+        stops={allBusStops}
+        stopRoutes={stopRoutes}
+        routesById={routesByIdRef.current}
+        routeStopCounts={routeStopCountsRef.current}
+        taxis={taxiPois}
+        searchablePois={searchablePois}
       />
     </div>
   );

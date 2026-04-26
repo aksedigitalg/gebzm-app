@@ -14,15 +14,15 @@ import type { ETAConfig } from "./bus-eta";
 import { DEFAULT_ETA_CONFIG, totalTripMin } from "./bus-eta";
 
 export interface GhostBus {
+  // Kararlı ID: aynı kalkış slot'u her refresh'te aynı ID döner.
+  // Sayesinde frontend marker'ları silmeyip pozisyon update ile smooth animasyon yapar.
+  // Format: "{shapeId}:{departureMinSinceMidnight}"
+  id: string;
   lat: number;
   lng: number;
-  // Otobüsün hattın başından kaç km ilerlediği
   distKm: number;
-  // Bu otobüs kaç dakikadır yolda
   elapsedMin: number;
-  // Hangi shape'i takip ediyor (gidiş/dönüş)
   shapeId: string;
-  // Hattın yüzde kaçını tamamladı (0-1)
   progress: number;
 }
 
@@ -172,6 +172,7 @@ export function simulateBuses(
     if (!point) continue;
 
     buses.push({
+      id: `${shapeId}:${t}`,
       lat: point[0],
       lng: point[1],
       distKm,
