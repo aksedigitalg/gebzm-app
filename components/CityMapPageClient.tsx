@@ -673,6 +673,15 @@ export default function CityMapPageClient() {
     return () => clearTimeout(t);
   }, [error]);
 
+  // Mobilde ilk ziyarette konum rıza modal'ı otomatik açılır.
+  // Kullanıcı bir karar verdiyse (granted/denied) tekrar açılmaz.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (readConsent() !== "unknown") return;
+    if (window.innerWidth >= 1024) return; // sadece mobil
+    setConsentOpen(true);
+  }, []);
+
   const activeCat = CATEGORY_BY_KEY[active];
 
   return (
