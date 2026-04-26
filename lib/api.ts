@@ -383,4 +383,73 @@ export const api = {
 export const publicApi = {
   getBusinessDelivery: (businessId: string) =>
     request<Record<string, unknown>>(`/businesses/${businessId}/delivery`),
+
+  // ─── ETKİNLİKLER (public) ─────────────────────────────────────────
+  getEvents: (params?: { category?: string; when?: string; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.category) qs.set("category", params.category);
+    if (params?.when) qs.set("when", params.when);
+    if (params?.q) qs.set("q", params.q);
+    const query = qs.toString();
+    return request<unknown[]>(`/events${query ? "?" + query : ""}`);
+  },
+
+  getEvent: (slug: string) =>
+    request<Record<string, unknown>>(`/events/${encodeURIComponent(slug)}`),
+
+  getEventCategories: () => request<unknown[]>("/event-categories"),
+};
+
+// User-side event interest
+export const eventApi = {
+  markInterest: (eventId: string, status: "katiliyor" | "ilgileniyor") =>
+    request(
+      `/user/events/${eventId}/interest`,
+      { method: "POST", body: JSON.stringify({ status }) },
+      getToken()
+    ),
+  removeInterest: (eventId: string) =>
+    request(`/user/events/${eventId}/interest`, { method: "DELETE" }, getToken()),
+};
+
+// Admin event CRUD
+export const adminEventApi = {
+  list: (token: string) => request<unknown[]>("/admin/events", {}, token),
+  get: (id: string, token: string) =>
+    request<Record<string, unknown>>(`/admin/events/${id}`, {}, token),
+  create: (
+    data: {
+      title: string;
+      category_key?: string;
+      description?: string;
+      photo_url?: string;
+      cover_url?: string;
+      start_at: string;
+      end_at?: string;
+      location_name?: string;
+      address?: string;
+      lat?: number;
+      lng?: number;
+      organizer?: string;
+      contact_phone?: string;
+      contact_url?: string;
+      ticket_url?: string;
+      price?: number;
+      status?: "taslak" | "yayinda" | "iptal" | "bitti";
+    },
+    token: string
+  ) =>
+    request<{ id: string; slug: string }>(
+      "/admin/events",
+      { method: "POST", body: JSON.stringify(data) },
+      token
+    ),
+  update: (id: string, data: Record<string, unknown>, token: string) =>
+    request(
+      `/admin/events/${id}`,
+      { method: "PUT", body: JSON.stringify(data) },
+      token
+    ),
+  delete: (id: string, token: string) =>
+    request(`/admin/events/${id}`, { method: "DELETE" }, token),
 };

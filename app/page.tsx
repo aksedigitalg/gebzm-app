@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Map, Compass, Bus, PhoneCall,
-  ChevronRight, Wrench, Scissors, Tag, MapPin,
+  ChevronRight, Wrench, Scissors, Tag, MapPin, PartyPopper,
 } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { AdSlider } from "@/components/AdSlider";
@@ -17,6 +17,7 @@ const quickLinks = [
   { href: "/ilanlar", label: "İlanlar", description: "Emlak, araç, elektronik", icon: Tag, color: "from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400" },
   { href: "/ulasim", label: "Ulaşım", description: "Marmaray, otobüs, YHT", icon: Bus, color: "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400" },
   { href: "/duraklar", label: "Gebze Haritası", description: "Park, eczane, hastane, durak ve daha fazlası", icon: MapPin, color: "from-sky-500/15 to-sky-500/5 text-sky-600 dark:text-sky-400" },
+  { href: "/etkinlikler", label: "Etkinlikler", description: "Konser, tiyatro, sergi, festival", icon: PartyPopper, color: "from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-600 dark:text-fuchsia-400" },
   { href: "/acil", label: "Acil Numaralar", description: "Hızlı erişim", icon: PhoneCall, color: "from-red-500/15 to-red-500/5 text-red-600 dark:text-red-400" },
   { href: "/kategoriler", label: "Tüm Kategoriler", description: "Tüm hizmetleri keşfet", icon: Compass, color: "from-rose-500/15 to-rose-500/5 text-rose-600 dark:text-rose-400" },
 ];
