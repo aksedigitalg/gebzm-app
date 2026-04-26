@@ -33,7 +33,6 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { setConsent } from "@/lib/geolocation-consent";
 import { formatDistance, haversineKm } from "@/lib/geolocation";
-import { LocationDeniedHelp } from "@/components/LocationDeniedHelp";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -420,7 +419,6 @@ export default function CityMapPageClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [deniedHelpOpen, setDeniedHelpOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
 
@@ -556,23 +554,26 @@ export default function CityMapPageClient() {
   }, []);
 
   // Konum butonu — tek tık = native izin pop-up'ı.
-  // KVKK aydınlatması /gizlilik/konum sayfasından erişilebilir.
-  // Tap = açık rıza beyanı (consent "granted" olarak işaretlenir).
+  // İzin alınamazsa otomatik manuel moda geç (kullanıcıya rehber okutmadan).
   const handleLocateClick = useCallback(async () => {
     setConsent("granted");
     setLocating(true);
     const result = await geo.request();
     setLocating(false);
     if (!result.coords) {
+      // İzin reddedildi / sistem konum kapalı / GPS yok / timeout —
+      // hepsinde kullanıcının zaman kaybetmemesi için otomatik manuel moda geç.
+      // Manuel mod banner'ı zaten "haritaya tıkla" diye yönlendiriyor.
       if (
         result.error?.code === "permission_denied" ||
-        result.error?.code === "position_unavailable"
+        result.error?.code === "position_unavailable" ||
+        result.error?.code === "timeout"
       ) {
-        setDeniedHelpOpen(true);
+        setManualMode(true);
+        setError("Konum alınamadı. Haritada olduğun yere tıkla.");
       } else if (result.error?.code === "unsupported") {
-        setError("Tarayıcın konum servisini desteklemiyor. Crosshair (✛) ile manuel seç.");
-      } else if (result.error?.code === "timeout") {
-        setError("Konum alınamadı. GPS açık olduğundan emin ol veya Crosshair (✛) ile manuel seç.");
+        setManualMode(true);
+        setError("Tarayıcın konum servisini desteklemiyor. Haritaya tıkla.");
       } else {
         setError(result.error?.message || "Konum alınamadı");
       }
@@ -859,11 +860,6 @@ export default function CityMapPageClient() {
         </div>
       )}
 
-      {/* Tarayıcı engellediyse — adım adım rehber */}
-      <LocationDeniedHelp
-        open={deniedHelpOpen}
-        onClose={() => setDeniedHelpOpen(false)}
-      />
 
       {/* LOADING INDICATOR */}
       {loading && (
