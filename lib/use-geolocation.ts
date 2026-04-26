@@ -22,13 +22,19 @@ export interface UseGeolocationOptions {
   hydrateFromCache?: boolean;
 }
 
+export interface RequestResult {
+  coords: Coords | null;
+  error: GeoError | null;
+}
+
 export interface UseGeolocationResult {
   coords: Coords | null;
   status: GeoStatus;
   error: GeoError | null;
   hasConsent: boolean;
-  // Tek seferlik konum iste — KVKK rızası kontrol eder, yoksa "no_consent" hatası döner
-  request: () => Promise<Coords | null>;
+  // Tek seferlik konum iste — caller stale-state bug'ından kaçınmak için
+  // sonucu doğrudan döndürür (state'e güvenmeyin)
+  request: () => Promise<RequestResult>;
   // Sürekli takip başlat (kurye, navigasyon vs için)
   startWatch: () => void;
   // Takibi durdur
@@ -80,7 +86,7 @@ export function useGeolocation(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const request = useCallback(async (): Promise<Coords | null> => {
+  const request = useCallback(async (): Promise<RequestResult> => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       const err: GeoError = {
         code: "unsupported",
@@ -88,7 +94,7 @@ export function useGeolocation(
       };
       setStatus("unsupported");
       setError(err);
-      return null;
+      return { coords: null, error: err };
     }
 
     if (readConsent() !== "granted") {
@@ -97,7 +103,7 @@ export function useGeolocation(
         message: "Konum kullanımı için açık rıza gereklidir.",
       };
       setError(err);
-      return null;
+      return { coords: null, error: err };
     }
 
     setStatus("requesting");
@@ -107,8 +113,6 @@ export function useGeolocation(
     clearGeoCache();
 
     // Permissions API ile preflight: tarayıcı önceden engellendi mi?
-    // Engellendiyse hem kullanıcıya doğru hata gösteririz, hem de
-    // gereksiz getCurrentPosition çağrısı yapmayız.
     const perm = await queryGeolocationPermission();
     if (perm === "denied") {
       const err: GeoError = {
@@ -118,39 +122,59 @@ export function useGeolocation(
       };
       setError(err);
       setStatus("error");
-      return null;
+      return { coords: null, error: err };
     }
 
-    return new Promise<Coords | null>(resolve => {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const c: Coords = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            heading: pos.coords.heading,
-            speed: pos.coords.speed,
-            timestamp: pos.timestamp,
-          };
-          setCoords(c);
-          setStatus("success");
-          writeGeoCache(c);
-          resolve(c);
-        },
-        err => {
-          const e = mapPositionError(err);
-          setError(e);
-          setStatus("error");
-          resolve(null);
-        },
-        {
-          enableHighAccuracy: o.enableHighAccuracy,
-          timeout: o.timeout,
-          maximumAge: o.maximumAge,
-        }
-      );
-    });
-  }, [o.enableHighAccuracy, o.timeout, o.maximumAge]);
+    // İki aşamalı strateji:
+    // 1) GPS yüksek hassasiyet, 12s — outdoor mobil için ideal
+    // 2) Düşük hassasiyet (WiFi/baz/IP), 8s — indoor / desktop fallback
+    const tryOnce = (highAccuracy: boolean, timeout: number) =>
+      new Promise<RequestResult>(resolve => {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const c: Coords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              heading: pos.coords.heading,
+              speed: pos.coords.speed,
+              timestamp: pos.timestamp,
+            };
+            resolve({ coords: c, error: null });
+          },
+          err => {
+            resolve({ coords: null, error: mapPositionError(err) });
+          },
+          {
+            enableHighAccuracy: highAccuracy,
+            timeout,
+            maximumAge: 0,
+          }
+        );
+      });
+
+    let result = await tryOnce(o.enableHighAccuracy, o.timeout);
+    // GPS timeout veya konum bulunamadıysa → düşük hassasiyetle tekrar dene
+    if (
+      !result.coords &&
+      result.error &&
+      (result.error.code === "timeout" ||
+        result.error.code === "position_unavailable") &&
+      o.enableHighAccuracy
+    ) {
+      result = await tryOnce(false, 8000);
+    }
+
+    if (result.coords) {
+      setCoords(result.coords);
+      setStatus("success");
+      writeGeoCache(result.coords);
+    } else if (result.error) {
+      setError(result.error);
+      setStatus("error");
+    }
+    return result;
+  }, [o.enableHighAccuracy, o.timeout]);
 
   const startWatch = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {

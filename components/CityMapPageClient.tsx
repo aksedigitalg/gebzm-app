@@ -564,14 +564,16 @@ export default function CityMapPageClient() {
       return;
     }
     setLocating(true);
-    const c = await geo.request();
+    const result = await geo.request();
     setLocating(false);
-    if (!c) {
-      // Tarayıcı izni reddedilmişse rehber modal aç (toast yerine)
-      if (geo.error?.code === "permission_denied") {
+    if (!result.coords) {
+      // request() doğrudan döndürüyor — state stale değil
+      if (result.error?.code === "permission_denied") {
         setDeniedHelpOpen(true);
+      } else if (result.error?.code === "unsupported") {
+        setError("Tarayıcın konum servisini desteklemiyor. Crosshair (✛) ile manuel seç.");
       } else {
-        setError(geo.error?.message || "Konum alınamadı");
+        setError(result.error?.message || "Konum alınamadı");
       }
     }
   }, [geo]);
@@ -866,13 +868,13 @@ export default function CityMapPageClient() {
         onAccept={async () => {
           setConsentOpen(false);
           setLocating(true);
-          const c = await geo.request();
+          const result = await geo.request();
           setLocating(false);
-          if (!c) {
-            if (geo.error?.code === "permission_denied") {
+          if (!result.coords) {
+            if (result.error?.code === "permission_denied") {
               setDeniedHelpOpen(true);
             } else {
-              setError(geo.error?.message || "Konum alınamadı");
+              setError(result.error?.message || "Konum alınamadı");
             }
           }
         }}
