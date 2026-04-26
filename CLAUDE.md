@@ -153,6 +153,21 @@ POST   /user/events/:id/interest  → { status: "katiliyor"|"ilgileniyor" }
 DELETE /user/events/:id/interest
 ```
 
+### Yorumlar
+```
+GET    /businesses/:id/reviews                → Public liste (?page=N)
+GET    /businesses/:id/reviews/stats          → Public ortalama + dağılım
+
+POST   /user/businesses/:id/reviews           → Yorum yaz (login)
+DELETE /user/reviews/:id                      → Kendi yorumunu sil
+GET    /user/reviews/eligibility/:business_id → Yazabilir mi? Hangi siparişlerle?
+
+GET    /business/reviews                      → Kendi yorumları
+PUT    /business/reviews/:id/reply            → Cevap (max 1 cevap, güncellenebilir)
+
+PUT    /admin/reviews/:id/hide                → Toggle is_hidden (kötü içerik)
+```
+
 ### Admin (`/admin/*` — Bearer token)
 ```
 GET /admin/stats
@@ -193,6 +208,7 @@ GET/PUT/DELETE /admin/events/:id
 | `events` | slug (UNIQUE), title, description, category (FK→event_categories.key), start_at, end_at, location_name, address, lat+lng, cover_url, photo_url, organizer, contact_phone+url, ticket_url, price, status (taslak/yayinda/iptal), created_by_admin_id |
 | `event_categories` | key (PK: konser/tiyatro/sergi/spor/festival/cocuk/egitim/konferans/diger), label, color, sort_order |
 | `event_attendees` | event_id, user_id, status (katiliyor/ilgileniyor) — UNIQUE(event_id,user_id) |
+| `business_reviews` | business_id, user_id, order_id (nullable), rating (1-5 CHECK), comment (1-1000 CHECK), business_reply, business_replied_at, is_hidden — UNIQUE(order_id) WHERE order_id IS NOT NULL + UNIQUE(business_id, user_id) WHERE order_id IS NULL |
 
 **DB Temizleme:**
 ```sql
@@ -360,7 +376,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-27 · Etkinlik Sistemi tamamlandı (3 tablo, 9 endpoint, admin CRUD)
+**Son Güncelleme:** 2026-04-27 · Yorum Sistemi + Sipariş Bug Fixleri
 
 ---
 
@@ -570,6 +586,53 @@ ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh && bash /opt/gebzem-we
 | emlakci@test.com | Gebze Emlak | emlakci |
 | galerici@test.com | Özkan Oto Galeri | galerici |
 
+
+---
+
+### 2026-04-27 — Yorum Sistemi + Acil Sipariş Bug Fixleri (Push 96d34bb)
+
+**Sorun:** Kullanıcı şikayet etti: profilde siparişler görünmüyor, sipariş detay açılmıyor, "Kabul Et" 500 hatası, sipariş zili çalmıyor, yorum sistemi yok.
+
+**Backend bug:**
+| Dosya | Sorun | Çözüm |
+|---|---|---|
+| `handlers/orders.go:629-636` | UpdateOrderStatus SQL query'sinde `$1, $3, $4, $5` — `$2` ATLANMIŞTI. Postgres "no parameter $2" hatası → tüm "Kabul Et" istekleri 500 dönüyordu | Param numaralandırma düzeltildi: cancel için $1-5, diğerleri için $1-4. `args []interface{}` slice ile dinamik. `log.Printf` server-side hata logu eklendi |
+
+**Frontend bug fixleri:**
+| Sorun | Çözüm | Dosya |
+|---|---|---|
+| Profilde "Siparişlerim" linki yok (route var ama navigation'da yok) | ShoppingBag ikonuyla link + Adreslerim de eklendi, duplicate Rezervasyonlarım kaldırıldı | `app/profil/page.tsx` |
+| İlk sipariş geldiğinde ses çalmıyor (`lastOrderIdRef === null` kontrolü yanlış konumda) | `seenIdsRef Set<string>` + `initializedRef` pattern → ilk yüklemede sadece doldur, sonraki yeni ID'lerde zil | `app/isletme/siparisler/page.tsx` |
+| Tek beep yerine zil sesi gerekiyor | 3x ding-dong (880Hz + 660Hz, 0.6sn ara) + browser Notification API | `app/isletme/siparisler/page.tsx` |
+| Generic "Güncellenemedi" alert (gerçek hata yutuluyor) | Inline error banner + 4-5sn auto-clear, backend log + frontend gerçek mesaj | siparisler + siparislerim/[id] |
+| `as never` cast tip güvenliğini bypass ediyordu | `Exclude<OrderStatus, "bekliyor">` ile narrow type | `app/isletme/siparisler/page.tsx` |
+| Detay sayfası 15sn polling sürekli (tab gizliyken bile) | `document.visibilityState !== "visible"` → skip + aktif statü değilse skip | `app/profil/siparislerim/[id]/page.tsx` |
+
+**Yorum Sistemi (yeni):**
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | DB: business_reviews + 4 partial unique index (order başına 1 + standalone başına 1) | PostgreSQL |
+| 2 | 8 endpoint: public liste/stats, user create/delete/eligibility, business list/reply, admin hide | `handlers/reviews.go` (yeni) |
+| 3 | makeSlug: yorum tablosu kullanıcısı silinince CASCADE, sipariş silinince SET NULL | DB |
+| 4 | BusinessReviews component: stats grafiği, yorum listesi, yorum yazma dialog'u (eligibility ile) | `components/BusinessReviews.tsx` |
+| 5 | /restoran/[id] + /hizmetler/[slug] → BusinessReviews entegre | iki sayfa |
+| 6 | İşletme paneli /isletme/yorumlar → kendi yorumları + cevap yazma | `app/isletme/yorumlar/page.tsx` |
+| 7 | business-types.ts: `yorumlar` modülü + 10 işletme tipinin hepsine eklendi | `lib/business-types.ts` |
+
+**Yorum kuralları:**
+- rating 1-5 (CHECK constraint), comment 1-1000 karakter (CHECK)
+- order_id verilirse: kullanıcının kendi siparişi + status='teslim_edildi' OLMALI
+- Bir siparişe sadece 1 yorum (UNIQUE WHERE order_id IS NOT NULL)
+- Bir kullanıcı bir işletmeye standalone 1 yorum (UNIQUE WHERE order_id IS NULL)
+- İşletme yoruma cevap verir (max 1000 char), güncellenebilir
+- Kullanıcı kendi yorumunu silebilir, admin gizleyebilir (is_hidden toggle)
+
+**Güvenlik:**
+- Server-side fiyat hesabı: client-sent `price` IGNORE, `menu_items.price` DB'den çek + business_id ownership
+- Filter parametresi allowlist (yeni/aktif/tamamlandi/iptal/aktif/gecmis) — SQL injection yok
+- Yorum sahipliği: DELETE WHERE id=$ AND user_id=$, REPLY WHERE id=$ AND business_id=$
+- Standalone yorum çoğaltılmaz (partial unique index)
+- order_status_history audit log her transition'da yazılır
 
 ---
 
