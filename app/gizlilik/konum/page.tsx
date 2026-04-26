@@ -111,21 +111,22 @@ export default function KonumAydinlatmaPage() {
           </p>
           <ul>
             <li>
-              <b>Nominatim (OpenStreetMap)</b> — yazdığın adres metnini
-              koordinata çevirmek için. Yalnızca arama metni iletilir;
-              kişisel kimliğin paylaşılmaz. Yanıt 24 saat tarayıcında
-              cache'lenir.
+              <b>Photon (Komoot)</b> — yazdığın adresi otomatik tamamlamak
+              için (örn "Gaziler 1711 Sk"). Yalnızca arama metni ve isteğe
+              bağlı yakınlık biası (konum) iletilir; kişisel kimliğin
+              paylaşılmaz.
             </li>
             <li>
               <b>OSRM (Open Source Routing Machine)</b> — iki nokta arası
-              yürüyüş yön tarifi için. Sadece başlangıç ve bitiş koordinatı
-              iletilir.
+              gerçek yaya yolu ve adım adım yön tarifi için. Sadece
+              başlangıç ve bitiş koordinatı iletilir.
             </li>
           </ul>
           <p>
-            Bu hizmetler OpenStreetMap Vakfı tarafından işletilen ücretsiz
-            kamu hizmetleridir. İstek geçmişi GeBZem sunucularında
-            saklanmaz.
+            Bu hizmetler OpenStreetMap ekosisteminin ücretsiz kamu
+            hizmetleridir. İstek geçmişi GeBZem sunucularında saklanmaz.
+            Photon yanıtları tarayıcı bellekte (sayfa kapanınca silinir),
+            OSRM yanıtları HTTP cache'inde tutulur.
           </p>
         </Section>
 

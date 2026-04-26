@@ -28,7 +28,7 @@ import {
 } from "@/lib/journey-planner";
 import { formatDistance } from "@/lib/geolocation";
 import type { BusRoute, StopRouteRef } from "@/lib/bus-data";
-import { geocodeKocaeli, type GeocodeResult } from "@/lib/nominatim";
+import { photonSearch, type PhotonResult } from "@/lib/photon";
 import { osrmFoot, formatMeters, type OsrmRoute } from "@/lib/osrm";
 import { safeHexColor } from "@/lib/security";
 
@@ -94,9 +94,8 @@ export function JourneyPlannerSheet({
     stop: TaxiPoi;
     distKm: number;
   } | null>(null);
-  const [addresses, setAddresses] = useState<GeocodeResult[]>([]);
+  const [addresses, setAddresses] = useState<PhotonResult[]>([]);
   const [geocoding, setGeocoding] = useState(false);
-  const [addressSearched, setAddressSearched] = useState(false);
 
   // Sheet kapandığında state sıfırla
   useEffect(() => {
@@ -108,15 +107,36 @@ export function JourneyPlannerSheet({
       setTaxiAlt(null);
       setAddresses([]);
       setGeocoding(false);
-      setAddressSearched(false);
     }
   }, [open]);
 
-  // Query değişince address sonuçlarını sıfırla
+  // Photon ile autocomplete — debounce 300ms, 2+ karakter
+  // Politika: fair use, memory cache + interval — sürekli istek atılmaz
   useEffect(() => {
-    setAddresses([]);
-    setAddressSearched(false);
-  }, [query]);
+    const q = query.trim();
+    if (q.length < 2) {
+      setAddresses([]);
+      setGeocoding(false);
+      return;
+    }
+    let cancelled = false;
+    setGeocoding(true);
+    const timer = setTimeout(async () => {
+      const near =
+        origin && origin.lat && origin.lng
+          ? { lat: origin.lat, lng: origin.lng }
+          : null;
+      const results = await photonSearch(q, near);
+      if (!cancelled) {
+        setAddresses(results);
+        setGeocoding(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, origin]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
@@ -162,31 +182,16 @@ export function JourneyPlannerSheet({
     compute(d);
   };
 
-  const handlePickAddress = (addr: GeocodeResult) => {
+  const handlePickAddress = (addr: PhotonResult) => {
     const d: JourneyOriginInput = {
       lat: addr.lat,
       lng: addr.lng,
-      label: addr.shortName || addr.displayName.split(",")[0],
+      label: addr.name,
     };
     setDestination(d);
     setQuery("");
-    compute(d);
-  };
-
-  // Nominatim politikası: kullanıcı butona basana kadar istek atma.
-  const handleAddressSearch = async () => {
-    const q = query.trim();
-    if (q.length < 3 || geocoding) return;
-    setGeocoding(true);
     setAddresses([]);
-    setAddressSearched(false);
-    try {
-      const results = await geocodeKocaeli(q);
-      setAddresses(results);
-    } finally {
-      setGeocoding(false);
-      setAddressSearched(true);
-    }
+    compute(d);
   };
 
   // Destination set edildikten sonra hesabı tetikle (örn haritadan tıklayınca)
@@ -323,29 +328,11 @@ export function JourneyPlannerSheet({
                   </div>
                 )}
 
-                {/* Adres olarak arama butonu — Nominatim politikası gereği */}
-                {/* kullanıcı butona basana kadar istek atılmaz */}
-                {query.trim().length >= 3 && (
-                  <button
-                    type="button"
-                    onClick={handleAddressSearch}
-                    disabled={geocoding}
-                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-primary/40 bg-primary/5 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50"
-                  >
-                    {geocoding ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Search className="h-3.5 w-3.5" />
-                    )}
-                    {geocoding ? "Adres aranıyor..." : `Adres olarak ara: "${query.trim()}"`}
-                  </button>
-                )}
-
-                {/* Adres sonuçları */}
+                {/* Adres sonuçları — kullanıcı yazdıkça otomatik (Photon) */}
                 {addresses.length > 0 && (
                   <div className="mt-2">
                     <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Adresler (OpenStreetMap)
+                      Adresler {geocoding && "(yükleniyor...)"}
                     </p>
                     <div className="max-h-56 overflow-y-auto rounded-2xl border border-border">
                       {addresses.map((a, i) => (
@@ -357,11 +344,9 @@ export function JourneyPlannerSheet({
                         >
                           <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">
-                              {a.shortName || a.displayName.split(",")[0]}
-                            </p>
+                            <p className="truncate text-sm font-semibold">{a.name}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {a.displayName}
+                              {a.fullAddress}
                             </p>
                           </div>
                         </button>
@@ -370,10 +355,12 @@ export function JourneyPlannerSheet({
                   </div>
                 )}
 
-                {addressSearched && !geocoding && addresses.length === 0 && (
-                  <p className="mt-2 px-2 text-xs text-muted-foreground">
-                    Adres bulunamadı. Daha açık yaz: "Gaziler 1711 Sokak Gebze"
-                  </p>
+                {/* Yükleniyor göstergesi (henüz sonuç yokken) */}
+                {geocoding && addresses.length === 0 && matches.length === 0 && (
+                  <div className="mt-2 flex items-center justify-center gap-1.5 px-2 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Aranıyor...
+                  </div>
                 )}
               </>
             )}
@@ -467,6 +454,7 @@ function JourneyOptionCard({
   onShowOnMap: () => void;
 }) {
   const busLeg = option.legs.find(l => l.type === "bus") as BusLeg | undefined;
+  const isWalkOnly = !busLeg;
   return (
     <div className="border-b border-border last:border-b-0">
       <button
@@ -487,6 +475,11 @@ function JourneyOptionCard({
                 {busLeg.routeShort}
               </span>
             )}
+            {isWalkOnly && (
+              <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                YÜRÜYÜŞ
+              </span>
+            )}
             <span className="text-[10px] text-muted-foreground">
               {option.arrivalHHMM}
             </span>
@@ -496,15 +489,24 @@ function JourneyOptionCard({
               <Footprints className="h-3 w-3" />
               {Math.round(option.walkMeters)} m
             </span>
-            <ArrowRight className="h-3 w-3" />
-            <span className="inline-flex items-center gap-0.5">
-              <Bus className="h-3 w-3" />
-              {busLeg ? `${Math.round(busLeg.travelMin)} dk` : ""}
-            </span>
+            {busLeg && (
+              <>
+                <ArrowRight className="h-3 w-3" />
+                <span className="inline-flex items-center gap-0.5">
+                  <Bus className="h-3 w-3" />
+                  {Math.round(busLeg.travelMin)} dk
+                </span>
+              </>
+            )}
           </div>
           {busLeg && (
             <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">
               {busLeg.etaText} bekle · {busLeg.routeHeadsign || busLeg.routeLong}
+            </p>
+          )}
+          {isWalkOnly && (
+            <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">
+              Otobüse gerek yok — direkt yürüyebilirsin
             </p>
           )}
         </div>

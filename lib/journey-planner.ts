@@ -23,8 +23,10 @@ import {
 import type { BusRoute, StopRouteRef } from "./bus-data";
 
 const WALK_SPEED_KMH = 5; // ortalama yürüyüş hızı
-const MAX_WALK_KM = 0.6; // başlangıç/bitiş için max yürünebilir mesafe (600 m)
-const MAX_CANDIDATES = 8; // her uçta en yakın N durağı kontrol et
+const MAX_WALK_KM = 0.8; // başlangıç/bitiş için max yürünebilir mesafe (800 m)
+const MAX_CANDIDATES = 10; // her uçta en yakın N durağı kontrol et
+// Yürüyüş-only seçenek için makul üst sınır — bunun üstü "saatlerce yürüme" olur
+const MAX_WALK_ONLY_KM = 5;
 
 export interface PlannerStop {
   id: string;
@@ -104,10 +106,43 @@ export function planJourneys(
   routeStopCounts: Record<string, number>,
   now: Date = new Date()
 ): JourneyOption[] {
+  const options: JourneyOption[] = [];
+
+  // ─── Yürüyüş-only seçenek ─────────────────────────────────────────────
+  // Mesafe makul (5 km altı) ise her zaman ekle — kullanıcı seçer.
+  const directKm = haversineKm(origin, destination);
+  if (directKm <= MAX_WALK_ONLY_KM) {
+    const walkMin = (directKm / WALK_SPEED_KMH) * 60;
+    const arrivalDate = new Date(now.getTime() + walkMin * 60_000);
+    const arrivalHHMM = `${String(arrivalDate.getHours()).padStart(2, "0")}:${String(arrivalDate.getMinutes()).padStart(2, "0")}`;
+    options.push({
+      legs: [
+        {
+          type: "walk",
+          fromLabel: origin.label ?? "Başlangıç",
+          toLabel: destination.label ?? "Hedef",
+          fromLat: origin.lat,
+          fromLng: origin.lng,
+          toLat: destination.lat,
+          toLng: destination.lng,
+          distanceKm: directKm,
+          durationMin: walkMin,
+        },
+      ],
+      totalMin: walkMin,
+      walkMeters: Math.round(directKm * 1000),
+      busDistanceKm: 0,
+      arrivalHHMM,
+    });
+  }
+
   const originCands = nearestStopsWithin(stops, origin, MAX_CANDIDATES);
   const destCands = nearestStopsWithin(stops, destination, MAX_CANDIDATES);
 
-  if (originCands.length === 0 || destCands.length === 0) return [];
+  // Otobüs adayı yoksa sadece yürüyüş seçeneğini döndür
+  if (originCands.length === 0 || destCands.length === 0) {
+    return options.sort((a, b) => a.totalMin - b.totalMin).slice(0, 5);
+  }
 
   // routeId → { originStop, dist, before }
   // Her hat için origin'e en yakın durağı tut
@@ -149,7 +184,6 @@ export function planJourneys(
   }
 
   // Ortak hatlar = doğrudan rota olanlar
-  const options: JourneyOption[] = [];
   for (const [routeId, oEntry] of originRouteMap) {
     const dEntry = destRouteMap.get(routeId);
     if (!dEntry) continue;
@@ -259,8 +293,8 @@ export function planJourneys(
     });
   }
 
-  // En iyi 3'ü döndür (toplam süreye göre)
-  return options.sort((a, b) => a.totalMin - b.totalMin).slice(0, 3);
+  // En iyi 5'i döndür (toplam süreye göre — yürüyüş-only de dahil)
+  return options.sort((a, b) => a.totalMin - b.totalMin).slice(0, 5);
 }
 
 // Bir noktaya en yakın N durak (MAX_WALK_KM içinde)

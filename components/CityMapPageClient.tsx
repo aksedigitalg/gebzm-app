@@ -57,6 +57,7 @@ import {
   type PlannerStop,
 } from "@/lib/journey-planner";
 import { JourneyPlannerSheet } from "@/components/JourneyPlannerSheet";
+import { osrmFoot } from "@/lib/osrm";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -1167,22 +1168,35 @@ export default function CityMapPageClient() {
         journeyLayersRef.current.push(fromMarker, toMarker);
       }
 
-      // Yürüyüş segmentleri (kesik mavi çizgi)
+      // Yürüyüş segmentleri — OSRM gerçek yaya yolu (varsa), yoksa düz çizgi
       for (const leg of option.legs) {
         if (leg.type !== "walk") continue;
-        const line = L.polyline(
-          [
-            [leg.fromLat, leg.fromLng],
-            [leg.toLat, leg.toLng],
-          ],
-          {
-            color: "#0e7490",
-            weight: 4,
-            opacity: 0.7,
-            dashArray: "8, 8",
-            interactive: false,
+        let coords: Array<[number, number]> = [
+          [leg.fromLat, leg.fromLng],
+          [leg.toLat, leg.toLng],
+        ];
+        let isOsrm = false;
+        try {
+          const r = await osrmFoot(
+            { lat: leg.fromLat, lng: leg.fromLng },
+            { lat: leg.toLat, lng: leg.toLng }
+          );
+          if (r && r.geometry.length > 1) {
+            coords = r.geometry;
+            isOsrm = true;
           }
-        ).addTo(map);
+        } catch {
+          // OSRM başarısız → düz çizgi fallback
+        }
+        const line = L.polyline(coords, {
+          color: "#0e7490",
+          weight: isOsrm ? 5 : 4,
+          opacity: isOsrm ? 0.8 : 0.7,
+          dashArray: isOsrm ? undefined : "8, 8",
+          lineCap: "round",
+          lineJoin: "round",
+          interactive: false,
+        }).addTo(map);
         journeyLayersRef.current.push(line);
       }
 
