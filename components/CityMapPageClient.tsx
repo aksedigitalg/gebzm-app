@@ -494,6 +494,8 @@ export default function CityMapPageClient() {
   // aynı ID döner → setLatLng ile pozisyon güncellenir → CSS transition smooth.
   const ghostBusMarkersRef = useRef<Map<string, any>>(new Map());
   const ghostBusIntervalRef = useRef<number | null>(null);
+  // Son render zamanını tut — visibility API ve heartbeat için
+  const ghostBusLastRenderRef = useRef<number>(0);
   // popupHtml'de stopRoutes / routeStopCounts / routesById lookup için (closure güncel)
   const stopRoutesRef = useRef<Record<string, StopRouteRef[]> | null>(null);
   const routeStopCountsRef = useRef<Record<string, number> | null>(null);
@@ -554,6 +556,14 @@ export default function CityMapPageClient() {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
       subdomains: "abcd",
+      // Görünür alan dışında 4 satır tile'ı DOM'da tut (yeniden indirilmesin)
+      keepBuffer: 4,
+      // CORS — browser HTTP cache'ini düzgün kullanır
+      crossOrigin: "anonymous",
+      // Pan/zoom sırasında tile yüklemeye devam et (idle bekleme yok)
+      updateWhenIdle: false,
+      // Tile request throttle — pan eden kullanıcı için akıcılık
+      updateInterval: 100,
     }).addTo(map);
 
     const cluster = (L as any).markerClusterGroup({
@@ -1008,6 +1018,7 @@ export default function CityMapPageClient() {
       }
 
       setGhostBusCount(allBuses.length);
+      ghostBusLastRenderRef.current = Date.now();
     },
     []
   );
@@ -1074,9 +1085,15 @@ export default function CityMapPageClient() {
 
         // İlk render
         renderGhostBuses(route);
-        // Her 5 saniyede yeniden hesapla — CSS transition smooth kaydırır
+        // Her 5 saniyede yeniden hesapla — CSS transition smooth kaydırır.
+        // try/catch: bir hata olursa interval ölmesin, sonraki tick'te devam etsin.
         ghostBusIntervalRef.current = window.setInterval(() => {
-          renderGhostBuses(route);
+          try {
+            renderGhostBuses(route);
+          } catch (e) {
+            // Sessiz hata yutma yerine console'a yaz, sonraki tick devam etsin
+            console.error("[ghost-bus] render hatası:", e);
+          }
         }, 5_000);
       } catch {
         setError("Hat güzergahı yüklenemedi");
@@ -1239,6 +1256,43 @@ export default function CityMapPageClient() {
     },
     [clearJourneyLayers]
   );
+
+  // Tab tekrar aktif olduğunda ghost bus'ları taze konuma sıçrat
+  // (Tarayıcılar arka planda setInterval'i 1 dk'ya throttle eder — uyandığında
+  //  marker konumları çok eski olabilir, görünmez gibi olur).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!selectedRoute || !selectedShapeDataRef.current) return;
+      try {
+        renderGhostBuses(selectedRoute);
+      } catch (e) {
+        console.error("[ghost-bus] visibility refresh hatası:", e);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [selectedRoute, renderGhostBuses]);
+
+  // Heartbeat: 8 saniyeden uzun süredir refresh yoksa yeniden hesapla.
+  // setInterval drift, garip browser davranışı, vs durumlarda self-heal.
+  useEffect(() => {
+    if (!selectedRoute) return;
+    const heartbeat = window.setInterval(() => {
+      const last = ghostBusLastRenderRef.current;
+      if (!last) return;
+      const elapsed = Date.now() - last;
+      if (elapsed > 8000 && selectedShapeDataRef.current) {
+        try {
+          renderGhostBuses(selectedRoute);
+        } catch (e) {
+          console.error("[ghost-bus] heartbeat hatası:", e);
+        }
+      }
+    }, 2000);
+    return () => window.clearInterval(heartbeat);
+  }, [selectedRoute, renderGhostBuses]);
 
   // Popup içinde [data-route-id] butonuna tıklama — event delegation
   useEffect(() => {
