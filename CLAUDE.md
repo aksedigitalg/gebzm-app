@@ -144,7 +144,7 @@ GET /listings                → İlanlar (?category=..., ?page=N)
 GET /listings/:id            → Sadece status='active' ilanlar (pasif → 404)
 GET /events                  → Etkinlikler (?category=..., ?when=today/week/month, ?q=...)
 GET /events/:slug            → Tekil etkinlik (login varsa user_status dahil)
-GET /events/categories       → 9 kategori (konser, tiyatro, sergi, spor, festival, cocuk, egitim, konferans, diger)
+GET /event-categories        → 9 kategori (konser, tiyatro, sergi, spor, festival, cocuk, egitim, konferans, diger)
 ```
 
 ### Etkinlik (`/user/events/*` — Bearer token)
