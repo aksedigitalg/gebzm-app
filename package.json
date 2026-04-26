@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "build:bus-stops": "node scripts/build-bus-stops.mjs",
-    "build:poi-data": "node scripts/build-poi-data.mjs"
+    "build:poi-data": "node scripts/build-poi-data.mjs",
+    "build:bus-data": "node scripts/build-bus-data.mjs"
   },
   "dependencies": {
     "@types/leaflet.markercluster": "^1.5.6",

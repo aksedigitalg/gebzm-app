@@ -25,6 +25,7 @@ import {
   ShoppingBag,
   Trees,
   UtensilsCrossed,
+  Wallet,
   X,
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
@@ -33,12 +34,21 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { setConsent } from "@/lib/geolocation-consent";
 import { formatDistance, haversineKm } from "@/lib/geolocation";
+import {
+  loadRoutes,
+  loadRouteShapes,
+  loadStopRoutes,
+  type BusRoute,
+  type RouteShape,
+  type StopRouteRef,
+} from "@/lib/bus-data";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
   | "durak"
   | "akilli-durak"
   | "taksi"
+  | "kentkart"
   | "petrol"
   | "otopark"
   | "eds"
@@ -65,6 +75,7 @@ const CATEGORIES: CategoryDef[] = [
   { key: "durak", label: "Duraklar", color: "#0ea5e9", localUrl: "/data/bus-stops.json" },
   { key: "akilli-durak", label: "Akıllı Durak", color: "#0891b2", localUrl: "/data/poi/akilli-durak.json" },
   { key: "taksi", label: "Taksi", color: "#eab308", localUrl: "/data/poi/taksi.json" },
+  { key: "kentkart", label: "Kentkart", color: "#a16207", localUrl: "/data/poi/kentkart.json" },
   { key: "petrol", label: "Petrol", color: "#f97316", localUrl: "/data/poi/petrol.json" },
   { key: "otopark", label: "Otopark", color: "#64748b", localUrl: "/data/poi/otopark.json" },
   { key: "eds", label: "EDS Kamera", color: "#dc2626", localUrl: "/data/poi/eds.json" },
@@ -88,6 +99,7 @@ const CATEGORY_ICON: Record<CategoryKey, typeof Bus> = {
   durak: Bus,
   "akilli-durak": MonitorSmartphone,
   taksi: Car,
+  kentkart: Wallet,
   petrol: Fuel,
   otopark: ParkingSquare,
   eds: Camera,
@@ -107,6 +119,7 @@ const CATEGORY_FALLBACK_NAME: Record<CategoryKey, string> = {
   durak: "Durak",
   "akilli-durak": "Akıllı Durak",
   taksi: "Taksi Durağı",
+  kentkart: "Kentkart Bayisi",
   petrol: "Petrol İstasyonu",
   otopark: "Otopark",
   eds: "EDS Noktası",
@@ -228,11 +241,12 @@ async function fetchPois(cat: CategoryDef): Promise<POI[]> {
   return list;
 }
 
-function popupHtml(poi: POI): string {
+function popupHtml(poi: POI, stopRoutes?: StopRouteRef[]): string {
   const cat = CATEGORY_BY_KEY[poi.category];
   const phoneClean = poi.phone ? poi.phone.replace(/[^+\d]/g, "") : "";
+  const hasRoutes = poi.category === "durak" && stopRoutes && stopRoutes.length > 0;
   return `
-    <div style="font-family:system-ui,-apple-system,sans-serif;min-width:220px;max-width:280px;padding:2px;">
+    <div style="font-family:system-ui,-apple-system,sans-serif;min-width:240px;max-width:300px;padding:2px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.color};"></span>
         <span style="font-size:11px;color:#64748b;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">${esc(cat.label)}</span>
@@ -241,7 +255,24 @@ function popupHtml(poi: POI): string {
       ${poi.address ? `<p style="font-size:12px;color:#475569;margin:0 0 4px;line-height:1.4;">${esc(poi.address)}</p>` : ""}
       ${poi.phone ? `<p style="font-size:12px;margin:0 0 4px;"><a href="tel:${esc(phoneClean)}" style="color:#0e7490;text-decoration:none;font-weight:500;">${esc(poi.phone)}</a></p>` : ""}
       ${poi.opening_hours ? `<p style="font-size:11px;color:#64748b;margin:0 0 6px;line-height:1.4;">${esc(poi.opening_hours)}</p>` : ""}
-      <a href="https://www.google.com/maps/search/?api=1&amp;query=${poi.lat},${poi.lng}" target="_blank" rel="noopener" style="display:inline-block;font-size:12px;color:#0e7490;text-decoration:none;font-weight:600;margin-top:2px;">Yol Tarifi →</a>
+      ${hasRoutes ? `
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
+          <p style="font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.04em;margin:0 0 6px;text-transform:uppercase;">Geçen Hatlar</p>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${stopRoutes!
+              .map(
+                r => `<button data-route-id="${esc(r.id)}" style="
+                  background:#${esc(r.color || "0e7490")};color:#fff;
+                  font-size:11px;font-weight:700;
+                  padding:3px 7px;border-radius:6px;border:none;cursor:pointer;
+                  font-family:inherit;line-height:1.2;
+                ">${esc(r.short || r.id)}</button>`
+              )
+              .join("")}
+          </div>
+        </div>
+      ` : ""}
+      <a href="https://www.google.com/maps/search/?api=1&amp;query=${poi.lat},${poi.lng}" target="_blank" rel="noopener" style="display:inline-block;font-size:12px;color:#0e7490;text-decoration:none;font-weight:600;margin-top:8px;">Yol Tarifi →</a>
     </div>
   `;
 }
@@ -413,6 +444,9 @@ export default function CityMapPageClient() {
   const markerByIdRef = useRef<Map<string, LeafletMarker>>(new Map());
   const userMarkerRef = useRef<LeafletMarker | null>(null);
   const userAccuracyRef = useRef<any>(null);
+  const selectedShapesRef = useRef<any[]>([]);
+  // popupHtml'de stopRoutes lookup yapabilmek için ref (kapanış güncel)
+  const stopRoutesRef = useRef<Record<string, StopRouteRef[]> | null>(null);
 
   const [active, setActive] = useState<CategoryKey>("durak");
   const [pois, setPois] = useState<POI[]>([]);
@@ -421,6 +455,10 @@ export default function CityMapPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
+  const [stopRoutes, setStopRoutes] = useState<Record<string, StopRouteRef[]> | null>(null);
+  const [routesData, setRoutesData] = useState<BusRoute[] | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   const geo = useGeolocation();
 
@@ -463,6 +501,7 @@ export default function CityMapPageClient() {
       markerByIdRef.current.clear();
       userMarkerRef.current = null;
       userAccuracyRef.current = null;
+      selectedShapesRef.current = [];
     };
   }, []);
 
@@ -502,11 +541,15 @@ export default function CityMapPageClient() {
         });
 
         const useIcon = active === "durak" ? stopIcon : dotIcon;
+        const sr = stopRoutesRef.current;
 
         list.forEach(poi => {
+          // Durak ise hat listesini popup HTML'ine geçir
+          const routes =
+            poi.category === "durak" && sr ? sr[poi.id] : undefined;
           const m = L.marker([poi.lat, poi.lng], { icon: useIcon }).bindPopup(
-            popupHtml(poi),
-            { maxWidth: 300, autoPan: true }
+            popupHtml(poi, routes),
+            { maxWidth: 320, autoPan: true }
           );
           markerByIdRef.current.set(poi.id, m);
           cluster.addLayer(m);
@@ -523,7 +566,7 @@ export default function CityMapPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, stopRoutes]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
@@ -663,6 +706,101 @@ export default function CityMapPageClient() {
     const t = setTimeout(() => setError(null), 3000);
     return () => clearTimeout(t);
   }, [error]);
+
+  // Mount: hat metadata + durak-hat eşleştirme tablosunu paralel yükle
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([loadRoutes(), loadStopRoutes()])
+      .then(([r, sr]) => {
+        if (cancelled) return;
+        setRoutesData(r);
+        setStopRoutes(sr);
+        stopRoutesRef.current = sr;
+      })
+      .catch(() => {
+        // sessizce yut — bu olmadan da harita çalışır
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Hat seçildiğinde güzergah polyline'larını çiz
+  const handleSelectRoute = useCallback(
+    async (routeId: string) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const route = routesData?.find(r => r.id === routeId);
+      if (!route) return;
+
+      setSelectedRoute(route);
+      setRouteLoading(true);
+
+      try {
+        const shapes = await loadRouteShapes(routeId);
+        const L = require("leaflet");
+
+        // Eski polyline'ları sil
+        selectedShapesRef.current.forEach(p => map.removeLayer(p));
+        selectedShapesRef.current = [];
+
+        const color = `#${route.color || "0e7490"}`;
+        const all: Array<[number, number]> = [];
+        shapes.forEach(s => {
+          if (!s.coords || s.coords.length < 2) return;
+          const polyline = L.polyline(s.coords, {
+            color,
+            weight: 5,
+            opacity: 0.85,
+            lineCap: "round",
+            lineJoin: "round",
+            interactive: false,
+          }).addTo(map);
+          selectedShapesRef.current.push(polyline);
+          all.push(...s.coords);
+        });
+
+        // Polyline'ları sığdıracak bounds
+        if (all.length > 1) {
+          const bounds = L.latLngBounds(all);
+          map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+        }
+      } catch {
+        setError("Hat güzergahı yüklenemedi");
+      } finally {
+        setRouteLoading(false);
+      }
+    },
+    [routesData]
+  );
+
+  const handleCloseRoute = useCallback(() => {
+    const map = mapRef.current;
+    if (map) {
+      selectedShapesRef.current.forEach(p => map.removeLayer(p));
+    }
+    selectedShapesRef.current = [];
+    setSelectedRoute(null);
+  }, []);
+
+  // Popup içinde [data-route-id] butonuna tıklama — event delegation
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const container = map.getContainer();
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const btn = target.closest("[data-route-id]") as HTMLElement | null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const routeId = btn.getAttribute("data-route-id");
+      if (routeId) handleSelectRoute(routeId);
+    };
+    container.addEventListener("click", onClick);
+    return () => container.removeEventListener("click", onClick);
+  }, [handleSelectRoute]);
 
   const activeCat = CATEGORY_BY_KEY[active];
 
@@ -847,6 +985,38 @@ export default function CityMapPageClient() {
               className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold hover:bg-white/30"
             >
               İptal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SEÇİLİ HAT OVERLAY */}
+      {selectedRoute && (
+        <div className="pointer-events-none absolute left-1/2 top-20 z-[610] -translate-x-1/2 px-3 lg:top-6 lg:left-[400px] lg:translate-x-0">
+          <div
+            className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full px-3 py-2 shadow-xl lg:max-w-[600px]"
+            style={{
+              backgroundColor: `#${selectedRoute.color || "0e7490"}`,
+            }}
+          >
+            <div className="flex h-7 w-auto min-w-7 items-center justify-center rounded-full bg-white/25 px-2 text-xs font-extrabold text-white">
+              {selectedRoute.short || "?"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-white">
+                {selectedRoute.long || "Hat"}
+              </p>
+            </div>
+            {routeLoading && (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white" />
+            )}
+            <button
+              type="button"
+              onClick={handleCloseRoute}
+              aria-label="Hattı kapat"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/25 text-white transition hover:bg-white/40"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
