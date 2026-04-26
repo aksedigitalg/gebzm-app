@@ -8,6 +8,9 @@ export interface BusRoute {
   color: string;
   textColor: string;
   desc: string;
+  // service_id → günde toplam trip sayısı
+  // 1 = Pazartesi-Cuma, 2 = Cumartesi, 3 = Pazar
+  tripsByService?: Record<string, number>;
 }
 
 export interface StopRouteRef {

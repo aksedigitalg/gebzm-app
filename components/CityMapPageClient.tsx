@@ -43,7 +43,7 @@ import {
   type RouteShape,
   type StopRouteRef,
 } from "@/lib/bus-data";
-import { computeETA, DEFAULT_ETA_CONFIG } from "@/lib/bus-eta";
+import { computeETA, configForRoute } from "@/lib/bus-eta";
 import {
   buildCumDist,
   simulateBuses,
@@ -248,14 +248,22 @@ async function fetchPois(cat: CategoryDef): Promise<POI[]> {
   return list;
 }
 
+interface PopupCtx {
+  stopRoutes?: StopRouteRef[];
+  routesById?: Record<string, BusRoute>;
+  routeStopCounts?: Record<string, number>;
+}
+
 function popupHtml(
   poi: POI,
-  stopRoutes?: StopRouteRef[],
-  routeStopCounts?: Record<string, number>,
+  ctx?: PopupCtx,
   now: Date = new Date()
 ): string {
   const cat = CATEGORY_BY_KEY[poi.category];
   const phoneClean = poi.phone ? poi.phone.replace(/[^+\d]/g, "") : "";
+  const stopRoutes = ctx?.stopRoutes;
+  const routesById = ctx?.routesById;
+  const routeStopCounts = ctx?.routeStopCounts;
   const hasRoutes = poi.category === "durak" && stopRoutes && stopRoutes.length > 0;
   return `
     <div style="font-family:system-ui,-apple-system,sans-serif;min-width:260px;max-width:320px;padding:2px;">
@@ -277,7 +285,9 @@ function popupHtml(
             ${stopRoutes!
               .map(r => {
                 const totalStops = routeStopCounts?.[r.id];
-                const eta = computeETA(r.dist, r.total, r.before, totalStops, now);
+                const route = routesById?.[r.id];
+                const cfg = configForRoute(route?.tripsByService, now);
+                const eta = computeETA(r.dist, r.total, r.before, totalStops, now, cfg);
                 const etaHtml = eta.text
                   ? `<span style="font-size:10px;font-weight:600;opacity:0.92;margin-left:auto;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.22);">${esc(eta.text)}</span>`
                   : "";
@@ -472,10 +482,11 @@ export default function CityMapPageClient() {
   const selectedShapesRef = useRef<any[]>([]);
   const ghostBusMarkersRef = useRef<any[]>([]);
   const ghostBusIntervalRef = useRef<number | null>(null);
-  // popupHtml'de stopRoutes / routeStopCounts lookup için (closure güncel)
+  // popupHtml'de stopRoutes / routeStopCounts / routesById lookup için (closure güncel)
   const stopRoutesRef = useRef<Record<string, StopRouteRef[]> | null>(null);
   const routeStopCountsRef = useRef<Record<string, number> | null>(null);
   const routeStopsRef = useRef<Record<string, number[]> | null>(null);
+  const routesByIdRef = useRef<Record<string, BusRoute> | null>(null);
 
   const [active, setActive] = useState<CategoryKey>("durak");
   const [pois, setPois] = useState<POI[]>([]);
@@ -589,25 +600,21 @@ export default function CityMapPageClient() {
           // Durak ise hat listesini popup HTML'ine geçir
           const routes =
             poi.category === "durak" && sr ? sr[poi.id] : undefined;
-          const counts = routeStopCountsRef.current ?? undefined;
+          const buildCtx = (): PopupCtx => ({
+            stopRoutes: routes,
+            routesById: routesByIdRef.current ?? undefined,
+            routeStopCounts: routeStopCountsRef.current ?? undefined,
+          });
           const m = L.marker([poi.lat, poi.lng], { icon: useIcon }).bindPopup(
-            popupHtml(poi, routes, counts),
+            popupHtml(poi, buildCtx()),
             { maxWidth: 340, autoPan: true }
           );
           // Durak popup'ı açıldığında taze "şu an" ile ETA hesabı
-          // (önceden bind edilen HTML'deki ETA stale olur)
           if (routes && routes.length > 0) {
             m.on("popupopen", () => {
               const popup = m.getPopup();
               if (popup) {
-                popup.setContent(
-                  popupHtml(
-                    poi,
-                    routes,
-                    routeStopCountsRef.current ?? undefined,
-                    new Date()
-                  )
-                );
+                popup.setContent(popupHtml(poi, buildCtx(), new Date()));
               }
             });
           }
@@ -781,6 +788,10 @@ export default function CityMapPageClient() {
         const counts: Record<string, number> = {};
         for (const k in rs) counts[k] = rs[k].length;
         routeStopCountsRef.current = counts;
+        // routes.json → id → BusRoute lookup (frekans hesabında)
+        const byId: Record<string, BusRoute> = {};
+        for (const route of r) byId[route.id] = route;
+        routesByIdRef.current = byId;
       })
       .catch(() => {
         // sessizce yut — bu olmadan da harita çalışır
@@ -818,6 +829,8 @@ export default function CityMapPageClient() {
       ghostBusMarkersRef.current = [];
 
       const now = new Date();
+      // Hat-bazında frekans (trips.txt'ten türetilmiş gerçek değer)
+      const cfg = configForRoute(route.tripsByService, now);
       const allBuses: GhostBus[] = [];
       for (const s of data.shapes) {
         const cum = data.cumDists.get(s.id);
@@ -830,7 +843,7 @@ export default function CityMapPageClient() {
           total,
           data.routeStopDists,
           now,
-          DEFAULT_ETA_CONFIG
+          cfg
         );
         allBuses.push(...buses);
       }

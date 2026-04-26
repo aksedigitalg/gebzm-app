@@ -26,6 +26,53 @@ export const DEFAULT_ETA_CONFIG: ETAConfig = {
   stopWaitMin: 1,
 };
 
+/**
+ * Bir hatın günde yaptığı trip sayısından frekansı türetir.
+ * service_id → trip count mapping kullanılır.
+ *   1 = Pazartesi-Cuma
+ *   2 = Cumartesi
+ *   3 = Pazar
+ *
+ * @param tripsByService    routes.json'dan gelen { "1": N, "2": M, "3": K }
+ * @param now               Şu an (gün tipini belirler)
+ * @returns                 Frekans (dakika)
+ */
+export function getRouteFrequency(
+  tripsByService: Record<string, number> | undefined,
+  now: Date = new Date(),
+  config: ETAConfig = DEFAULT_ETA_CONFIG
+): number {
+  if (!tripsByService) return config.frequencyMin;
+
+  const day = now.getDay(); // 0=Pazar, 6=Cumartesi
+  const sid = day === 0 ? "3" : day === 6 ? "2" : "1";
+
+  let trips = tripsByService[sid];
+  // Bu gün için veri yoksa hafta içi fallback
+  if (!trips || trips < 1) trips = tripsByService["1"];
+  if (!trips || trips < 1) return config.frequencyMin;
+
+  const operatingMin = (config.endHour - config.startHour) * 60;
+  const freq = operatingMin / trips;
+  // 2-60 dk aralığına sıkıştır (aşırı uçları yumuşat)
+  return Math.max(2, Math.min(60, freq));
+}
+
+/**
+ * Route metadata + şu an kullanarak ETAConfig'i kişiselleştirir.
+ * Frequency hattan türetilir, diğer alanlar default'tan gelir.
+ */
+export function configForRoute(
+  tripsByService: Record<string, number> | undefined,
+  now: Date = new Date(),
+  base: ETAConfig = DEFAULT_ETA_CONFIG
+): ETAConfig {
+  return {
+    ...base,
+    frequencyMin: getRouteFrequency(tripsByService, now, base),
+  };
+}
+
 export type ETAState = "soon" | "wait" | "before_start" | "closed" | "unknown";
 
 export interface ETAResult {

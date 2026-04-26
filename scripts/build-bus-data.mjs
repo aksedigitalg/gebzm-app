@@ -85,13 +85,16 @@ for (const r of rawRoutes) {
 }
 console.log(`  ${routeList.length} hat`);
 
-// ─── 2. TRIPS — shape ↔ route mapping ──────────────────────────────────────
+// ─── 2. TRIPS — shape ↔ route mapping + servis tipine göre trip sayıları ──
 console.log("Trips okunuyor...");
 const rawTrips = readCsv(resolve(RAW, "trips.txt"));
 const shapeToRoutes = new Map(); // shape_id → Set<route_id>
 const routeToShapes = new Map(); // route_id → Set<shape_id>
 const shapeHeadsign = new Map(); // shape_id → trip_headsign (ilk gördüğümüz)
 const shapeDirection = new Map(); // shape_id → direction_id (0/1)
+// route_id → { "1": tripCount, "2": tripCount, "3": tripCount }
+// service_id 1=hafta içi, 2=cumartesi, 3=pazar
+const routeTripsByService = new Map();
 
 for (const t of rawTrips) {
   if (!t.shape_id || !t.route_id) continue;
@@ -100,13 +103,28 @@ for (const t of rawTrips) {
   if (!routeToShapes.has(t.route_id)) routeToShapes.set(t.route_id, new Set());
   routeToShapes.get(t.route_id).add(t.shape_id);
   if (!shapeHeadsign.has(t.shape_id)) {
-    // # ile başlayan boş headsign'lar var, atla
     const hs = (t.trip_headsign || "").trim();
     if (hs && hs !== "#") shapeHeadsign.set(t.shape_id, hs);
   }
   if (!shapeDirection.has(t.shape_id)) shapeDirection.set(t.shape_id, t.direction_id);
+
+  // Servis tipine göre trip say
+  const sid = t.service_id;
+  if (!routeTripsByService.has(t.route_id)) {
+    routeTripsByService.set(t.route_id, {});
+  }
+  const obj = routeTripsByService.get(t.route_id);
+  obj[sid] = (obj[sid] || 0) + 1;
 }
 console.log(`  ${shapeToRoutes.size} unique shape, ${rawTrips.length} trip`);
+
+// trip sayılarını hat metadata'ya göm
+for (const r of routeList) {
+  const counts = routeTripsByService.get(r.id);
+  if (counts) {
+    r.tripsByService = counts; // örn { "1": 120, "2": 60, "3": 40 }
+  }
+}
 
 // ─── 3. SHAPES — group by shape_id, sort by sequence ────────────────────────
 console.log("Shapes okunuyor (büyük dosya, biraz sürer)...");
