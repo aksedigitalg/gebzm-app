@@ -299,38 +299,42 @@ done
 ok "5 isletmede teslimat aktif (00-24)"
 
 # =============================================================================
-# ADIM 4: Test kullanicisi olustur ve ornek yorumlar yaz
+# ADIM 4: Test kullanicisi + ornek yorumlar (SQL ile direkt — rate limit bypass)
 # =============================================================================
-log "Test kullanicisi ve ornek yorumlar"
+log "Test kullanicisi + 7 ornek yorum (SQL)"
+sudo -u postgres psql -d gebzem_db <<'SQLEOF' >/dev/null 2>&1
+-- Test user (rate limit'i bypass etmek icin SQL ile)
+INSERT INTO users (name, email, password_hash, auth_type, email_verified)
+VALUES ('Test Kullanici', 'test@gebzem.app', crypt('80148014', gen_salt('bf', 10)), 'email', true)
+ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
+RETURNING id;
 
-# Email register endpoint kullaniyoruz (telefon/OTP yerine)
-USER_RESP=$(post "$API/auth/email/register" '{"email":"test@gebzem.app","password":"80148014","name":"Test Kullanici"}')
-USER_TOKEN=$(jq_val "$USER_RESP" "token")
-if [ -z "$USER_TOKEN" ]; then
-  # Zaten varsa login dene
-  USER_RESP=$(post "$API/auth/email/login" '{"email":"test@gebzem.app","password":"80148014"}')
-  USER_TOKEN=$(jq_val "$USER_RESP" "token")
-fi
-
-if [ -n "$USER_TOKEN" ]; then
-  # Yorum oluşturma rate limit: 10dk'da 5 yorum/kullanıcı
-  # Bu yüzden 5 ana yemek+market+magaza işletmesine yorum yazıyoruz
-  for EMAIL in restoran@test.com yemek@test.com kafe@test.com market@test.com magaza@test.com; do
-    BIZ_ID=$(sudo -u postgres psql -d gebzem_db -tAc "SELECT id FROM businesses WHERE email='$EMAIL'" 2>/dev/null | tr -d '[:space:]')
-    if [ -n "$BIZ_ID" ]; then
-      case "$EMAIL" in
-        restoran@test.com) post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":5,"comment":"Yemekler taze ve lezzetli, servis hizli. Ozellikle kunefe enfes!"}' "$USER_TOKEN" > /dev/null ;;
-        yemek@test.com)    post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":4,"comment":"Burgerler dolgun, hizli teslimat. Patates kizartmasi biraz daha sicak gelse mukemmel olur."}' "$USER_TOKEN" > /dev/null ;;
-        kafe@test.com)     post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":5,"comment":"Kahveler nefis, atmosfer sicak. Cheesecake ev yapimi gibi! Calisanlar cok ilgili."}' "$USER_TOKEN" > /dev/null ;;
-        market@test.com)   post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":5,"comment":"Sebze meyve gercekten taze, fiyatlar makul. 2 saat icinde teslim ettiler, mukemmel."}' "$USER_TOKEN" > /dev/null ;;
-        magaza@test.com)   post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":4,"comment":"Telefonu sorunsuz aldim, 2 yil garanti veriyorlar. Aksesuarlari da uygun fiyatli."}' "$USER_TOKEN" > /dev/null ;;
-      esac
-    fi
-  done
-  ok "5 isletmeye ornek yorum yazildi"
-else
-  log "Test kullanicisi olusturulamadi, yorumlar atlandi"
-fi
+-- Yorumlar (her isletmeye 1 standalone yorum)
+INSERT INTO business_reviews (business_id, user_id, rating, comment) VALUES
+  ((SELECT id FROM businesses WHERE email='restoran@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   5, 'Yemekler taze ve lezzetli, servis hizli. Ozellikle kunefe enfes!'),
+  ((SELECT id FROM businesses WHERE email='yemek@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   4, 'Burgerler dolgun, hizli teslimat. Patates kizartmasi biraz daha sicak gelse mukemmel olur.'),
+  ((SELECT id FROM businesses WHERE email='kafe@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   5, 'Kahveler nefis, atmosfer sicak. Cheesecake ev yapimi gibi! Calisanlar cok ilgili.'),
+  ((SELECT id FROM businesses WHERE email='market@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   5, 'Sebze meyve gercekten taze, fiyatlar makul. 2 saat icinde teslim ettiler, mukemmel.'),
+  ((SELECT id FROM businesses WHERE email='magaza@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   4, 'Telefonu sorunsuz aldim, 2 yil garanti veriyorlar. Aksesuarlari da uygun fiyatli.'),
+  ((SELECT id FROM businesses WHERE email='kuafor@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   5, 'Sac kesimi cok memnun, fonu da iyi yaptilar. Tekrar gelecegim.'),
+  ((SELECT id FROM businesses WHERE email='doktor@test.com'),
+   (SELECT id FROM users WHERE email='test@gebzem.app'),
+   5, 'Doktor cok dikkatli, tum sorularimi sabirla yanitladi. Tahlil aciklamalari cok degerli.')
+ON CONFLICT DO NOTHING;
+SQLEOF
+ok "Test kullanicisi + 7 yorum eklendi"
 
 # =============================================================================
 echo ""

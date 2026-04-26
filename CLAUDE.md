@@ -376,7 +376,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-27 · Yorum Sistemi + Sipariş Bug Fixleri
+**Son Güncelleme:** 2026-04-27 · Güvenlik Sertleştirme + Market/Mağaza Sipariş + Zenginleştirilmiş Seed
 
 ---
 
@@ -586,6 +586,54 @@ ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh && bash /opt/gebzem-we
 | emlakci@test.com | Gebze Emlak | emlakci |
 | galerici@test.com | Özkan Oto Galeri | galerici |
 
+
+---
+
+### 2026-04-27 — Güvenlik Sertleştirme + Market/Mağaza Sipariş + Seed (Push d4cf8bd)
+
+**Sorun & Talep:** Market/mağaza için yemek-tarzı sipariş sistemi + 5 işletmeye dolu içerik + derin güvenlik denetimi.
+
+**Backend güvenlik (sunucuda — Go API ayrı repo değil):**
+| Katman | Yapılan | Dosya |
+|---|---|---|
+| Middleware | Helmet (HSTS 2yr, X-Frame DENY, CSP, Permissions-Policy, Cross-Origin-* policies) | `main.go` |
+| Middleware | Recover (panic → 500, sunucu çökmüyor), RequestID (X-Request-Id header) | `main.go` |
+| CORS | `*` → allowlist (gebzem.app + www + localhost:3000), env'den özelleştirilebilir | `main.go` |
+| Limits | BodyLimit 100MB, ReadTimeout 30s, WriteTimeout 30s, IdleTimeout 60s | `main.go` |
+| ErrorHandler | Production'da iç hatayı sızdırma (4xx orijinal, 5xx generic) | `main.go` |
+| Health | `/health` endpoint (DB ping kontrolü, uptime monitoring için) | `main.go` |
+| JWT | `WithValidMethods(["HS256"])` + `WithExpirationRequired()` — alg:none saldırısı blokeli, exp zorunlu | `middleware/auth.go` |
+| Rate limit | authLimiter 10/15dk/IP, orderLimiter 15/5dk/user, reviewLimiter 5/10dk/user, uploadLimiter 30/5dk/user | `routes/routes.go` |
+| Upload | Magic byte (http.DetectContentType) + extension allowlist çapraz kontrol | `handlers/upload.go` |
+
+**Frontend (push d4cf8bd):**
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | market/magaza `bookingLabel` "İletişim" → "Sipariş Ver" — BusinessActions sipariş akışını tetikler | `app/hizmetler/[slug]/page.tsx` |
+| 2 | `/restoran/[id]/siparis` generic — herhangi bir tipte menü + accepts_orders=true ise çalışır | (mevcut) |
+
+**Seed zenginleştirme (deploy.sh otomatik):**
+| İşletme | Eklenen |
+|---|---|
+| Market (Gebze Fresh) | 5 kategori × 23 ürün (meyve-sebze, süt-kahvaltı, et-tavuk, bakliyat, içecek) |
+| Mağaza (TechStore) | 4 kategori × 18 ürün (telefon, aksesuar, bilgisayar, kulaklık) |
+| Tüm yemek tipi (5 işletme) | delivery_settings: 00-24 açık, accepts_orders=true, fee=15, free=250, min=50 |
+| Test kullanıcısı | test@gebzem.app / 80148014 (email register endpoint) |
+| Yorumlar | 5 işletmeye standalone yorum (rating 4-5, gerçekçi içerik) |
+
+**Doğrulama testleri (deploy sonrası):**
+```bash
+curl -sI https://gebzem.app/api/v1/businesses | grep -E 'x-frame|hsts|cross-origin' # Tüm header'lar var
+curl -H 'Origin: https://evil.com' https://gebzem.app/api/v1/businesses             # CORS reddediyor
+curl https://gebzem.app/api/v1/event-categories                                      # 200 + 9 kategori
+```
+
+**Güvenlik kapsamı dışı (gelecek):**
+- WAF (Cloudflare ücretsiz tier düşünülebilir)
+- Audit log (admin işlemleri, suspicious activity)
+- 2FA admin için (TOTP)
+- IP geolocation block (sadece TR)
+- DDoS koruması (Cloudflare yeterli)
 
 ---
 

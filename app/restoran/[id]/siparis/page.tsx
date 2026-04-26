@@ -35,7 +35,10 @@ const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   yemek: { label: "Yemek Teslimat", color: "from-rose-500 to-orange-500" },
   kafe: { label: "Kafe & Pastane", color: "from-amber-500 to-orange-600" },
   market: { label: "Market", color: "from-emerald-500 to-teal-600" },
+  magaza: { label: "Mağaza", color: "from-sky-500 to-blue-600" },
 };
+
+const FOOD_TYPES = new Set(["restoran", "yemek", "kafe"]);
 
 export default async function Page({
   params,
@@ -46,14 +49,18 @@ export default async function Page({
   const { biz, menu, delivery } = await getData(id);
   if (!biz) notFound();
 
-  const cfg = TYPE_CONFIG[biz.type] || TYPE_CONFIG.restoran;
+  const cfg = TYPE_CONFIG[biz.type] || { label: biz.type, color: "from-slate-500 to-gray-600" };
+  // Geri butonu: yemek için /restoran/[id], market/mağaza için /hizmetler/[slug]
+  const back = FOOD_TYPES.has(biz.type)
+    ? `/restoran/${id}`
+    : `/hizmetler/${biz.slug || id}`;
 
   return (
     <>
       <PageHeader
         title={`${biz.name} · Sipariş`}
         subtitle={cfg.label}
-        back={`/restoran/${id}`}
+        back={back}
       />
       <div className="px-5 pb-32 pt-4">
         {/* Üstte özet kart */}
