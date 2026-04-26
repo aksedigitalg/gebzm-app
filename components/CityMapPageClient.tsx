@@ -45,6 +45,7 @@ import {
   type StopRouteRef,
 } from "@/lib/bus-data";
 import { computeETA, configForRoute } from "@/lib/bus-eta";
+import { safeHexColor, safePhoneNumber } from "@/lib/security";
 import {
   buildCumDist,
   simulateBuses,
@@ -267,7 +268,7 @@ function popupHtml(
   now: Date = new Date()
 ): string {
   const cat = CATEGORY_BY_KEY[poi.category];
-  const phoneClean = poi.phone ? poi.phone.replace(/[^+\d]/g, "") : "";
+  const phoneClean = poi.phone ? safePhoneNumber(poi.phone) : "";
   const stopRoutes = ctx?.stopRoutes;
   const routesById = ctx?.routesById;
   const routeStopCounts = ctx?.routeStopCounts;
@@ -295,12 +296,13 @@ function popupHtml(
                 const route = routesById?.[r.id];
                 const cfg = configForRoute(route?.tripsByService, now);
                 const eta = computeETA(r.dist, r.total, r.before, totalStops, now, cfg);
+                const safeColor = safeHexColor(r.color);
                 const etaHtml = eta.text
                   ? `<span style="font-size:10px;font-weight:600;opacity:0.92;margin-left:auto;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.22);">${esc(eta.text)}</span>`
                   : "";
                 return `<button data-route-id="${esc(r.id)}" style="
                     display:flex;align-items:center;gap:6px;width:100%;
-                    background:#${esc(r.color || "0e7490")};color:#fff;
+                    background:#${safeColor};color:#fff;
                     font-size:12px;font-weight:700;
                     padding:5px 9px;border-radius:7px;border:none;cursor:pointer;
                     font-family:inherit;line-height:1.2;text-align:left;
@@ -944,7 +946,7 @@ export default function CityMapPageClient() {
         allBuses.push(...buses);
       }
 
-      const color = `#${route.color || "0e7490"}`;
+      const color = `#${safeHexColor(route.color)}`;
       const short = (route.short || "").trim() || "?";
       const ghostMap = ghostBusMarkersRef.current;
 
@@ -1031,7 +1033,7 @@ export default function CityMapPageClient() {
         selectedShapesRef.current.forEach(p => map.removeLayer(p));
         selectedShapesRef.current = [];
 
-        const color = `#${route.color || "0e7490"}`;
+        const color = `#${safeHexColor(route.color)}`;
         const all: Array<[number, number]> = [];
         const cumDists = new Map<string, Float64Array>();
         const totalKms = new Map<string, number>();
@@ -1124,7 +1126,7 @@ export default function CityMapPageClient() {
           const shape = shapes[0];
           if (shape && shape.coords.length > 1) {
             const polyline = L.polyline(shape.coords, {
-              color: `#${busLeg.routeColor || "0e7490"}`,
+              color: `#${safeHexColor(busLeg.routeColor)}`,
               weight: 5,
               opacity: 0.85,
               lineCap: "round",
@@ -1469,7 +1471,7 @@ export default function CityMapPageClient() {
           <div
             className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-2xl px-3 py-2 shadow-xl lg:max-w-[640px]"
             style={{
-              backgroundColor: `#${selectedRoute.color || "0e7490"}`,
+              backgroundColor: `#${safeHexColor(selectedRoute.color)}`,
             }}
           >
             <div className="flex h-7 w-auto min-w-7 items-center justify-center rounded-lg bg-white/25 px-2 text-xs font-extrabold text-white">

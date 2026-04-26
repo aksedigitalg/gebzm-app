@@ -99,10 +99,33 @@ export default function KonumAydinlatmaPage() {
 
         <Section title="6. Veri Aktarımı">
           <p>
-            Konum verin <b>üçüncü kişilerle paylaşılmaz</b>. Sunucu altyapımız
-            DigitalOcean Frankfurt (Almanya) bölgesinde bulunmaktadır; konum
-            verisi açık rızanla yurt dışına aktarılabilir. AB üyesi ülkeler
-            yeterli korumaya sahip ülkeler arasındadır.
+            Konum verin <b>kalıcı olarak üçüncü kişilerle paylaşılmaz</b>.
+            Sunucu altyapımız DigitalOcean Frankfurt (Almanya) bölgesinde
+            bulunmaktadır; konum verisi açık rızanla yurt dışına
+            aktarılabilir. AB üyesi ülkeler yeterli korumaya sahip ülkeler
+            arasındadır.
+          </p>
+          <p>
+            Yolculuk planlama özelliği kullanıldığında aşağıdaki üçüncü
+            taraf hizmetlere <b>geçici sorgular</b> gönderilebilir:
+          </p>
+          <ul>
+            <li>
+              <b>Nominatim (OpenStreetMap)</b> — yazdığın adres metnini
+              koordinata çevirmek için. Yalnızca arama metni iletilir;
+              kişisel kimliğin paylaşılmaz. Yanıt 24 saat tarayıcında
+              cache'lenir.
+            </li>
+            <li>
+              <b>OSRM (Open Source Routing Machine)</b> — iki nokta arası
+              yürüyüş yön tarifi için. Sadece başlangıç ve bitiş koordinatı
+              iletilir.
+            </li>
+          </ul>
+          <p>
+            Bu hizmetler OpenStreetMap Vakfı tarafından işletilen ücretsiz
+            kamu hizmetleridir. İstek geçmişi GeBZem sunucularında
+            saklanmaz.
           </p>
         </Section>
 

@@ -28,6 +28,9 @@ import {
 } from "@/lib/journey-planner";
 import { formatDistance } from "@/lib/geolocation";
 import type { BusRoute, StopRouteRef } from "@/lib/bus-data";
+import { geocodeKocaeli, type GeocodeResult } from "@/lib/nominatim";
+import { osrmFoot, formatMeters, type OsrmRoute } from "@/lib/osrm";
+import { safeHexColor } from "@/lib/security";
 
 interface TaxiPoi {
   id: string;
@@ -91,6 +94,9 @@ export function JourneyPlannerSheet({
     stop: TaxiPoi;
     distKm: number;
   } | null>(null);
+  const [addresses, setAddresses] = useState<GeocodeResult[]>([]);
+  const [geocoding, setGeocoding] = useState(false);
+  const [addressSearched, setAddressSearched] = useState(false);
 
   // Sheet kapandığında state sıfırla
   useEffect(() => {
@@ -100,8 +106,17 @@ export function JourneyPlannerSheet({
       setComputed(false);
       setExpandedIdx(null);
       setTaxiAlt(null);
+      setAddresses([]);
+      setGeocoding(false);
+      setAddressSearched(false);
     }
   }, [open]);
+
+  // Query değişince address sonuçlarını sıfırla
+  useEffect(() => {
+    setAddresses([]);
+    setAddressSearched(false);
+  }, [query]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr");
@@ -145,6 +160,33 @@ export function JourneyPlannerSheet({
     setDestination(d);
     setQuery("");
     compute(d);
+  };
+
+  const handlePickAddress = (addr: GeocodeResult) => {
+    const d: JourneyOriginInput = {
+      lat: addr.lat,
+      lng: addr.lng,
+      label: addr.shortName || addr.displayName.split(",")[0],
+    };
+    setDestination(d);
+    setQuery("");
+    compute(d);
+  };
+
+  // Nominatim politikası: kullanıcı butona basana kadar istek atma.
+  const handleAddressSearch = async () => {
+    const q = query.trim();
+    if (q.length < 3 || geocoding) return;
+    setGeocoding(true);
+    setAddresses([]);
+    setAddressSearched(false);
+    try {
+      const results = await geocodeKocaeli(q);
+      setAddresses(results);
+    } finally {
+      setGeocoding(false);
+      setAddressSearched(true);
+    }
   };
 
   // Destination set edildikten sonra hesabı tetikle (örn haritadan tıklayınca)
@@ -252,26 +294,86 @@ export function JourneyPlannerSheet({
                   <Crosshair className="h-3.5 w-3.5" />
                   Haritadan seç
                 </button>
-                {/* Search sonuçları */}
+                {/* POI sonuçları (kayıtlı yerler) */}
                 {matches.length > 0 && (
-                  <div className="mt-2 max-h-48 overflow-y-auto rounded-2xl border border-border">
-                    {matches.map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handlePickPoi(p)}
-                        className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left transition hover:bg-muted last:border-b-0"
-                      >
-                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{p.name}</p>
-                          {p.address && (
-                            <p className="truncate text-xs text-muted-foreground">{p.address}</p>
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                  <div className="mt-2">
+                    <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Kayıtlı Yerler
+                    </p>
+                    <div className="max-h-44 overflow-y-auto rounded-2xl border border-border">
+                      {matches.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handlePickPoi(p)}
+                          className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left transition hover:bg-muted last:border-b-0"
+                        >
+                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{p.name}</p>
+                            {p.address && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {p.address}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                )}
+
+                {/* Adres olarak arama butonu — Nominatim politikası gereği */}
+                {/* kullanıcı butona basana kadar istek atılmaz */}
+                {query.trim().length >= 3 && (
+                  <button
+                    type="button"
+                    onClick={handleAddressSearch}
+                    disabled={geocoding}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-primary/40 bg-primary/5 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50"
+                  >
+                    {geocoding ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Search className="h-3.5 w-3.5" />
+                    )}
+                    {geocoding ? "Adres aranıyor..." : `Adres olarak ara: "${query.trim()}"`}
+                  </button>
+                )}
+
+                {/* Adres sonuçları */}
+                {addresses.length > 0 && (
+                  <div className="mt-2">
+                    <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Adresler (OpenStreetMap)
+                    </p>
+                    <div className="max-h-56 overflow-y-auto rounded-2xl border border-border">
+                      {addresses.map((a, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => handlePickAddress(a)}
+                          className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left transition hover:bg-muted last:border-b-0"
+                        >
+                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">
+                              {a.shortName || a.displayName.split(",")[0]}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {a.displayName}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {addressSearched && !geocoding && addresses.length === 0 && (
+                  <p className="mt-2 px-2 text-xs text-muted-foreground">
+                    Adres bulunamadı. Daha açık yaz: "Gaziler 1711 Sokak Gebze"
+                  </p>
                 )}
               </>
             )}
@@ -380,7 +482,7 @@ function JourneyOptionCard({
             {busLeg && (
               <span
                 className="rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white"
-                style={{ backgroundColor: `#${busLeg.routeColor || "0e7490"}` }}
+                style={{ backgroundColor: `#${safeHexColor(busLeg.routeColor)}`}}
               >
                 {busLeg.routeShort}
               </span>
@@ -432,31 +534,92 @@ function JourneyOptionCard({
 }
 
 function LegRow({ leg, index }: { leg: WalkLeg | BusLeg; index: number }) {
-  if (leg.type === "walk") {
-    return (
-      <li className="flex gap-2.5">
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs">
-          <Footprints className="h-3 w-3 text-slate-700" />
-        </div>
-        <div className="flex-1 text-xs leading-relaxed">
-          <p className="font-semibold">
-            {Math.round(leg.durationMin)} dk yürü ·{" "}
-            <span className="text-muted-foreground">
-              {formatDistance(leg.distanceKm)}
-            </span>
-          </p>
-          <p className="text-muted-foreground">
-            {leg.fromLabel} → {leg.toLabel}
-          </p>
-        </div>
-      </li>
+  if (leg.type === "walk") return <WalkLegRow leg={leg} />;
+  return <BusLegRow leg={leg} />;
+}
+
+function WalkLegRow({ leg }: { leg: WalkLeg }) {
+  const [details, setDetails] = useState<OsrmRoute | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const fetchDetails = async () => {
+    if (loading || details) return;
+    setLoading(true);
+    setError(false);
+    const r = await osrmFoot(
+      { lat: leg.fromLat, lng: leg.fromLng },
+      { lat: leg.toLat, lng: leg.toLng }
     );
-  }
+    setLoading(false);
+    if (r && r.steps.length > 0) {
+      setDetails(r);
+    } else {
+      setError(true);
+    }
+  };
+
+  return (
+    <li className="flex gap-2.5">
+      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs">
+        <Footprints className="h-3 w-3 text-slate-700" />
+      </div>
+      <div className="flex-1 text-xs leading-relaxed">
+        <p className="font-semibold">
+          {Math.round(leg.durationMin)} dk yürü ·{" "}
+          <span className="text-muted-foreground">
+            {formatDistance(leg.distanceKm)}
+          </span>
+        </p>
+        <p className="text-muted-foreground">
+          {leg.fromLabel} → {leg.toLabel}
+        </p>
+        {details ? (
+          <ol className="mt-1.5 space-y-1 rounded-lg bg-white/60 px-2 py-1.5 text-[11px] dark:bg-black/20">
+            {details.steps.map((s, i) => (
+              <li key={i} className="flex items-start gap-1.5">
+                <span className="font-bold text-primary">{i + 1}.</span>
+                <span className="flex-1">
+                  <span>{s.instruction}</span>
+                  {s.distanceM > 0 && (
+                    <span className="ml-1 text-muted-foreground">
+                      ({formatMeters(s.distanceM)})
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <button
+            type="button"
+            onClick={fetchDetails}
+            disabled={loading}
+            className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Tarif yükleniyor...
+              </>
+            ) : error ? (
+              "Tarif alınamadı, tekrar dene"
+            ) : (
+              "Adım adım yön tarifi"
+            )}
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function BusLegRow({ leg }: { leg: BusLeg }) {
   return (
     <li className="flex gap-2.5">
       <div
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
-        style={{ backgroundColor: `#${leg.routeColor || "0e7490"}` }}
+        style={{ backgroundColor: `#${safeHexColor(leg.routeColor)}` }}
       >
         {leg.routeShort}
       </div>
