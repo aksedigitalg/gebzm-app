@@ -98,6 +98,14 @@ html.dark-page {
   100% { opacity: 0;   transform: scale(1.6); }
 }
 
+/* Ghost bus marker'ları her 5 sn'de yeni pozisyona LİNEER kayarak hareket eder.
+   setLatLng → translate3d transform değişir, transition smooth animasyon yapar.
+   Sonuç: gerçek otobüs gibi sürekli ilerleyen görsel. */
+.gebzem-ghost-bus {
+  transition: transform 5s linear;
+  will-change: transform;
+}
+
 /* Tüm tıklanabilir elementlerde yumuşak geçiş */
 a, button {
   transition: opacity 0.12s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;

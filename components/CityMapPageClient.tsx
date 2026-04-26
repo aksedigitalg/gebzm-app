@@ -817,16 +817,13 @@ export default function CityMapPageClient() {
   }, []);
 
   // Mevcut shape verisi + zaman ile ghost bus marker'larını yeniden çizer
+  // Marker'lar POOL'da tutulur (silinmez) → CSS transition smooth çalışır.
   const renderGhostBuses = useCallback(
     (route: BusRoute) => {
       const map = mapRef.current;
       const data = selectedShapeDataRef.current;
       if (!map || !data) return;
       const L = require("leaflet");
-
-      // Eski marker'ları temizle (polyline'a dokunma)
-      ghostBusMarkersRef.current.forEach(m => map.removeLayer(m));
-      ghostBusMarkersRef.current = [];
 
       const now = new Date();
       // Hat-bazında frekans (trips.txt'ten türetilmiş gerçek değer)
@@ -850,10 +847,11 @@ export default function CityMapPageClient() {
 
       const color = `#${route.color || "0e7490"}`;
       const short = (route.short || "").trim() || "?";
-      // Ghost bus ikonu — beyaz dolu daire, hat rengi border, içinde hat numarası
-      for (const b of allBuses) {
-        const icon = L.divIcon({
-          className: "",
+      const pool = ghostBusMarkersRef.current;
+
+      const buildIcon = () =>
+        L.divIcon({
+          className: "gebzem-ghost-bus",
           html: `<div style="
             display:flex;align-items:center;justify-content:center;
             width:30px;height:30px;border-radius:50%;
@@ -873,17 +871,38 @@ export default function CityMapPageClient() {
           iconSize: [30, 30],
           iconAnchor: [15, 15],
         });
-        const marker = L.marker([b.lat, b.lng], {
-          icon,
-          interactive: true,
-          zIndexOffset: 1000,
-        }).addTo(map);
-        marker.bindTooltip(
-          `<b>${esc(route.short || "?")}</b> — yaklaşık ${Math.round(b.elapsedMin)} dk yolda<br><span style="font-size:10px;color:#94a3b8;">tahmini konum, gerçek değil</span>`,
-          { direction: "top", offset: [0, -8], opacity: 0.95 }
-        );
-        ghostBusMarkersRef.current.push(marker);
+
+      // Pool reuse: mevcut marker'ları setLatLng ile güncelle
+      // (silmek yerine — CSS transition aktif olabilsin)
+      for (let i = 0; i < allBuses.length; i++) {
+        const b = allBuses[i];
+        const tooltip = `<b>${esc(route.short || "?")}</b> — yaklaşık ${Math.round(b.elapsedMin)} dk yolda<br><span style="font-size:10px;color:#94a3b8;">tahmini konum, gerçek değil</span>`;
+        if (i < pool.length) {
+          // Mevcut marker — pozisyonu güncelle (smooth kayar)
+          pool[i].setLatLng([b.lat, b.lng]);
+          pool[i].setTooltipContent(tooltip);
+        } else {
+          // Yeni marker oluştur
+          const marker = L.marker([b.lat, b.lng], {
+            icon: buildIcon(),
+            interactive: true,
+            zIndexOffset: 1000,
+          }).addTo(map);
+          marker.bindTooltip(tooltip, {
+            direction: "top",
+            offset: [0, -8],
+            opacity: 0.95,
+          });
+          pool.push(marker);
+        }
       }
+
+      // Fazla marker'ları sil (sefer azaldıysa)
+      while (pool.length > allBuses.length) {
+        const m = pool.pop();
+        if (m) map.removeLayer(m);
+      }
+
       setGhostBusCount(allBuses.length);
     },
     []
@@ -951,10 +970,10 @@ export default function CityMapPageClient() {
 
         // İlk render
         renderGhostBuses(route);
-        // Her 60 saniyede yeniden hesapla
+        // Her 5 saniyede yeniden hesapla — CSS transition smooth kaydırır
         ghostBusIntervalRef.current = window.setInterval(() => {
           renderGhostBuses(route);
-        }, 60_000);
+        }, 5_000);
       } catch {
         setError("Hat güzergahı yüklenemedi");
       } finally {
