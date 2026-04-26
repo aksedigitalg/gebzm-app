@@ -10,7 +10,6 @@ import {
   readGeoCache,
   writeGeoCache,
   clearGeoCache,
-  queryGeolocationPermission,
 } from "./geolocation";
 import { readConsent } from "./geolocation-consent";
 
@@ -108,26 +107,16 @@ export function useGeolocation(
 
     setStatus("requesting");
     setError(null);
-    // Kullanıcı bilinçli olarak konum istiyor — eski localStorage cache'ini at,
-    // taze cihaz konumunu zorla.
     clearGeoCache();
 
-    // Permissions API ile preflight: tarayıcı önceden engellendi mi?
-    const perm = await queryGeolocationPermission();
-    if (perm === "denied") {
-      const err: GeoError = {
-        code: "permission_denied",
-        message:
-          "Tarayıcı konum erişimini daha önce engellemişsin. Adres çubuğundaki kilit ikonuna tıkla → Konum → İzin Ver → sayfayı yenile.",
-      };
-      setError(err);
-      setStatus("error");
-      return { coords: null, error: err };
-    }
+    // ÖNEMLİ: iOS Safari user gesture context'i async hop'larda kaybolur.
+    // Permissions.query() preflight'ı KALDIRDIK çünkü mobile'da popup
+    // tetiklenmiyordu. Doğrudan getCurrentPosition çağırırız —
+    // PERMISSION_DENIED hatasını sonradan yakalarız.
 
     // İki aşamalı strateji:
-    // 1) GPS yüksek hassasiyet, 12s — outdoor mobil için ideal
-    // 2) Düşük hassasiyet (WiFi/baz/IP), 8s — indoor / desktop fallback
+    // 1) GPS yüksek hassasiyet (mobil için ideal)
+    // 2) Düşük hassasiyet (WiFi/baz/IP, indoor/desktop fallback)
     const tryOnce = (highAccuracy: boolean, timeout: number) =>
       new Promise<RequestResult>(resolve => {
         navigator.geolocation.getCurrentPosition(
@@ -154,12 +143,11 @@ export function useGeolocation(
       });
 
     let result = await tryOnce(o.enableHighAccuracy, o.timeout);
-    // GPS timeout veya konum bulunamadıysa → düşük hassasiyetle tekrar dene
+    // PERMISSION_DENIED ise fallback'e gerek yok — kullanıcı izin vermedi
     if (
       !result.coords &&
       result.error &&
-      (result.error.code === "timeout" ||
-        result.error.code === "position_unavailable") &&
+      result.error.code !== "permission_denied" &&
       o.enableHighAccuracy
     ) {
       result = await tryOnce(false, 8000);

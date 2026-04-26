@@ -567,11 +567,18 @@ export default function CityMapPageClient() {
     const result = await geo.request();
     setLocating(false);
     if (!result.coords) {
-      // request() doğrudan döndürüyor — state stale değil
-      if (result.error?.code === "permission_denied") {
+      // request() doğrudan döndürüyor — state stale değil.
+      // permission_denied (tarayıcı engelledi) ve position_unavailable
+      // (iOS Konum Servisleri kapalı) durumlarında rehber modal aç.
+      if (
+        result.error?.code === "permission_denied" ||
+        result.error?.code === "position_unavailable"
+      ) {
         setDeniedHelpOpen(true);
       } else if (result.error?.code === "unsupported") {
         setError("Tarayıcın konum servisini desteklemiyor. Crosshair (✛) ile manuel seç.");
+      } else if (result.error?.code === "timeout") {
+        setError("Konum alınamadı. GPS açık olduğundan emin ol veya Crosshair (✛) ile manuel seç.");
       } else {
         setError(result.error?.message || "Konum alınamadı");
       }
@@ -880,7 +887,10 @@ export default function CityMapPageClient() {
           const result = await geo.request();
           setLocating(false);
           if (!result.coords) {
-            if (result.error?.code === "permission_denied") {
+            if (
+              result.error?.code === "permission_denied" ||
+              result.error?.code === "position_unavailable"
+            ) {
               setDeniedHelpOpen(true);
             } else {
               setError(result.error?.message || "Konum alınamadı");
