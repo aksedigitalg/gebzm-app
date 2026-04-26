@@ -167,6 +167,78 @@ if [ -n "$T" ]; then
   ok "Mavi Kafe — 5 kategori, 12 urun"
 fi
 
+# --- MARKET ---
+log "Urunler ekleniyor: Gebze Fresh Market"
+T=$(login_biz "market@test.com")
+if [ -n "$T" ]; then
+  C1=$(add_menu_cat "$T" '{"name":"Meyve-Sebze","is_active":true}')
+  C2=$(add_menu_cat "$T" '{"name":"Sut-Kahvalti","is_active":true}')
+  C3=$(add_menu_cat "$T" '{"name":"Et-Tavuk-Sarkuteri","is_active":true}')
+  C4=$(add_menu_cat "$T" '{"name":"Bakliyat-Erzak","is_active":true}')
+  C5=$(add_menu_cat "$T" '{"name":"Icecek-Atistirmalik","is_active":true}')
+
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Domates 1kg\",\"description\":\"Salkim, taze\",\"price\":35,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Salatalik 1kg\",\"description\":\"Cikti taze\",\"price\":25,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Patates 2kg\",\"description\":\"Nigde\",\"price\":45,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Soğan 2kg\",\"description\":\"Sari Amasya\",\"price\":40,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Elma 1kg\",\"description\":\"Amasya, kirmizi\",\"price\":50,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Muz 1kg\",\"description\":\"Anamur\",\"price\":85,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Sut 1L\",\"description\":\"Tam yagli, gunluk\",\"price\":40,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Yumurta 30 lu\",\"description\":\"L boy, beyaz\",\"price\":135,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Beyaz Peynir 500g\",\"description\":\"Tam yagli, klasik\",\"price\":180,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Kasar Peynir 250g\",\"description\":\"Olgun, dilimli\",\"price\":160,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Tavuk Gogus 1kg\",\"description\":\"Taze, kemiksiz\",\"price\":180,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Kiyma 1kg\",\"description\":\"Dana, %10 yag\",\"price\":420,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Sucuk 200g\",\"description\":\"Dana, fermente\",\"price\":120,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Salam 200g\",\"description\":\"Hindi, dilimli\",\"price\":80,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Pirinc 5kg\",\"description\":\"Baldo, premium\",\"price\":280,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Bulgur 1kg\",\"description\":\"Pilavlik\",\"price\":55,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Makarna 500g\",\"description\":\"Spagetti\",\"price\":35,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Mercimek 1kg\",\"description\":\"Yesil\",\"price\":95,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Zeytinyagi 1L\",\"description\":\"Naturel sizma, uretici\",\"price\":420,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C5\",\"name\":\"Su 6x1.5L\",\"description\":\"Kasa, dogal\",\"price\":75,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C5\",\"name\":\"Kola 1L\",\"description\":\"Pet sise\",\"price\":45,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C5\",\"name\":\"Cips Aile Boy\",\"description\":\"Klasik tuzlu\",\"price\":85,\"is_available\":true}"
+  ok "Gebze Fresh Market — 5 kategori, 23 urun"
+fi
+
+# --- MAĞAZA (Elektronik) ---
+log "Urunler ekleniyor: TechStore Gebze"
+T=$(login_biz "magaza@test.com")
+if [ -n "$T" ]; then
+  C1=$(add_menu_cat "$T" '{"name":"Telefonlar","is_active":true}')
+  C2=$(add_menu_cat "$T" '{"name":"Aksesuarlar","is_active":true}')
+  C3=$(add_menu_cat "$T" '{"name":"Bilgisayar-Tablet","is_active":true}')
+  C4=$(add_menu_cat "$T" '{"name":"Kulaklik-Ses","is_active":true}')
+
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"iPhone 15 128GB\",\"description\":\"Siyah, tum operatorler, 2 yil garanti\",\"price\":54990,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Samsung Galaxy S24 256GB\",\"description\":\"Gri, 5G, 2 yil garanti\",\"price\":42500,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Xiaomi Redmi Note 13 Pro\",\"description\":\"256GB, 200MP kamera\",\"price\":18900,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C1\",\"name\":\"Tecno Camon 30 Pro\",\"description\":\"Uygun fiyatli orta segment\",\"price\":11500,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"iPhone Sarj Kablosu Lightning\",\"description\":\"1m, orijinal\",\"price\":390,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"USB-C Kablo 2m\",\"description\":\"60W hizli sarj destekli\",\"price\":120,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Sarj Adaptoru 30W\",\"description\":\"USB-C, hizli sarj\",\"price\":280,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Telefon Kilifi Universal\",\"description\":\"iPhone 14/15 modelleri\",\"price\":150,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Cam Ekran Koruyucu\",\"description\":\"9H sertlik, dokunma duyarli\",\"price\":80,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C2\",\"name\":\"Powerbank 20000mAh\",\"description\":\"Hizli sarj, 22.5W\",\"price\":650,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Apple MacBook Air M3\",\"description\":\"13 inc, 256GB, 8GB RAM\",\"price\":52000,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Lenovo IdeaPad 3 i5\",\"description\":\"15.6 inc, 512GB SSD, 16GB RAM\",\"price\":24500,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"iPad Air 11 256GB\",\"description\":\"WiFi, Apple M2 islemci\",\"price\":34900,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C3\",\"name\":\"Samsung Galaxy Tab S9 FE\",\"description\":\"128GB, kalemli\",\"price\":18900,\"is_available\":true}"
+
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"AirPods Pro 2 (USB-C)\",\"description\":\"Aktif gurultu engelleme\",\"price\":7990,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Sony WH-1000XM5\",\"description\":\"Kafa ustu, ANC\",\"price\":12500,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"JBL Tune 510BT\",\"description\":\"Bluetooth, 40 saat sarj\",\"price\":1990,\"is_available\":true}"
+  add_menu_item "$T" "{\"category_id\":\"$C4\",\"name\":\"Xiaomi Redmi Buds 5\",\"description\":\"Ekonomik, ANC\",\"price\":890,\"is_available\":true}"
+  ok "TechStore Gebze — 4 kategori, 18 urun"
+fi
+
 # --- DOKTOR ---
 log "Hizmetler ekleniyor: Dr. Mehmet"
 T=$(login_biz "doktor@test.com")
@@ -215,6 +287,52 @@ if [ -n "$T" ]; then
 fi
 
 # =============================================================================
+# ADIM 3: Tum siparis kabul eden isletmelere delivery settings (00-24, accepts_orders=true)
+# =============================================================================
+log "Teslimat ayarlari aktive ediliyor"
+for EMAIL in restoran@test.com yemek@test.com kafe@test.com market@test.com magaza@test.com; do
+  T=$(login_biz "$EMAIL")
+  if [ -n "$T" ]; then
+    put "$API/business/delivery-settings" '{"accepts_orders":true,"delivery_fee":15,"free_delivery_threshold":250,"min_order_amount":50,"delivery_radius_km":10,"estimated_delivery_min":35,"accepts_cash":true,"accepts_card_at_door":true,"accepts_eft":false,"open_hour":0,"close_hour":24}' "$T" > /dev/null
+  fi
+done
+ok "5 isletmede teslimat aktif (00-24)"
+
+# =============================================================================
+# ADIM 4: Test kullanicisi olustur ve ornek yorumlar yaz
+# =============================================================================
+log "Test kullanicisi ve ornek yorumlar"
+
+# Email register endpoint kullaniyoruz (telefon/OTP yerine)
+USER_RESP=$(post "$API/auth/email/register" '{"email":"test@gebzem.app","password":"80148014","name":"Test Kullanici"}')
+USER_TOKEN=$(jq_val "$USER_RESP" "token")
+if [ -z "$USER_TOKEN" ]; then
+  # Zaten varsa login dene
+  USER_RESP=$(post "$API/auth/email/login" '{"email":"test@gebzem.app","password":"80148014"}')
+  USER_TOKEN=$(jq_val "$USER_RESP" "token")
+fi
+
+if [ -n "$USER_TOKEN" ]; then
+  # Yorum oluşturma rate limit: 10dk'da 5 yorum/kullanıcı
+  # Bu yüzden 5 ana yemek+market+magaza işletmesine yorum yazıyoruz
+  for EMAIL in restoran@test.com yemek@test.com kafe@test.com market@test.com magaza@test.com; do
+    BIZ_ID=$(sudo -u postgres psql -d gebzem_db -tAc "SELECT id FROM businesses WHERE email='$EMAIL'" 2>/dev/null | tr -d '[:space:]')
+    if [ -n "$BIZ_ID" ]; then
+      case "$EMAIL" in
+        restoran@test.com) post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":5,"comment":"Yemekler taze ve lezzetli, servis hizli. Ozellikle kunefe enfes!"}' "$USER_TOKEN" > /dev/null ;;
+        yemek@test.com)    post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":4,"comment":"Burgerler dolgun, hizli teslimat. Patates kizartmasi biraz daha sicak gelse mukemmel olur."}' "$USER_TOKEN" > /dev/null ;;
+        kafe@test.com)     post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":5,"comment":"Kahveler nefis, atmosfer sicak. Cheesecake ev yapimi gibi! Calisanlar cok ilgili."}' "$USER_TOKEN" > /dev/null ;;
+        market@test.com)   post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":5,"comment":"Sebze meyve gercekten taze, fiyatlar makul. 2 saat icinde teslim ettiler, mukemmel."}' "$USER_TOKEN" > /dev/null ;;
+        magaza@test.com)   post "$API/user/businesses/$BIZ_ID/reviews" '{"rating":4,"comment":"Telefonu sorunsuz aldim, 2 yil garanti veriyorlar. Aksesuarlari da uygun fiyatli."}' "$USER_TOKEN" > /dev/null ;;
+      esac
+    fi
+  done
+  ok "5 isletmeye ornek yorum yazildi"
+else
+  log "Test kullanicisi olusturulamadi, yorumlar atlandi"
+fi
+
+# =============================================================================
 echo ""
 echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}  SEED TAMAMLANDI — 10 isletme + ilanlar   ${NC}"
@@ -224,3 +342,5 @@ echo "Giris bilgileri (sifre: $PASS):"
 echo "  kuafor@test.com    | restoran@test.com | yemek@test.com"
 echo "  kafe@test.com      | market@test.com   | magaza@test.com"
 echo "  doktor@test.com    | usta@test.com     | emlakci@test.com | galerici@test.com"
+echo ""
+echo "Test kullanicisi: test@gebzem.app / 80148014 (yorumlar icin)"
