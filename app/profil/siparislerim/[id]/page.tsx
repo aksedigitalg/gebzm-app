@@ -37,11 +37,13 @@ export default function SiparisDetayPage() {
   const [error, setError] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const reload = async () => {
     try {
       const data = (await api.user.getOrder(id)) as unknown as Order;
       setOrder(data);
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Yüklenemedi");
     } finally {
@@ -58,13 +60,16 @@ export default function SiparisDetayPage() {
     if (!id) return;
     setLoading(true);
     reload();
-    // Aktif siparişler için 15sn polling (WebSocket olana kadar)
+    // Aktif siparişler için 15sn polling — sadece aktif statülerde
     const interval = setInterval(() => {
+      // Polling sadece tab görünürken ve sipariş aktifken
+      if (document.visibilityState !== "visible") return;
+      if (order && !ACTIVE_ORDER_STATUSES.includes(order.status)) return;
       reload();
     }, 15000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, router]);
+  }, [id, router, order?.status]);
 
   if (loading) {
     return (
@@ -265,6 +270,12 @@ export default function SiparisDetayPage() {
         )}
       </div>
 
+      {actionError && (
+        <div className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+          {actionError}
+        </div>
+      )}
+
       {cancelOpen && (
         <CancelDialog
           onClose={() => setCancelOpen(false)}
@@ -272,9 +283,13 @@ export default function SiparisDetayPage() {
             try {
               await api.user.cancelOrder(order.id, reason);
               setCancelOpen(false);
+              setActionError("");
               reload();
             } catch (err) {
-              alert(err instanceof Error ? err.message : "İptal edilemedi");
+              const msg = err instanceof Error ? err.message : "İptal edilemedi";
+              setActionError(msg);
+              setCancelOpen(false);
+              setTimeout(() => setActionError(""), 5000);
             }
           }}
         />
@@ -287,9 +302,13 @@ export default function SiparisDetayPage() {
             try {
               await api.user.rateOrder(order.id, rating, comment);
               setRateOpen(false);
+              setActionError("");
               reload();
             } catch (err) {
-              alert(err instanceof Error ? err.message : "Kaydedilemedi");
+              const msg = err instanceof Error ? err.message : "Kaydedilemedi";
+              setActionError(msg);
+              setRateOpen(false);
+              setTimeout(() => setActionError(""), 5000);
             }
           }}
         />

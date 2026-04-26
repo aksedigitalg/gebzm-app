@@ -193,6 +193,35 @@ export const api = {
         getToken()
       ),
 
+    // ─── YORUMLAR (user) ─────────────────────────────────────────────────
+    getReviewEligibility: (businessId: string) =>
+      request<{
+        can_review: boolean;
+        has_standalone: boolean;
+        eligible_orders: Array<{ id: string; created_at: string }>;
+      }>(
+        `/user/reviews/eligibility/${businessId}`,
+        { cache: "no-store" },
+        getToken()
+      ),
+
+    createReview: (
+      businessId: string,
+      data: { rating: number; comment: string; order_id?: string }
+    ) =>
+      request<{ id: string; message: string }>(
+        `/user/businesses/${businessId}/reviews`,
+        { method: "POST", body: JSON.stringify(data) },
+        getToken()
+      ),
+
+    deleteReview: (reviewId: string) =>
+      request(
+        `/user/reviews/${reviewId}`,
+        { method: "DELETE" },
+        getToken()
+      ),
+
     // ─── ADRESLER ───────────────────────────────────────────────────────
     getAddresses: () =>
       request<unknown[]>("/user/addresses", {}, getToken()),
@@ -376,6 +405,21 @@ export const api = {
         { method: "PUT", body: JSON.stringify(data) },
         getBusinessToken()
       ),
+
+    // ─── YORUMLAR (business) ────────────────────────────────────────────
+    getMyReviews: () =>
+      request<unknown[]>(
+        "/business/reviews",
+        { cache: "no-store" },
+        getBusinessToken()
+      ),
+
+    replyToReview: (reviewId: string, reply: string) =>
+      request(
+        `/business/reviews/${reviewId}/reply`,
+        { method: "PUT", body: JSON.stringify({ reply }) },
+        getBusinessToken()
+      ),
   },
 };
 
@@ -383,6 +427,20 @@ export const api = {
 export const publicApi = {
   getBusinessDelivery: (businessId: string) =>
     request<Record<string, unknown>>(`/businesses/${businessId}/delivery`),
+
+  // ─── YORUMLAR (public liste) ──────────────────────────────────────
+  getBusinessReviews: (businessId: string, page = 1) =>
+    request<unknown[]>(
+      `/businesses/${businessId}/reviews?page=${page}`,
+      { cache: "no-store" }
+    ),
+
+  getBusinessReviewStats: (businessId: string) =>
+    request<{
+      count: number;
+      average_rating: number;
+      distribution: Record<string, number>;
+    }>(`/businesses/${businessId}/reviews/stats`, { cache: "no-store" }),
 
   // ─── ETKİNLİKLER (public) ─────────────────────────────────────────
   getEvents: (params?: { category?: string; when?: string; q?: string }) => {

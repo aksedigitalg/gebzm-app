@@ -34,7 +34,10 @@ export default function IsletmeSiparislerPage() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"yeni" | "aktif" | "tamamlandi">("yeni");
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const lastOrderIdRef = useRef<string | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
 
   // Login kontrolü
   useEffect(() => {
@@ -46,14 +49,25 @@ export default function IsletmeSiparislerPage() {
     if (!silent) setLoading(true);
     try {
       const list = (await api.business.getOrders(filter)) as Order[];
-      setOrders(list || []);
-      // Yeni sipariş geldi mi?
-      if (filter === "yeni" && list && list.length > 0 && soundEnabled) {
-        const newest = list[0]?.id;
-        if (newest && newest !== lastOrderIdRef.current && lastOrderIdRef.current) {
-          playBeep();
+      const safeList = list || [];
+      setOrders(safeList);
+
+      // Yeni sipariş tespiti — yalnızca "yeni" sekmesinde
+      if (filter === "yeni") {
+        const incomingIds = safeList.map(o => o.id);
+        if (!initializedRef.current) {
+          // İlk yüklemede sadece ID setini doldur, ses çalma
+          seenIdsRef.current = new Set(incomingIds);
+          initializedRef.current = true;
+        } else {
+          const fresh = incomingIds.filter(id => !seenIdsRef.current.has(id));
+          if (fresh.length > 0 && soundEnabledRef.current) {
+            playOrderRing();
+            notifyDesktop(fresh.length);
+          }
+          // Set'i sadece mevcut ID'lerle güncelle (silinmiş/durumu değişmiş olanlar düşer)
+          seenIdsRef.current = new Set(incomingIds);
         }
-        lastOrderIdRef.current = newest;
       }
       setError("");
     } catch (err) {
@@ -63,19 +77,37 @@ export default function IsletmeSiparislerPage() {
     }
   };
 
+  // Filtre değişince state'i sıfırla — başka sekmeden "yeni"ye geçince yanlış ses çalmasın
   useEffect(() => {
+    initializedRef.current = false;
+    seenIdsRef.current = new Set();
     reload();
     const t = setInterval(() => reload(true), POLL_INTERVAL_MS);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  const updateStatus = async (id: string, status: OrderStatus) => {
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    if (next) {
+      // İlk gesture: AudioContext'i başlat ve Notification iznini iste
+      playBeepShort();
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+  };
+
+  type ActionStatus = Exclude<OrderStatus, "bekliyor">;
+  const updateStatus = async (id: string, status: ActionStatus) => {
     try {
-      await api.business.updateOrderStatus(id, status as never);
+      await api.business.updateOrderStatus(id, status);
       reload();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Güncellenemedi");
+      const msg = err instanceof Error ? err.message : "Sipariş güncellenemedi";
+      setError(msg);
+      setTimeout(() => setError(""), 4000);
     }
   };
 
@@ -90,13 +122,13 @@ export default function IsletmeSiparislerPage() {
         </div>
         <button
           type="button"
-          onClick={() => setSoundEnabled(s => !s)}
+          onClick={toggleSound}
           className={`flex h-9 w-9 items-center justify-center rounded-full border ${
             soundEnabled
               ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30"
               : "border-border bg-card text-muted-foreground"
           }`}
-          title={soundEnabled ? "Sesli bildirim açık" : "Sesli bildirim kapalı"}
+          title={soundEnabled ? "Sesli bildirim açık" : "Sesli bildirim kapalı (tıklayarak aç)"}
           aria-label="Ses"
         >
           <Bell className="h-4 w-4" />
@@ -184,7 +216,7 @@ function OrderCard({
   onUpdate,
 }: {
   order: Order;
-  onUpdate: (id: string, status: OrderStatus) => void;
+  onUpdate: (id: string, status: Exclude<OrderStatus, "bekliyor">) => void;
 }) {
   const itemCount = (order.items || []).reduce((s, i) => s + i.quantity, 0);
   const date = new Date(order.created_at);
@@ -300,7 +332,7 @@ function OrderCard({
 }
 
 interface NextAction {
-  status: OrderStatus;
+  status: Exclude<OrderStatus, "bekliyor">;
   label: string;
   icon: typeof Check;
   style: "primary" | "danger" | "default";
@@ -337,21 +369,66 @@ function getNextActions(status: OrderStatus): NextAction[] {
   }
 }
 
-// Web Audio API ile basit beep (yeni sipariş geldiğinde)
-function playBeep() {
+// Web Audio API ile zil sesi: 3 ardışık ding-dong
+let _audioCtx: AudioContext | null = null;
+function getCtx(): AudioContext | null {
   try {
-    const ctx = new (window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
+    if (!_audioCtx) {
+      const Ctor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      _audioCtx = new Ctor();
+    }
+    if (_audioCtx.state === "suspended") _audioCtx.resume().catch(() => {});
+    return _audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function playTone(freq: number, start: number, duration: number, vol = 0.35) {
+  const ctx = getCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  const t0 = ctx.currentTime + start;
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.05);
+}
+
+function playBeepShort() {
+  // Toggle açıldığında "tık" sesi (gesture'ı tüket + AudioContext başlat)
+  playTone(660, 0, 0.12, 0.2);
+}
+
+function playOrderRing() {
+  // Zil sesi: ding-dong x 3 (1.8sn)
+  for (let i = 0; i < 3; i++) {
+    const t = i * 0.6;
+    playTone(880, t, 0.25, 0.4);
+    playTone(660, t + 0.28, 0.3, 0.4);
+  }
+}
+
+function notifyDesktop(count: number) {
+  try {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const n = new Notification("Yeni sipariş!", {
+      body: count === 1 ? "1 yeni sipariş geldi" : `${count} yeni sipariş geldi`,
+      icon: "/icon-192.png",
+      tag: "new-order",
+      requireInteraction: false,
+    });
+    setTimeout(() => n.close(), 6000);
   } catch {
     // sessizce yut
   }

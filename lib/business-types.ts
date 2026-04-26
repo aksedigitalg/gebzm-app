@@ -10,6 +10,7 @@ import {
   Building,
   Car,
   CalendarCheck2,
+  MessageSquare,
   Package,
   Megaphone,
   ShoppingCart,
@@ -47,7 +48,8 @@ export type ModuleId =
   | "talepler"
   | "emlak-ilanlari"
   | "portfoy"
-  | "vasita-ilanlari";
+  | "vasita-ilanlari"
+  | "yorumlar";
 
 export interface ModuleConfig {
   id: ModuleId;
@@ -70,6 +72,7 @@ export const moduleRegistry: Record<ModuleId, ModuleConfig> = {
   "emlak-ilanlari": { id: "emlak-ilanlari", href: "/isletme/emlak-ilanlari", label: "Emlak İlanları", icon: Home },
   portfoy: { id: "portfoy", href: "/isletme/portfoy", label: "Portföy", icon: LayoutGrid },
   "vasita-ilanlari": { id: "vasita-ilanlari", href: "/isletme/vasita-ilanlari", label: "Vasıta İlanları", icon: Car },
+  yorumlar: { id: "yorumlar", href: "/isletme/yorumlar", label: "Yorumlar", icon: MessageSquare },
 };
 
 export interface BusinessTypeConfig {
@@ -90,7 +93,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     color: "from-orange-500 to-red-600",
     // Restoran isteğe bağlı online sipariş de açabilir (teslimat-ayarlari'ndan).
     // Açmazsa "Online sipariş kapalı" durumda kalır, müşteri menüyü görür ama veremez.
-    modules: ["menu", "rezervasyonlar", "siparisler", "teslimat-ayarlari"],
+    modules: ["menu", "rezervasyonlar", "siparisler", "teslimat-ayarlari", "yorumlar"],
   },
   yemek: {
     id: "yemek",
@@ -98,7 +101,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Online sipariş, ev teslimi",
     icon: Utensils,
     color: "from-rose-500 to-orange-500",
-    modules: ["menu", "siparisler", "teslimat-ayarlari"],
+    modules: ["menu", "siparisler", "teslimat-ayarlari", "yorumlar"],
   },
   kafe: {
     id: "kafe",
@@ -106,7 +109,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Kahve, tatlı, hafif yemek",
     icon: Coffee,
     color: "from-amber-500 to-orange-600",
-    modules: ["menu", "rezervasyonlar", "siparisler", "teslimat-ayarlari"],
+    modules: ["menu", "rezervasyonlar", "siparisler", "teslimat-ayarlari", "yorumlar"],
   },
   market: {
     id: "market",
@@ -114,7 +117,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Gıda, temizlik, online sipariş",
     icon: Store,
     color: "from-emerald-500 to-teal-600",
-    modules: ["urunler", "kampanyalar", "siparisler", "teslimat-ayarlari"],
+    modules: ["urunler", "kampanyalar", "siparisler", "teslimat-ayarlari", "yorumlar"],
   },
   magaza: {
     id: "magaza",
@@ -122,7 +125,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Giyim, elektronik, ev-yaşam",
     icon: ShoppingBag,
     color: "from-sky-500 to-blue-600",
-    modules: ["urunler", "kampanyalar", "siparisler", "teslimat-ayarlari"],
+    modules: ["urunler", "kampanyalar", "siparisler", "teslimat-ayarlari", "yorumlar"],
   },
   doktor: {
     id: "doktor",
@@ -130,7 +133,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Muayene, randevu, hasta takibi",
     icon: Stethoscope,
     color: "from-cyan-500 to-blue-600",
-    modules: ["randevular", "hizmetler", "hastalarim"],
+    modules: ["randevular", "hizmetler", "hastalarim", "yorumlar"],
   },
   kuafor: {
     id: "kuafor",
@@ -138,7 +141,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Saç, makyaj, bakım",
     icon: Scissors,
     color: "from-pink-500 to-fuchsia-600",
-    modules: ["hizmetler", "randevular"],
+    modules: ["hizmetler", "randevular", "yorumlar"],
   },
   usta: {
     id: "usta",
@@ -146,7 +149,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Talep üzerine hizmet",
     icon: Wrench,
     color: "from-amber-600 to-orange-700",
-    modules: ["hizmetler", "talepler"],
+    modules: ["hizmetler", "talepler", "yorumlar"],
   },
   emlakci: {
     id: "emlakci",
@@ -154,7 +157,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Konut, arsa, işyeri ilanları",
     icon: Building,
     color: "from-blue-600 to-indigo-700",
-    modules: ["emlak-ilanlari", "portfoy"],
+    modules: ["emlak-ilanlari", "portfoy", "yorumlar"],
   },
   galerici: {
     id: "galerici",
@@ -162,7 +165,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Araç stoğu ve ilanlar",
     icon: Car,
     color: "from-slate-600 to-zinc-700",
-    modules: ["vasita-ilanlari"],
+    modules: ["vasita-ilanlari", "yorumlar"],
   },
 };
 

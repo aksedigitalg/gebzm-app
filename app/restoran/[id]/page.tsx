@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { MapPin, Phone, UtensilsCrossed } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { BusinessActions } from "@/components/BusinessActions";
+import { BusinessReviews } from "@/components/BusinessReviews";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +127,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               </div>
             )}
           </div>
+
+          {/* Yorumlar */}
+          <BusinessReviews businessId={biz.id} businessName={biz.name} />
         </div>
       </div>
 
