@@ -302,36 +302,28 @@ ok "5 isletmede teslimat aktif (00-24)"
 # ADIM 4: Test kullanicisi + ornek yorumlar (SQL ile direkt — rate limit bypass)
 # =============================================================================
 log "Test kullanicisi + 7 ornek yorum (SQL)"
-sudo -u postgres psql -d gebzem_db <<'SQLEOF' >/dev/null 2>&1
+sudo -u postgres psql -d gebzem_db <<'SQLEOF'
 -- Test user (rate limit'i bypass etmek icin SQL ile)
+-- email'de UNIQUE constraint yok, mevcut user varsa atla
 INSERT INTO users (name, email, password_hash, auth_type, email_verified)
-VALUES ('Test Kullanici', 'test@gebzem.app', crypt('80148014', gen_salt('bf', 10)), 'email', true)
-ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
-RETURNING id;
+SELECT 'Test Kullanici', 'test@gebzem.app', crypt('80148014', gen_salt('bf', 10)), 'email', true
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email='test@gebzem.app');
 
 -- Yorumlar (her isletmeye 1 standalone yorum)
-INSERT INTO business_reviews (business_id, user_id, rating, comment) VALUES
-  ((SELECT id FROM businesses WHERE email='restoran@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   5, 'Yemekler taze ve lezzetli, servis hizli. Ozellikle kunefe enfes!'),
-  ((SELECT id FROM businesses WHERE email='yemek@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   4, 'Burgerler dolgun, hizli teslimat. Patates kizartmasi biraz daha sicak gelse mukemmel olur.'),
-  ((SELECT id FROM businesses WHERE email='kafe@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   5, 'Kahveler nefis, atmosfer sicak. Cheesecake ev yapimi gibi! Calisanlar cok ilgili.'),
-  ((SELECT id FROM businesses WHERE email='market@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   5, 'Sebze meyve gercekten taze, fiyatlar makul. 2 saat icinde teslim ettiler, mukemmel.'),
-  ((SELECT id FROM businesses WHERE email='magaza@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   4, 'Telefonu sorunsuz aldim, 2 yil garanti veriyorlar. Aksesuarlari da uygun fiyatli.'),
-  ((SELECT id FROM businesses WHERE email='kuafor@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   5, 'Sac kesimi cok memnun, fonu da iyi yaptilar. Tekrar gelecegim.'),
-  ((SELECT id FROM businesses WHERE email='doktor@test.com'),
-   (SELECT id FROM users WHERE email='test@gebzem.app'),
-   5, 'Doktor cok dikkatli, tum sorularimi sabirla yanitladi. Tahlil aciklamalari cok degerli.')
+-- Standalone unique index var: (business_id, user_id) WHERE order_id IS NULL → çakışmada atla
+INSERT INTO business_reviews (business_id, user_id, rating, comment)
+SELECT b.id, u.id, v.rating, v.comment
+FROM (VALUES
+  ('restoran@test.com', 5, 'Yemekler taze ve lezzetli, servis hizli. Ozellikle kunefe enfes!'),
+  ('yemek@test.com',    4, 'Burgerler dolgun, hizli teslimat. Patates kizartmasi biraz daha sicak gelse mukemmel olur.'),
+  ('kafe@test.com',     5, 'Kahveler nefis, atmosfer sicak. Cheesecake ev yapimi gibi! Calisanlar cok ilgili.'),
+  ('market@test.com',   5, 'Sebze meyve gercekten taze, fiyatlar makul. 2 saat icinde teslim ettiler, mukemmel.'),
+  ('magaza@test.com',   4, 'Telefonu sorunsuz aldim, 2 yil garanti veriyorlar. Aksesuarlari da uygun fiyatli.'),
+  ('kuafor@test.com',   5, 'Sac kesimi cok memnun, fonu da iyi yaptilar. Tekrar gelecegim.'),
+  ('doktor@test.com',   5, 'Doktor cok dikkatli, tum sorularimi sabirla yanitladi. Tahlil aciklamalari cok degerli.')
+) AS v(email, rating, comment)
+JOIN businesses b ON b.email = v.email
+JOIN users u ON u.email = 'test@gebzem.app'
 ON CONFLICT DO NOTHING;
 SQLEOF
 ok "Test kullanicisi + 7 yorum eklendi"
