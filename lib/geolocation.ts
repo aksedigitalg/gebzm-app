@@ -111,12 +111,13 @@ export function mapPositionError(err: GeolocationPositionError): GeoError {
     case err.PERMISSION_DENIED:
       return {
         code: "permission_denied",
-        message: "Konum izni reddedildi. Tarayıcı ayarlarından açabilirsin.",
+        message:
+          "Tarayıcı konum erişimini engelliyor. Adres çubuğundaki kilit ikonuna tıkla, konumu izin ver, sayfayı yenile.",
       };
     case err.POSITION_UNAVAILABLE:
       return {
         code: "position_unavailable",
-        message: "Konum belirlenemedi. GPS açık mı kontrol et.",
+        message: "Konum belirlenemedi. GPS/WiFi açık mı kontrol et.",
       };
     case err.TIMEOUT:
       return {
@@ -125,5 +126,22 @@ export function mapPositionError(err: GeolocationPositionError): GeoError {
       };
     default:
       return { code: "unknown", message: "Konum alınamadı." };
+  }
+}
+
+// Tarayıcı izin durumunu önceden sorgula — istek atmadan önce
+// "denied" ise kullanıcıya doğru rehberi gösterebiliriz
+export async function queryGeolocationPermission(): Promise<
+  "granted" | "denied" | "prompt" | "unsupported"
+> {
+  if (typeof navigator === "undefined") return "unsupported";
+  if (!("permissions" in navigator)) return "prompt"; // Permissions API yok → bilemiyoruz, denesin
+  try {
+    const status = await navigator.permissions.query({
+      name: "geolocation" as PermissionName,
+    });
+    return status.state as "granted" | "denied" | "prompt";
+  } catch {
+    return "prompt";
   }
 }

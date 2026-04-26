@@ -10,6 +10,7 @@ import {
   readGeoCache,
   writeGeoCache,
   clearGeoCache,
+  queryGeolocationPermission,
 } from "./geolocation";
 import { readConsent } from "./geolocation-consent";
 
@@ -104,6 +105,21 @@ export function useGeolocation(
     // Kullanıcı bilinçli olarak konum istiyor — eski localStorage cache'ini at,
     // taze cihaz konumunu zorla.
     clearGeoCache();
+
+    // Permissions API ile preflight: tarayıcı önceden engellendi mi?
+    // Engellendiyse hem kullanıcıya doğru hata gösteririz, hem de
+    // gereksiz getCurrentPosition çağrısı yapmayız.
+    const perm = await queryGeolocationPermission();
+    if (perm === "denied") {
+      const err: GeoError = {
+        code: "permission_denied",
+        message:
+          "Tarayıcı konum erişimini daha önce engellemişsin. Adres çubuğundaki kilit ikonuna tıkla → Konum → İzin Ver → sayfayı yenile.",
+      };
+      setError(err);
+      setStatus("error");
+      return null;
+    }
 
     return new Promise<Coords | null>(resolve => {
       navigator.geolocation.getCurrentPosition(

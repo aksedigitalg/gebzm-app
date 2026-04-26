@@ -34,6 +34,7 @@ import { useGeolocation } from "@/lib/use-geolocation";
 import { readConsent } from "@/lib/geolocation-consent";
 import { formatDistance, haversineKm } from "@/lib/geolocation";
 import { LocationConsentDialog } from "@/components/LocationConsentDialog";
+import { LocationDeniedHelp } from "@/components/LocationDeniedHelp";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -421,6 +422,7 @@ export default function CityMapPageClient() {
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
+  const [deniedHelpOpen, setDeniedHelpOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
 
@@ -565,8 +567,12 @@ export default function CityMapPageClient() {
     const c = await geo.request();
     setLocating(false);
     if (!c) {
-      const msg = geo.error?.message || "Konum alınamadı";
-      setError(msg);
+      // Tarayıcı izni reddedilmişse rehber modal aç (toast yerine)
+      if (geo.error?.code === "permission_denied") {
+        setDeniedHelpOpen(true);
+      } else {
+        setError(geo.error?.message || "Konum alınamadı");
+      }
     }
   }, [geo]);
 
@@ -863,9 +869,19 @@ export default function CityMapPageClient() {
           const c = await geo.request();
           setLocating(false);
           if (!c) {
-            setError(geo.error?.message || "Konum alınamadı");
+            if (geo.error?.code === "permission_denied") {
+              setDeniedHelpOpen(true);
+            } else {
+              setError(geo.error?.message || "Konum alınamadı");
+            }
           }
         }}
+      />
+
+      {/* Tarayıcı engellediyse — adım adım rehber */}
+      <LocationDeniedHelp
+        open={deniedHelpOpen}
+        onClose={() => setDeniedHelpOpen(false)}
       />
 
       {/* LOADING INDICATOR */}
