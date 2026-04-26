@@ -333,7 +333,40 @@ for (const [routeId, shapeIds] of routeToShapes) {
 }
 console.log(`  ${shapesWritten} hat, ${(shapesBytes / 1024 / 1024).toFixed(1)} MB toplam`);
 
-// ─── 6. routes.json + stop-routes.json ──────────────────────────────────────
+// ─── 6. ROUTE STOP DISTANCES — ghost bus simülasyonu için ──────────────────
+// Her hat için: durakların başlangıçtan sıralı uzaklık dizisi (km)
+console.log("Hat-bazında durak listeleri oluşturuluyor...");
+const routeStopsList = new Map(); // route_id → sorted Array<dist>
+for (const stopId in stopRoutes) {
+  for (const r of stopRoutes[stopId]) {
+    if (typeof r.dist !== "number") continue;
+    if (!routeStopsList.has(r.id)) routeStopsList.set(r.id, []);
+    routeStopsList.get(r.id).push(r.dist);
+  }
+}
+for (const dists of routeStopsList.values()) {
+  dists.sort((a, b) => a - b);
+}
+
+// Her stop-route eşleşmesine "kendinden önce kaç durak var" bilgisi ekle.
+// Bu ETA hesabında kullanılır (her durakta 1 dk bekleme).
+for (const stopId in stopRoutes) {
+  for (const r of stopRoutes[stopId]) {
+    const allDists = routeStopsList.get(r.id);
+    if (!allDists || typeof r.dist !== "number") continue;
+    // binary search: kendisinden önce kaç durak var (kendisi dahil değil)
+    let lo = 0;
+    let hi = allDists.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (allDists[mid] < r.dist - 0.005) lo = mid + 1;
+      else hi = mid;
+    }
+    r.before = lo;
+  }
+}
+
+// ─── 7. routes.json + stop-routes.json + route-stops.json ──────────────────
 const routesPath = resolve(OUT_DIR, "routes.json");
 const routesJson = JSON.stringify(routeList);
 writeFileSync(routesPath, routesJson);
@@ -343,6 +376,19 @@ const stopRoutesPath = resolve(OUT_DIR, "stop-routes.json");
 const stopRoutesJson = JSON.stringify(stopRoutes);
 writeFileSync(stopRoutesPath, stopRoutesJson);
 console.log(`  stop-routes.json — ${matchedCount} durak — ${(Buffer.byteLength(stopRoutesJson) / 1024).toFixed(1)} KB`);
+
+// route-stops.json: ghost bus simülasyonu için lazy load
+const routeStopsObj = Object.fromEntries(
+  Array.from(routeStopsList.entries()).map(([k, v]) => [
+    k,
+    // 2 ondalık (10 m) yeterli, JSON boyutu için
+    v.map(d => Math.round(d * 100) / 100),
+  ])
+);
+const routeStopsPath = resolve(OUT_DIR, "route-stops.json");
+const routeStopsJson = JSON.stringify(routeStopsObj);
+writeFileSync(routeStopsPath, routeStopsJson);
+console.log(`  route-stops.json — ${routeStopsList.size} hat — ${(Buffer.byteLength(routeStopsJson) / 1024).toFixed(1)} KB`);
 
 // ─── 7. KENTKART BAYİLERİ ───────────────────────────────────────────────────
 // places.txt: kiosk_no, owner, distirict, term_no, lat, lon, title, term_type, address

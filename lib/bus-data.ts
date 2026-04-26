@@ -17,6 +17,7 @@ export interface StopRouteRef {
   headsign: string;
   dist?: number; // km — hattın başından bu durağa
   total?: number; // km — hattın toplam uzunluğu
+  before?: number; // başlangıçla bu durak arasındaki durak sayısı
 }
 
 export interface RouteShape {
@@ -31,6 +32,9 @@ let routesPromise: Promise<BusRoute[]> | null = null;
 
 let stopRoutesCache: Record<string, StopRouteRef[]> | null = null;
 let stopRoutesPromise: Promise<Record<string, StopRouteRef[]>> | null = null;
+
+let routeStopsCache: Record<string, number[]> | null = null;
+let routeStopsPromise: Promise<Record<string, number[]>> | null = null;
 
 const shapeCache = new Map<string, RouteShape[]>();
 
@@ -60,6 +64,21 @@ export async function loadStopRoutes(): Promise<Record<string, StopRouteRef[]>> 
     return data;
   })();
   return stopRoutesPromise;
+}
+
+export async function loadRouteStops(): Promise<Record<string, number[]>> {
+  if (routeStopsCache) return routeStopsCache;
+  if (routeStopsPromise) return routeStopsPromise;
+  routeStopsPromise = (async () => {
+    const res = await fetch("/data/bus/route-stops.json", {
+      cache: "force-cache",
+    });
+    if (!res.ok) throw new Error("route-stops.json fetch failed");
+    const data = (await res.json()) as Record<string, number[]>;
+    routeStopsCache = data;
+    return data;
+  })();
+  return routeStopsPromise;
 }
 
 export async function loadRouteShapes(routeId: string): Promise<RouteShape[]> {

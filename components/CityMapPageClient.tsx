@@ -37,12 +37,18 @@ import { formatDistance, haversineKm } from "@/lib/geolocation";
 import {
   loadRoutes,
   loadRouteShapes,
+  loadRouteStops,
   loadStopRoutes,
   type BusRoute,
   type RouteShape,
   type StopRouteRef,
 } from "@/lib/bus-data";
-import { computeETA } from "@/lib/bus-eta";
+import { computeETA, DEFAULT_ETA_CONFIG } from "@/lib/bus-eta";
+import {
+  buildCumDist,
+  simulateBuses,
+  type GhostBus,
+} from "@/lib/bus-positions";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -245,6 +251,7 @@ async function fetchPois(cat: CategoryDef): Promise<POI[]> {
 function popupHtml(
   poi: POI,
   stopRoutes?: StopRouteRef[],
+  routeStopCounts?: Record<string, number>,
   now: Date = new Date()
 ): string {
   const cat = CATEGORY_BY_KEY[poi.category];
@@ -269,7 +276,8 @@ function popupHtml(
           <div style="display:flex;flex-direction:column;gap:4px;">
             ${stopRoutes!
               .map(r => {
-                const eta = computeETA(r.dist, r.total, now);
+                const totalStops = routeStopCounts?.[r.id];
+                const eta = computeETA(r.dist, r.total, r.before, totalStops, now);
                 const etaHtml = eta.text
                   ? `<span style="font-size:10px;font-weight:600;opacity:0.92;margin-left:auto;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.22);">${esc(eta.text)}</span>`
                   : "";
@@ -462,8 +470,12 @@ export default function CityMapPageClient() {
   const userMarkerRef = useRef<LeafletMarker | null>(null);
   const userAccuracyRef = useRef<any>(null);
   const selectedShapesRef = useRef<any[]>([]);
-  // popupHtml'de stopRoutes lookup yapabilmek için ref (kapanış güncel)
+  const ghostBusMarkersRef = useRef<any[]>([]);
+  const ghostBusIntervalRef = useRef<number | null>(null);
+  // popupHtml'de stopRoutes / routeStopCounts lookup için (closure güncel)
   const stopRoutesRef = useRef<Record<string, StopRouteRef[]> | null>(null);
+  const routeStopCountsRef = useRef<Record<string, number> | null>(null);
+  const routeStopsRef = useRef<Record<string, number[]> | null>(null);
 
   const [active, setActive] = useState<CategoryKey>("durak");
   const [pois, setPois] = useState<POI[]>([]);
@@ -476,6 +488,14 @@ export default function CityMapPageClient() {
   const [routesData, setRoutesData] = useState<BusRoute[] | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [ghostBusCount, setGhostBusCount] = useState(0);
+  // Şu an seçili hattın shape verisi — interval refresh'te tekrar fetch etmemek için
+  const selectedShapeDataRef = useRef<{
+    shapes: RouteShape[];
+    cumDists: Map<string, Float64Array>;
+    totalKms: Map<string, number>;
+    routeStopDists: number[];
+  } | null>(null);
 
   const geo = useGeolocation();
 
@@ -519,6 +539,11 @@ export default function CityMapPageClient() {
       userMarkerRef.current = null;
       userAccuracyRef.current = null;
       selectedShapesRef.current = [];
+      ghostBusMarkersRef.current = [];
+      if (ghostBusIntervalRef.current !== null) {
+        window.clearInterval(ghostBusIntervalRef.current);
+        ghostBusIntervalRef.current = null;
+      }
     };
   }, []);
 
@@ -564,8 +589,9 @@ export default function CityMapPageClient() {
           // Durak ise hat listesini popup HTML'ine geçir
           const routes =
             poi.category === "durak" && sr ? sr[poi.id] : undefined;
+          const counts = routeStopCountsRef.current ?? undefined;
           const m = L.marker([poi.lat, poi.lng], { icon: useIcon }).bindPopup(
-            popupHtml(poi, routes),
+            popupHtml(poi, routes, counts),
             { maxWidth: 340, autoPan: true }
           );
           // Durak popup'ı açıldığında taze "şu an" ile ETA hesabı
@@ -573,7 +599,16 @@ export default function CityMapPageClient() {
           if (routes && routes.length > 0) {
             m.on("popupopen", () => {
               const popup = m.getPopup();
-              if (popup) popup.setContent(popupHtml(poi, routes, new Date()));
+              if (popup) {
+                popup.setContent(
+                  popupHtml(
+                    poi,
+                    routes,
+                    routeStopCountsRef.current ?? undefined,
+                    new Date()
+                  )
+                );
+              }
             });
           }
           markerByIdRef.current.set(poi.id, m);
@@ -732,15 +767,20 @@ export default function CityMapPageClient() {
     return () => clearTimeout(t);
   }, [error]);
 
-  // Mount: hat metadata + durak-hat eşleştirme tablosunu paralel yükle
+  // Mount: hat metadata + durak-hat eşleştirme + hat-durak listesi (ghost bus)
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadRoutes(), loadStopRoutes()])
-      .then(([r, sr]) => {
+    Promise.all([loadRoutes(), loadStopRoutes(), loadRouteStops()])
+      .then(([r, sr, rs]) => {
         if (cancelled) return;
         setRoutesData(r);
         setStopRoutes(sr);
         stopRoutesRef.current = sr;
+        routeStopsRef.current = rs;
+        // Her hat için toplam durak sayısı (ETA hesabında kullanılır)
+        const counts: Record<string, number> = {};
+        for (const k in rs) counts[k] = rs[k].length;
+        routeStopCountsRef.current = counts;
       })
       .catch(() => {
         // sessizce yut — bu olmadan da harita çalışır
@@ -750,7 +790,93 @@ export default function CityMapPageClient() {
     };
   }, []);
 
-  // Hat seçildiğinde güzergah polyline'larını çiz
+  // Eski ghost bus marker'larını ve interval'i temizler
+  const clearGhostBuses = useCallback(() => {
+    const map = mapRef.current;
+    if (map) {
+      ghostBusMarkersRef.current.forEach(m => map.removeLayer(m));
+    }
+    ghostBusMarkersRef.current = [];
+    if (ghostBusIntervalRef.current !== null) {
+      window.clearInterval(ghostBusIntervalRef.current);
+      ghostBusIntervalRef.current = null;
+    }
+    setGhostBusCount(0);
+    selectedShapeDataRef.current = null;
+  }, []);
+
+  // Mevcut shape verisi + zaman ile ghost bus marker'larını yeniden çizer
+  const renderGhostBuses = useCallback(
+    (route: BusRoute) => {
+      const map = mapRef.current;
+      const data = selectedShapeDataRef.current;
+      if (!map || !data) return;
+      const L = require("leaflet");
+
+      // Eski marker'ları temizle (polyline'a dokunma)
+      ghostBusMarkersRef.current.forEach(m => map.removeLayer(m));
+      ghostBusMarkersRef.current = [];
+
+      const now = new Date();
+      const allBuses: GhostBus[] = [];
+      for (const s of data.shapes) {
+        const cum = data.cumDists.get(s.id);
+        const total = data.totalKms.get(s.id);
+        if (!cum || !total) continue;
+        const buses = simulateBuses(
+          s.id,
+          s.coords,
+          cum,
+          total,
+          data.routeStopDists,
+          now,
+          DEFAULT_ETA_CONFIG
+        );
+        allBuses.push(...buses);
+      }
+
+      const color = `#${route.color || "0e7490"}`;
+      const short = (route.short || "").trim() || "?";
+      // Ghost bus ikonu — beyaz dolu daire, hat rengi border, içinde hat numarası
+      for (const b of allBuses) {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="
+            display:flex;align-items:center;justify-content:center;
+            width:30px;height:30px;border-radius:50%;
+            background:white;border:3px solid ${color};
+            box-shadow:0 3px 8px rgba(0,0,0,0.4);
+            font-size:11px;font-weight:800;color:${color};
+            font-family:system-ui,-apple-system,sans-serif;
+            position:relative;
+          ">
+            ${esc(short)}
+            <span style="
+              position:absolute;inset:-3px;border-radius:50%;
+              border:3px solid ${color};opacity:0.4;
+              animation:gebzem-bus-pulse 1.6s ease-out infinite;
+            "></span>
+          </div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        });
+        const marker = L.marker([b.lat, b.lng], {
+          icon,
+          interactive: true,
+          zIndexOffset: 1000,
+        }).addTo(map);
+        marker.bindTooltip(
+          `<b>${esc(route.short || "?")}</b> — yaklaşık ${Math.round(b.elapsedMin)} dk yolda<br><span style="font-size:10px;color:#94a3b8;">tahmini konum, gerçek değil</span>`,
+          { direction: "top", offset: [0, -8], opacity: 0.95 }
+        );
+        ghostBusMarkersRef.current.push(marker);
+      }
+      setGhostBusCount(allBuses.length);
+    },
+    []
+  );
+
+  // Hat seçildiğinde güzergah polyline'larını çiz + ghost bus simülasyonu başlat
   const handleSelectRoute = useCallback(
     async (routeId: string) => {
       const map = mapRef.current;
@@ -760,6 +886,9 @@ export default function CityMapPageClient() {
 
       setSelectedRoute(route);
       setRouteLoading(true);
+
+      // Önceki ghost bus marker'larını temizle
+      clearGhostBuses();
 
       try {
         const shapes = await loadRouteShapes(routeId);
@@ -771,6 +900,8 @@ export default function CityMapPageClient() {
 
         const color = `#${route.color || "0e7490"}`;
         const all: Array<[number, number]> = [];
+        const cumDists = new Map<string, Float64Array>();
+        const totalKms = new Map<string, number>();
         shapes.forEach(s => {
           if (!s.coords || s.coords.length < 2) return;
           const polyline = L.polyline(s.coords, {
@@ -783,6 +914,10 @@ export default function CityMapPageClient() {
           }).addTo(map);
           selectedShapesRef.current.push(polyline);
           all.push(...s.coords);
+
+          const cum = buildCumDist(s.coords);
+          cumDists.set(s.id, cum);
+          totalKms.set(s.id, cum[cum.length - 1]);
         });
 
         // Polyline'ları sığdıracak bounds
@@ -790,13 +925,30 @@ export default function CityMapPageClient() {
           const bounds = L.latLngBounds(all);
           map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
         }
+
+        // Ghost bus simülasyonu için shape verisini sakla
+        const routeStopDists =
+          (routeStopsRef.current && routeStopsRef.current[routeId]) || [];
+        selectedShapeDataRef.current = {
+          shapes,
+          cumDists,
+          totalKms,
+          routeStopDists,
+        };
+
+        // İlk render
+        renderGhostBuses(route);
+        // Her 60 saniyede yeniden hesapla
+        ghostBusIntervalRef.current = window.setInterval(() => {
+          renderGhostBuses(route);
+        }, 60_000);
       } catch {
         setError("Hat güzergahı yüklenemedi");
       } finally {
         setRouteLoading(false);
       }
     },
-    [routesData]
+    [routesData, clearGhostBuses, renderGhostBuses]
   );
 
   const handleCloseRoute = useCallback(() => {
@@ -805,8 +957,9 @@ export default function CityMapPageClient() {
       selectedShapesRef.current.forEach(p => map.removeLayer(p));
     }
     selectedShapesRef.current = [];
+    clearGhostBuses();
     setSelectedRoute(null);
-  }, []);
+  }, [clearGhostBuses]);
 
   // Popup içinde [data-route-id] butonuna tıklama — event delegation
   useEffect(() => {
@@ -1019,18 +1172,28 @@ export default function CityMapPageClient() {
       {selectedRoute && (
         <div className="pointer-events-none absolute left-1/2 top-20 z-[610] -translate-x-1/2 px-3 lg:top-6 lg:left-[400px] lg:translate-x-0">
           <div
-            className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full px-3 py-2 shadow-xl lg:max-w-[600px]"
+            className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-2xl px-3 py-2 shadow-xl lg:max-w-[640px]"
             style={{
               backgroundColor: `#${selectedRoute.color || "0e7490"}`,
             }}
           >
-            <div className="flex h-7 w-auto min-w-7 items-center justify-center rounded-full bg-white/25 px-2 text-xs font-extrabold text-white">
+            <div className="flex h-7 w-auto min-w-7 items-center justify-center rounded-lg bg-white/25 px-2 text-xs font-extrabold text-white">
               {selectedRoute.short || "?"}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-white">
+              <p className="truncate text-xs font-semibold text-white leading-tight">
                 {selectedRoute.long || "Hat"}
               </p>
+              {ghostBusCount > 0 && (
+                <p className="truncate text-[10px] font-medium text-white/80 leading-tight">
+                  ~{ghostBusCount} otobüs yolda · tahmini
+                </p>
+              )}
+              {ghostBusCount === 0 && !routeLoading && (
+                <p className="truncate text-[10px] font-medium text-white/80 leading-tight">
+                  şu an aktif sefer yok
+                </p>
+              )}
             </div>
             {routeLoading && (
               <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white" />

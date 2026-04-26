@@ -1,50 +1,85 @@
 // Otobüs ETA (Estimated Time of Arrival) tahmini.
 //
 // Headway-based heuristic — gerçek tarife (stop_times.txt) elimizde olmadığı
-// için tahmini hesaplama yapar. Endüstri standart 3 girdi:
+// için tahmini hesaplama yapar. Modelimiz:
 //   1. Hattın çalışma saatleri (örn 06:00-23:00)
 //   2. Sefer sıklığı (frekans, örn 15 dk)
-//   3. Ortalama şehir içi otobüs hızı (Türkiye konvansiyonel ~22 km/h)
+//   3. Saf seyahat hızı (durakta beklemeden, örn 30 km/h)
+//   4. Her durakta sabit bekleme (örn 1 dk)
 //
-// Doğruluk yaklaşık %60-70 (pik saatler hariç). stop_times.txt veya
-// gerçek-zamanlı GPS feed olmadan bu seviyeden fazlası mümkün değil.
+// Doğruluk yaklaşık %50-65. stop_times.txt veya gerçek-zamanlı GPS feed
+// olmadan bu seviyeden fazlası mümkün değil.
 
 export interface ETAConfig {
   startHour: number; // 6 = 06:00
   endHour: number; // 23 = 23:00
-  frequencyMin: number; // 15 dk frekans
-  speedKmh: number; // 22 km/h şehir içi otobüs ortalaması
+  frequencyMin: number; // 15 dk frekans (her X dakikada bir kalkış)
+  pureSpeedKmh: number; // 30 km/h — durakta beklemeden saf hız
+  stopWaitMin: number; // 1 dk — her durakta bekleme
 }
 
 export const DEFAULT_ETA_CONFIG: ETAConfig = {
   startHour: 6,
   endHour: 23,
   frequencyMin: 15,
-  speedKmh: 22,
+  pureSpeedKmh: 30,
+  stopWaitMin: 1,
 };
 
 export type ETAState = "soon" | "wait" | "before_start" | "closed" | "unknown";
 
 export interface ETAResult {
-  text: string; // "~5 dk", "kapalı", "06:23'te"
+  text: string;
   state: ETAState;
-  waitMin: number | null; // null = hesap dışı
+  waitMin: number | null;
 }
 
 /**
- * Hat ETA hesaplar.
- * @param distKm   Hattın başlangıç noktasından bu durağa olan mesafe (km)
- * @param totalKm  Hattın toplam uzunluğu (km)
- * @param now      Şu anki tarih
- * @param config   ETA varsayımları
+ * Bir otobüsün başlangıçtan bu durağa varış süresi (dakika).
+ *
+ * @param distKm        Hat başından bu durağa mesafe (km)
+ * @param stopsBefore   Bu durakta hariç, başlangıçla bu durak arasındaki durak sayısı
+ *                      (her birinde stopWaitMin bekleme var)
+ */
+export function travelTimeMin(
+  distKm: number,
+  stopsBefore: number,
+  config: ETAConfig = DEFAULT_ETA_CONFIG
+): number {
+  const travel = (distKm / config.pureSpeedKmh) * 60;
+  const waits = Math.max(0, stopsBefore) * config.stopWaitMin;
+  return travel + waits;
+}
+
+/**
+ * Hattın bir uçtan diğerine toplam yolculuk süresi.
+ */
+export function totalTripMin(
+  totalKm: number,
+  totalStops: number,
+  config: ETAConfig = DEFAULT_ETA_CONFIG
+): number {
+  const travel = (totalKm / config.pureSpeedKmh) * 60;
+  const waits = Math.max(0, totalStops) * config.stopWaitMin;
+  return travel + waits;
+}
+
+/**
+ * Bu duraktan ETA hesaplar.
+ *
+ * @param distKm        Hat başından bu durağa km
+ * @param totalKm       Hattın toplam km
+ * @param stopsBefore   Bu durakla başlangıç arasında kaç durak var
+ * @param totalStops    Hattaki toplam durak sayısı
  */
 export function computeETA(
   distKm: number | undefined,
   totalKm: number | undefined,
+  stopsBefore: number | undefined,
+  totalStops: number | undefined,
   now: Date = new Date(),
   config: ETAConfig = DEFAULT_ETA_CONFIG
 ): ETAResult {
-  // Veri yoksa hesap yapamayız
   if (
     typeof distKm !== "number" ||
     typeof totalKm !== "number" ||
@@ -55,26 +90,21 @@ export function computeETA(
     return { text: "", state: "unknown", waitMin: null };
   }
 
-  const { startHour, endHour, frequencyMin, speedKmh } = config;
-  const startMin = startHour * 60;
-  const endMin = endHour * 60;
+  const before = typeof stopsBefore === "number" ? stopsBefore : 0;
+  const total = typeof totalStops === "number" ? totalStops : before * 2;
 
-  // Bir otobüsün başlangıçtan bu durağa kadar olan tahmini yolculuk süresi
-  const travelMin = (distKm / speedKmh) * 60;
-  // Hattın bir uçtan diğerine yolculuk süresi (son sefer hesabı için)
-  const totalMin = (totalKm / speedKmh) * 60;
+  const startMin = config.startHour * 60;
+  const endMin = config.endHour * 60;
 
-  // Şu anki dakika
+  const travelMin = travelTimeMin(distKm, before, config);
+  const tripMin = totalTripMin(totalKm, total, config);
+
   const nowMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
 
-  // İlk seferin bu durağa varış zamanı
   const firstArrivalMin = startMin + travelMin;
-  // Son seferin başlangıçtan ayrılış zamanı (servis bitmeden tamamlanması için)
-  const lastDepartureMin = endMin - totalMin;
-  // Son seferin bu durağa varış zamanı
+  const lastDepartureMin = endMin - tripMin;
   const lastArrivalMin = lastDepartureMin + travelMin;
 
-  // Saat 06:00 öncesi
   if (nowMin < firstArrivalMin) {
     const waitMin = firstArrivalMin - nowMin;
     return {
@@ -84,22 +114,15 @@ export function computeETA(
     };
   }
 
-  // Servis bitmiş
   if (nowMin > lastArrivalMin || lastDepartureMin < startMin) {
     return { text: "kapalı", state: "closed", waitMin: null };
   }
 
-  // Otobüs sıklığı 15 dk: 06:00, 06:15, 06:30, ... başlangıçtan ayrılışlar.
-  // Bu durağa varışlar: 06:00+travel, 06:15+travel, ...
-  // Şu anki en yakın gelecek varış:
-  //   arrival = startMin + n*frequency + travel
-  //   arrival >= nowMin için en küçük n:
-  //   n >= (nowMin - startMin - travel) / frequency
+  // Bir sonraki sefer ne zaman buraya varır?
   const elapsedSinceFirstArrival = nowMin - firstArrivalMin;
-  const n = Math.max(0, Math.ceil(elapsedSinceFirstArrival / frequencyMin));
-  const nextArrivalMin = startMin + n * frequencyMin + travelMin;
+  const n = Math.max(0, Math.ceil(elapsedSinceFirstArrival / config.frequencyMin));
+  const nextArrivalMin = startMin + n * config.frequencyMin + travelMin;
 
-  // Aralarda son sefer geçilmiş olabilir
   if (nextArrivalMin > lastArrivalMin) {
     return { text: "son sefer", state: "closed", waitMin: null };
   }
@@ -107,7 +130,6 @@ export function computeETA(
   const waitMin = nextArrivalMin - nowMin;
   const waitRounded = Math.round(waitMin);
 
-  // Görüntü metni
   if (waitRounded <= 0) {
     return { text: "şimdi", state: "soon", waitMin };
   }
@@ -118,7 +140,6 @@ export function computeETA(
       waitMin,
     };
   }
-  // 1 saatten uzun (nadiren — son seferden çok önce)
   const h = Math.floor(waitRounded / 60);
   const m = waitRounded % 60;
   return {
@@ -129,26 +150,22 @@ export function computeETA(
 }
 
 function formatHHMM(minutes: number): string {
-  // 24 saati aşabiliyor (gece yarısı sonrası), modulo
   const m = ((minutes % 1440) + 1440) % 1440;
   const h = Math.floor(m / 60);
   const mm = Math.floor(m % 60);
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-/**
- * ETA renkleri — popup badge arkaplan rengi
- */
 export function etaStateColor(state: ETAState): string {
   switch (state) {
     case "soon":
-      return "#10b981"; // yeşil — yakında
+      return "#10b981";
     case "wait":
-      return "#64748b"; // gri — beklemeli
+      return "#64748b";
     case "before_start":
-      return "#0ea5e9"; // mavi — sabah açılacak
+      return "#0ea5e9";
     case "closed":
-      return "#dc2626"; // kırmızı — kapalı
+      return "#dc2626";
     default:
       return "#94a3b8";
   }
