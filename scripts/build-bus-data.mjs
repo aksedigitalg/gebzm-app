@@ -127,6 +127,39 @@ for (const points of shapesById.values()) {
 }
 console.log(`  ${shapesById.size} shape, ${rawShapes.length} nokta`);
 
+// Her shape için her noktanın "shape başından kümülatif km" değerini hesapla
+// (GTFS shape_dist_traveled standardı). Bu, ETA hesabının temelidir.
+console.log("Kümülatif mesafeler hesaplanıyor...");
+const shapeCumDist = new Map(); // shape_id → Float64Array (her index için km)
+const shapeTotalKm = new Map(); // shape_id → toplam km
+function haversineKmInline(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const r1 = (lat1 * Math.PI) / 180;
+  const r2 = (lat2 * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(r1) * Math.cos(r2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+for (const [shapeId, points] of shapesById) {
+  const cum = new Float64Array(points.length);
+  cum[0] = 0;
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += haversineKmInline(
+      points[i - 1].lat,
+      points[i - 1].lng,
+      points[i].lat,
+      points[i].lng
+    );
+    cum[i] = total;
+  }
+  shapeCumDist.set(shapeId, cum);
+  shapeTotalKm.set(shapeId, total);
+}
+
 // ─── 4. SPATIAL BUCKETING — durak ↔ shape eşleştirme ────────────────────────
 // Coğrafi yakınlık: durak < 50m shape noktası varsa eşleşme.
 // Brute force 8259 × 1M nokta = ~8 milyar hesap (çok yavaş).
@@ -185,41 +218,69 @@ for (const stop of rawStops) {
     }
   }
 
-  // Her aday shape için en yakın noktanın uzaklığını bul
-  const matchedShapes = new Set();
+  // Her aday shape için en yakın noktayı bul + kümülatif uzaklığı hesapla
+  // matchedShapes: shape_id → { distKm: shape başından buraya, totalKm }
+  const matchedShapes = new Map();
   const stopPos = { lat: slat, lng: slng };
   for (const shapeId of candidateShapes) {
     const points = shapesById.get(shapeId);
     if (!points) continue;
-    for (const p of points) {
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
       const d = haversineKm(stopPos, p);
-      if (d < MAX_DIST_KM) {
-        matchedShapes.add(shapeId);
-        break; // ilk yakın yeterli
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
       }
+      // Optimize: çok yakın bulduysak ve uzaklaşmaya başladıysak çık
+      if (bestDist < 0.01 && d > bestDist + 0.05) break;
+    }
+    if (bestDist < MAX_DIST_KM && bestIdx >= 0) {
+      const cum = shapeCumDist.get(shapeId);
+      matchedShapes.set(shapeId, {
+        distKm: cum[bestIdx],
+        totalKm: shapeTotalKm.get(shapeId) || 0,
+      });
     }
   }
 
   if (matchedShapes.size === 0) continue;
 
-  // shape → route → unique route info
-  const seen = new Set();
-  const list = [];
-  for (const shapeId of matchedShapes) {
+  // shape → route → unique route info (her route için en kısa shape'i seç)
+  const routeBest = new Map(); // route_id → { shapeId, distKm, totalKm, headsign }
+  for (const [shapeId, info] of matchedShapes) {
     const routeIds = shapeToRoutes.get(shapeId);
     if (!routeIds) continue;
     for (const rId of routeIds) {
-      if (seen.has(rId)) continue;
-      seen.add(rId);
-      const route = routesById.get(rId);
-      if (!route) continue;
-      list.push({
-        id: rId,
-        short: route.short,
-        color: route.color,
-        headsign: shapeHeadsign.get(shapeId) || "",
-      });
+      const existing = routeBest.get(rId);
+      // Aynı route için birden fazla shape eşleşirse, en kısa total'ı al
+      // (genelde gidiş yönü tercih edilir)
+      if (!existing || info.totalKm < existing.totalKm) {
+        routeBest.set(rId, {
+          shapeId,
+          distKm: info.distKm,
+          totalKm: info.totalKm,
+          headsign: shapeHeadsign.get(shapeId) || "",
+        });
+      }
     }
+  }
+
+  const list = [];
+  for (const [rId, info] of routeBest) {
+    const route = routesById.get(rId);
+    if (!route) continue;
+    list.push({
+      id: rId,
+      short: route.short,
+      color: route.color,
+      headsign: info.headsign,
+      // 2 ondalık yeterli (10 m hassasiyet) — JSON boyutu için
+      dist: Math.round(info.distKm * 100) / 100,
+      total: Math.round(info.totalKm * 100) / 100,
+    });
   }
 
   // Hat numarasına göre sırala (numerik)

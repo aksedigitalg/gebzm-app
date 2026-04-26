@@ -15,6 +15,8 @@ export interface StopRouteRef {
   short: string;
   color: string;
   headsign: string;
+  dist?: number; // km — hattın başından bu durağa
+  total?: number; // km — hattın toplam uzunluğu
 }
 
 export interface RouteShape {

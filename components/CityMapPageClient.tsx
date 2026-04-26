@@ -42,6 +42,7 @@ import {
   type RouteShape,
   type StopRouteRef,
 } from "@/lib/bus-data";
+import { computeETA } from "@/lib/bus-eta";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
 type CategoryKey =
@@ -241,12 +242,16 @@ async function fetchPois(cat: CategoryDef): Promise<POI[]> {
   return list;
 }
 
-function popupHtml(poi: POI, stopRoutes?: StopRouteRef[]): string {
+function popupHtml(
+  poi: POI,
+  stopRoutes?: StopRouteRef[],
+  now: Date = new Date()
+): string {
   const cat = CATEGORY_BY_KEY[poi.category];
   const phoneClean = poi.phone ? poi.phone.replace(/[^+\d]/g, "") : "";
   const hasRoutes = poi.category === "durak" && stopRoutes && stopRoutes.length > 0;
   return `
-    <div style="font-family:system-ui,-apple-system,sans-serif;min-width:240px;max-width:300px;padding:2px;">
+    <div style="font-family:system-ui,-apple-system,sans-serif;min-width:260px;max-width:320px;padding:2px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.color};"></span>
         <span style="font-size:11px;color:#64748b;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">${esc(cat.label)}</span>
@@ -257,17 +262,29 @@ function popupHtml(poi: POI, stopRoutes?: StopRouteRef[]): string {
       ${poi.opening_hours ? `<p style="font-size:11px;color:#64748b;margin:0 0 6px;line-height:1.4;">${esc(poi.opening_hours)}</p>` : ""}
       ${hasRoutes ? `
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
-          <p style="font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.04em;margin:0 0 6px;text-transform:uppercase;">Geçen Hatlar</p>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px;">
+            <p style="font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.04em;margin:0;text-transform:uppercase;">Geçen Hatlar</p>
+            <p style="font-size:9px;color:#94a3b8;margin:0;">tahmini · 06-23</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
             ${stopRoutes!
-              .map(
-                r => `<button data-route-id="${esc(r.id)}" style="
-                  background:#${esc(r.color || "0e7490")};color:#fff;
-                  font-size:11px;font-weight:700;
-                  padding:3px 7px;border-radius:6px;border:none;cursor:pointer;
-                  font-family:inherit;line-height:1.2;
-                ">${esc(r.short || r.id)}</button>`
-              )
+              .map(r => {
+                const eta = computeETA(r.dist, r.total, now);
+                const etaHtml = eta.text
+                  ? `<span style="font-size:10px;font-weight:600;opacity:0.92;margin-left:auto;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.22);">${esc(eta.text)}</span>`
+                  : "";
+                return `<button data-route-id="${esc(r.id)}" style="
+                    display:flex;align-items:center;gap:6px;width:100%;
+                    background:#${esc(r.color || "0e7490")};color:#fff;
+                    font-size:12px;font-weight:700;
+                    padding:5px 9px;border-radius:7px;border:none;cursor:pointer;
+                    font-family:inherit;line-height:1.2;text-align:left;
+                  "><span style="min-width:30px;text-align:left;">${esc(r.short || r.id)}</span>${
+                    r.headsign
+                      ? `<span style="font-size:10px;font-weight:500;opacity:0.85;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.headsign)}</span>`
+                      : ""
+                  }${etaHtml}</button>`;
+              })
               .join("")}
           </div>
         </div>
@@ -549,8 +566,16 @@ export default function CityMapPageClient() {
             poi.category === "durak" && sr ? sr[poi.id] : undefined;
           const m = L.marker([poi.lat, poi.lng], { icon: useIcon }).bindPopup(
             popupHtml(poi, routes),
-            { maxWidth: 320, autoPan: true }
+            { maxWidth: 340, autoPan: true }
           );
+          // Durak popup'ı açıldığında taze "şu an" ile ETA hesabı
+          // (önceden bind edilen HTML'deki ETA stale olur)
+          if (routes && routes.length > 0) {
+            m.on("popupopen", () => {
+              const popup = m.getPopup();
+              if (popup) popup.setContent(popupHtml(poi, routes, new Date()));
+            });
+          }
           markerByIdRef.current.set(poi.id, m);
           cluster.addLayer(m);
         });
