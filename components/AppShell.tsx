@@ -8,12 +8,13 @@ import { DesktopTopBar } from "@/components/DesktopTopBar";
 import { AiPanel } from "@/components/AiPanel";
 import { isAuthRoute } from "@/lib/auth";
 import { isAdminRoute, isBusinessRoute } from "@/lib/panel-auth";
+import { CartProvider } from "@/lib/cart";
 
 function PageWrapper({ children, k }: { children: React.ReactNode; k: string }) {
   return <div key={k}>{children}</div>;
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [aiOpen, setAiOpen] = useState(false);
   const auth = isAuthRoute(pathname);
@@ -71,5 +72,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <BottomNav />
       <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
+  );
+}
+
+// CartProvider tüm uygulamayı sarar — sepet state'i her sayfada erişilebilir.
+// Yalnızca user-facing rotalarda ihtiyacımız var ama Provider boş sepetle
+// no-op çalışır, performans etkisi yok.
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <CartProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </CartProvider>
   );
 }

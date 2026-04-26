@@ -145,6 +145,83 @@ export const api = {
       party_size?: number;
     }) =>
       request("/user/reservations", { method: "POST", body: JSON.stringify(data) }, getToken()),
+
+    // ─── SİPARİŞ (yemek/market) ─────────────────────────────────────────
+    getOrders: (filter?: "aktif" | "gecmis") => {
+      const q = filter ? `?filter=${filter}` : "";
+      return request<unknown[]>(`/user/orders${q}`, {}, getToken());
+    },
+
+    getOrder: (id: string) =>
+      request<Record<string, unknown>>(`/user/orders/${id}`, {}, getToken()),
+
+    createOrder: (data: {
+      business_id: string;
+      items: Array<{
+        menu_item_id: string;
+        name: string;
+        price: number;
+        quantity: number;
+        note?: string;
+      }>;
+      payment_method: "nakit" | "kart_kapida" | "eft";
+      delivery_address: string;
+      delivery_lat?: number;
+      delivery_lng?: number;
+      delivery_district?: string;
+      contact_phone: string;
+      contact_name?: string;
+      user_note?: string;
+    }) =>
+      request<{ id: string; total: number; estimated_delivery_min?: number }>(
+        "/user/orders",
+        { method: "POST", body: JSON.stringify(data) },
+        getToken()
+      ),
+
+    cancelOrder: (id: string, reason?: string) =>
+      request(
+        `/user/orders/${id}/cancel`,
+        { method: "PUT", body: JSON.stringify({ reason: reason || "" }) },
+        getToken()
+      ),
+
+    rateOrder: (id: string, rating: number, comment?: string) =>
+      request(
+        `/user/orders/${id}/rate`,
+        { method: "PUT", body: JSON.stringify({ rating, comment: comment || "" }) },
+        getToken()
+      ),
+
+    // ─── ADRESLER ───────────────────────────────────────────────────────
+    getAddresses: () =>
+      request<unknown[]>("/user/addresses", {}, getToken()),
+
+    createAddress: (data: {
+      label?: string;
+      address: string;
+      district?: string;
+      lat?: number;
+      lng?: number;
+      contact_phone?: string;
+      contact_name?: string;
+      is_default?: boolean;
+    }) =>
+      request<{ id: string }>(
+        "/user/addresses",
+        { method: "POST", body: JSON.stringify(data) },
+        getToken()
+      ),
+
+    updateAddress: (id: string, data: Record<string, unknown>) =>
+      request(
+        `/user/addresses/${id}`,
+        { method: "PUT", body: JSON.stringify(data) },
+        getToken()
+      ),
+
+    deleteAddress: (id: string) =>
+      request(`/user/addresses/${id}`, { method: "DELETE" }, getToken()),
   },
 
   admin: {
@@ -240,5 +317,70 @@ export const api = {
 
     deleteListing: (id: string) =>
       request(`/business/listings/${id}`, { method: "DELETE" }, getBusinessToken()),
+
+    // ─── SİPARİŞLER ─────────────────────────────────────────────────────
+    getOrders: (filter?: "yeni" | "aktif" | "tamamlandi" | "iptal") => {
+      const q = filter ? `?filter=${filter}` : "";
+      return request<unknown[]>(`/business/orders${q}`, {}, getBusinessToken());
+    },
+
+    getOrder: (id: string) =>
+      request<Record<string, unknown>>(`/business/orders/${id}`, {}, getBusinessToken()),
+
+    updateOrderStatus: (
+      id: string,
+      status:
+        | "onaylandi"
+        | "hazirlaniyor"
+        | "hazir"
+        | "yolda"
+        | "teslim_edildi"
+        | "iptal",
+      reason?: string
+    ) =>
+      request(
+        `/business/orders/${id}/status`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ status, reason: reason || "" }),
+        },
+        getBusinessToken()
+      ),
+
+    // ─── TESLİMAT AYARLARI ──────────────────────────────────────────────
+    getDeliverySettings: () =>
+      request<Record<string, unknown>>(
+        "/business/delivery-settings",
+        {},
+        getBusinessToken()
+      ),
+
+    updateDeliverySettings: (data: {
+      accepts_orders?: boolean;
+      delivery_fee?: number;
+      free_delivery_threshold?: number;
+      min_order_amount?: number;
+      delivery_radius_km?: number;
+      estimated_delivery_min?: number;
+      accepts_cash?: boolean;
+      accepts_card_at_door?: boolean;
+      accepts_eft?: boolean;
+      eft_iban?: string;
+      eft_bank_name?: string;
+      eft_account_holder?: string;
+      open_hour?: number;
+      close_hour?: number;
+    }) =>
+      request(
+        "/business/delivery-settings",
+        { method: "PUT", body: JSON.stringify(data) },
+        getBusinessToken()
+      ),
   },
+};
+
+// Business public delivery info (auth gerek değil — restoran sayfasında gösterilir)
+export const publicApi = {
+  getBusinessDelivery: (businessId: string) =>
+    request<Record<string, unknown>>(`/businesses/${businessId}/delivery`),
 };

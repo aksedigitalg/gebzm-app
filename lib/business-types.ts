@@ -13,6 +13,7 @@ import {
   Package,
   Megaphone,
   ShoppingCart,
+  Truck,
   Users,
   Briefcase,
   Clipboard,
@@ -42,6 +43,7 @@ export type ModuleId =
   | "urunler"
   | "kampanyalar"
   | "siparisler"
+  | "teslimat-ayarlari"
   | "talepler"
   | "emlak-ilanlari"
   | "portfoy"
@@ -63,6 +65,7 @@ export const moduleRegistry: Record<ModuleId, ModuleConfig> = {
   urunler: { id: "urunler", href: "/isletme/urunler", label: "Ürünler", icon: Package },
   kampanyalar: { id: "kampanyalar", href: "/isletme/kampanyalar", label: "Kampanyalar", icon: Megaphone },
   siparisler: { id: "siparisler", href: "/isletme/siparisler", label: "Siparişler", icon: ShoppingCart },
+  "teslimat-ayarlari": { id: "teslimat-ayarlari", href: "/isletme/teslimat-ayarlari", label: "Teslimat Ayarları", icon: Truck },
   talepler: { id: "talepler", href: "/isletme/talepler", label: "Hizmet Talepleri", icon: Clipboard },
   "emlak-ilanlari": { id: "emlak-ilanlari", href: "/isletme/emlak-ilanlari", label: "Emlak İlanları", icon: Home },
   portfoy: { id: "portfoy", href: "/isletme/portfoy", label: "Portföy", icon: LayoutGrid },
@@ -85,7 +88,9 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Dine-in restoran, masa rezervasyonu",
     icon: UtensilsCrossed,
     color: "from-orange-500 to-red-600",
-    modules: ["menu", "rezervasyonlar"],
+    // Restoran isteğe bağlı online sipariş de açabilir (teslimat-ayarlari'ndan).
+    // Açmazsa "Online sipariş kapalı" durumda kalır, müşteri menüyü görür ama veremez.
+    modules: ["menu", "rezervasyonlar", "siparisler", "teslimat-ayarlari"],
   },
   yemek: {
     id: "yemek",
@@ -93,7 +98,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Online sipariş, ev teslimi",
     icon: Utensils,
     color: "from-rose-500 to-orange-500",
-    modules: ["menu", "siparisler"],
+    modules: ["menu", "siparisler", "teslimat-ayarlari"],
   },
   kafe: {
     id: "kafe",
@@ -101,7 +106,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Kahve, tatlı, hafif yemek",
     icon: Coffee,
     color: "from-amber-500 to-orange-600",
-    modules: ["menu", "rezervasyonlar"],
+    modules: ["menu", "rezervasyonlar", "siparisler", "teslimat-ayarlari"],
   },
   market: {
     id: "market",
@@ -109,7 +114,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Gıda, temizlik, online sipariş",
     icon: Store,
     color: "from-emerald-500 to-teal-600",
-    modules: ["urunler", "kampanyalar", "siparisler"],
+    modules: ["urunler", "kampanyalar", "siparisler", "teslimat-ayarlari"],
   },
   magaza: {
     id: "magaza",
@@ -117,7 +122,7 @@ export const businessTypes: Record<BusinessTypeId, BusinessTypeConfig> = {
     description: "Giyim, elektronik, ev-yaşam",
     icon: ShoppingBag,
     color: "from-sky-500 to-blue-600",
-    modules: ["urunler", "kampanyalar", "siparisler"],
+    modules: ["urunler", "kampanyalar", "siparisler", "teslimat-ayarlari"],
   },
   doktor: {
     id: "doktor",

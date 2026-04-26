@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck2, MessageCircle, Send, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarCheck2, MessageCircle, Send, Check, ShoppingBag } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { AuthModal } from "@/components/AuthModal";
 import { api } from "@/lib/api";
@@ -32,12 +33,17 @@ interface Props {
 }
 
 export function BusinessActions({ businessName, businessType, bookingLabel = "Rezervasyon", services, businessId }: Props) {
+  const router = useRouter();
   const [openBooking, setOpenBooking] = useState(false);
   const [openQuestion, setOpenQuestion] = useState(false);
   const [authModal, setAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"booking" | "question" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"booking" | "question" | "order" | null>(null);
 
-  const requireLogin = (action: "booking" | "question") => {
+  // "Sipariş Ver" tıklanınca yeni sipariş sayfasına yönlendir, modal açma
+  const isOrderButton =
+    /sipariş|siparis|order/i.test(bookingLabel || "");
+
+  const requireLogin = (action: "booking" | "question" | "order") => {
     setPendingAction(action);
     setAuthModal(true);
   };
@@ -46,10 +52,24 @@ export function BusinessActions({ businessName, businessType, bookingLabel = "Re
     setAuthModal(false);
     if (pendingAction === "booking") setOpenBooking(true);
     if (pendingAction === "question") setOpenQuestion(true);
+    if (pendingAction === "order" && businessId) {
+      router.push(`/restoran/${businessId}/siparis`);
+    }
     setPendingAction(null);
   };
 
   const handleBooking = () => {
+    if (isOrderButton) {
+      // Sipariş akışı — login zorunlu mu? İlk kez sepete ekleme login'siz olabilir,
+      // ama UX tutarlılığı için login isteyelim. Sepet zaten localStorage'da kalıcı.
+      const user = getUser();
+      if (!user?.token) {
+        requireLogin("order");
+        return;
+      }
+      if (businessId) router.push(`/restoran/${businessId}/siparis`);
+      return;
+    }
     const user = getUser();
     if (!user?.token) { requireLogin("booking"); return; }
     setOpenBooking(true);
