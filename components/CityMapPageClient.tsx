@@ -31,9 +31,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useGeolocation } from "@/lib/use-geolocation";
-import { readConsent } from "@/lib/geolocation-consent";
+import { setConsent } from "@/lib/geolocation-consent";
 import { formatDistance, haversineKm } from "@/lib/geolocation";
-import { LocationConsentDialog } from "@/components/LocationConsentDialog";
 import { LocationDeniedHelp } from "@/components/LocationDeniedHelp";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 
@@ -421,7 +420,6 @@ export default function CityMapPageClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [consentOpen, setConsentOpen] = useState(false);
   const [deniedHelpOpen, setDeniedHelpOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [manualMode, setManualMode] = useState(false);
@@ -557,19 +555,15 @@ export default function CityMapPageClient() {
     cluster.zoomToShowLayer(marker, () => marker.openPopup());
   }, []);
 
-  // Konum butonu — KVKK rızası yoksa modal aç, varsa direkt iste
+  // Konum butonu — tek tık = native izin pop-up'ı.
+  // KVKK aydınlatması /gizlilik/konum sayfasından erişilebilir.
+  // Tap = açık rıza beyanı (consent "granted" olarak işaretlenir).
   const handleLocateClick = useCallback(async () => {
-    if (readConsent() !== "granted") {
-      setConsentOpen(true);
-      return;
-    }
+    setConsent("granted");
     setLocating(true);
     const result = await geo.request();
     setLocating(false);
     if (!result.coords) {
-      // request() doğrudan döndürüyor — state stale değil.
-      // permission_denied (tarayıcı engelledi) ve position_unavailable
-      // (iOS Konum Servisleri kapalı) durumlarında rehber modal aç.
       if (
         result.error?.code === "permission_denied" ||
         result.error?.code === "position_unavailable"
@@ -585,12 +579,9 @@ export default function CityMapPageClient() {
     }
   }, [geo]);
 
-  // Manuel mod — KVKK rızası yine zorunlu (konum işlenecek)
+  // Manuel mod — tap = açık rıza
   const handleManualClick = useCallback(() => {
-    if (readConsent() !== "granted") {
-      setConsentOpen(true);
-      return;
-    }
+    setConsent("granted");
     setManualMode(prev => !prev);
   }, []);
 
@@ -679,15 +670,6 @@ export default function CityMapPageClient() {
     const t = setTimeout(() => setError(null), 3000);
     return () => clearTimeout(t);
   }, [error]);
-
-  // Mobilde ilk ziyarette konum rıza modal'ı otomatik açılır.
-  // Kullanıcı bir karar verdiyse (granted/denied) tekrar açılmaz.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (readConsent() !== "unknown") return;
-    if (window.innerWidth >= 1024) return; // sadece mobil
-    setConsentOpen(true);
-  }, []);
 
   const activeCat = CATEGORY_BY_KEY[active];
 
@@ -876,28 +858,6 @@ export default function CityMapPageClient() {
           </div>
         </div>
       )}
-
-      {/* KVKK rıza modal'ı */}
-      <LocationConsentDialog
-        open={consentOpen}
-        onClose={() => setConsentOpen(false)}
-        onAccept={async () => {
-          setConsentOpen(false);
-          setLocating(true);
-          const result = await geo.request();
-          setLocating(false);
-          if (!result.coords) {
-            if (
-              result.error?.code === "permission_denied" ||
-              result.error?.code === "position_unavailable"
-            ) {
-              setDeniedHelpOpen(true);
-            } else {
-              setError(result.error?.message || "Konum alınamadı");
-            }
-          }
-        }}
-      />
 
       {/* Tarayıcı engellediyse — adım adım rehber */}
       <LocationDeniedHelp
