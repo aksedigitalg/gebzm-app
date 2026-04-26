@@ -142,6 +142,15 @@ GET /businesses              → Onaylı işletmeler (?type=kuafor)
 GET /businesses/:id          → Tekil işletme (cache: no-store)
 GET /listings                → İlanlar (?category=..., ?page=N)
 GET /listings/:id            → Sadece status='active' ilanlar (pasif → 404)
+GET /events                  → Etkinlikler (?category=..., ?when=today/week/month, ?q=...)
+GET /events/:slug            → Tekil etkinlik (login varsa user_status dahil)
+GET /events/categories       → 9 kategori (konser, tiyatro, sergi, spor, festival, cocuk, egitim, konferans, diger)
+```
+
+### Etkinlik (`/user/events/*` — Bearer token)
+```
+POST   /user/events/:id/interest  → { status: "katiliyor"|"ilgileniyor" }
+DELETE /user/events/:id/interest
 ```
 
 ### Admin (`/admin/*` — Bearer token)
@@ -154,6 +163,8 @@ GET/PUT  /admin/profile
 GET      /admin/notifications
 PUT      /admin/notifications/read-all
 GET      /admin/listings
+GET/POST /admin/events
+GET/PUT/DELETE /admin/events/:id
 ```
 
 ---
@@ -179,6 +190,9 @@ GET      /admin/listings
 | `order_status_history` | order_id, from_status, to_status, changed_by_role, reason — audit log |
 | `user_addresses` | user_id, label, address, district, lat+lng, contact_phone+name, is_default |
 | `business_delivery_settings` | business_id (PK), accepts_orders, delivery_fee, free_delivery_threshold, min_order_amount, delivery_radius_km, estimated_delivery_min, accepts_cash/card_at_door/eft, eft_iban+bank_name+account_holder, open_hour+close_hour |
+| `events` | slug (UNIQUE), title, description, category (FK→event_categories.key), start_at, end_at, location_name, address, lat+lng, cover_url, photo_url, organizer, contact_phone+url, ticket_url, price, status (taslak/yayinda/iptal), created_by_admin_id |
+| `event_categories` | key (PK: konser/tiyatro/sergi/spor/festival/cocuk/egitim/konferans/diger), label, color, sort_order |
+| `event_attendees` | event_id, user_id, status (katiliyor/ilgileniyor) — UNIQUE(event_id,user_id) |
 
 **DB Temizleme:**
 ```sql
@@ -346,7 +360,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-25 · İlanlar sayfası yeniden tasarlandı + AuthModal
+**Son Güncelleme:** 2026-04-27 · Etkinlik Sistemi tamamlandı (3 tablo, 9 endpoint, admin CRUD)
 
 ---
 
@@ -556,6 +570,52 @@ ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh && bash /opt/gebzem-we
 | emlakci@test.com | Gebze Emlak | emlakci |
 | galerici@test.com | Özkan Oto Galeri | galerici |
 
+
+---
+
+### 2026-04-27 — Etkinlik Sistemi (Public + Admin CRUD)
+
+**Push 5b744a3** — Konser, tiyatro, sergi, festival vb. etkinlikleri admin'den ekleyip ana sayfa kartından erişen sistem.
+
+**Backend (SSH /opt/gebzem-api):**
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | DB: events, event_categories, event_attendees + 9 kategori seed | PostgreSQL |
+| 2 | GRANT ALL → gebzem user (postgres'in oluşturduğu tablolarda) | PostgreSQL |
+| 3 | 9 endpoint handler (public liste/detay/kategoriler + user interest + admin CRUD) | `handlers/events.go` |
+| 4 | makeSlug() — Türkçe karakter dönüşümü (ş→s, ç→c, ğ→g, ü→u, ı→i, ö→o), uniqueSlug() | `handlers/events.go` |
+| 5 | GetEvents — `start_at >= NOW() - INTERVAL '1 day'` ile geçmiş etkinlikler otomatik gizlenir | `handlers/events.go` |
+| 6 | Slug-based detay endpoint (`/events/:slug` — UUID değil) | `handlers/events.go` |
+| 7 | Routes: public (3) + user (2) + admin (5) | `routes/routes.go` |
+
+**Frontend:**
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | Event tipleri + EVENT_STATUS_LABEL/COLOR | `lib/types/event.ts` |
+| 2 | publicApi.getEvents/getEvent/getEventCategories + eventApi.markInterest/removeInterest + adminEventApi (CRUD) | `lib/api.ts` |
+| 3 | /etkinlikler liste — Hero + EventFilters + grid kartlar (statik veri kaldırıldı, DB'den çekiyor) | `app/etkinlikler/page.tsx` |
+| 4 | /etkinlikler/[slug] detay — Cover, tarih, lokasyon (Google Maps linki), açıklama, organizatör, bilet/iletişim, sayaçlar | `app/etkinlikler/[slug]/page.tsx` |
+| 5 | EventFilters — Bugün/Bu Hafta/Bu Ay + kategori chip'leri (URL state) | `components/EventFilters.tsx` |
+| 6 | Floating Katılıyorum/İlgileniyorum buton — toggle + AuthModal | `components/EventInterestButton.tsx` |
+| 7 | Admin CRUD tablosu — arama, edit, delete, EventFormDialog | `app/admin/etkinlikler/page.tsx` |
+| 8 | Ana sayfa kartı: PartyPopper "Etkinlikler" (fuchsia) | `app/page.tsx` |
+
+**Slug pattern:**
+```go
+makeSlug("Mor & Ötesi Konseri") → "mor-otesi-konseri"
+uniqueSlug("test") → "test", "test-2", "test-3" ... (çakışma kontrolü)
+```
+
+**Otomatik geçmiş filtre:**
+`WHERE start_at >= NOW() - INTERVAL '1 day'` — dünkü etkinlikler hâlâ görünür (gece bitenler için), öncesi gizlenir.
+
+**Public vs Admin ayırımı:**
+- Public: sadece `status='yayinda'` ve `start_at >= NOW()-1d` etkinlikler
+- Admin: tümü (taslak/yayinda/iptal hepsi listelenir)
+
+**Bilinen kısıt:**
+- `idx_events_start_future` index `NOW()` IMMUTABLE değil → oluşturulamadı, ama diğer index'ler OK
+- WebSocket realtime YOK (interest/attendees count günceltmek için sayfa yenilemek gerekebilir)
 
 ---
 
