@@ -113,6 +113,12 @@ PUT/DELETE /user/listings/:id
 GET      /user/notifications
 PUT      /user/notifications/read-all
 POST     /upload             → Fotoğraf yükle
+GET/POST /user/orders                     → Sipariş ver / Listele (?filter=aktif|gecmis)
+GET      /user/orders/:id                 → Detay
+PUT      /user/orders/:id/cancel          → İptal (sadece 'bekliyor')
+PUT      /user/orders/:id/rate            → 1-5 yıldız + yorum
+GET/POST /user/addresses                  → Kayıtlı adresler CRUD
+PUT/DELETE /user/addresses/:id
 ```
 
 ### İşletme (`/business/*` — Bearer token)
@@ -124,6 +130,10 @@ GET      /business/reservations
 PUT      /business/reservations/:id/status → bekliyor/onaylandi/reddedildi/tamamlandi
 GET      /business/notifications
 PUT      /business/notifications/read-all
+GET      /business/orders                 → Gelen siparişler (?filter=yeni|aktif|tamamlandi|iptal)
+GET      /business/orders/:id             → Detay
+PUT      /business/orders/:id/status      → State machine: bekliyor→onaylandi→hazirlaniyor→hazir→yolda→teslim_edildi (veya iptal)
+GET/PUT  /business/delivery-settings      → Teslimat ücreti, min, IBAN, çalışma saatleri
 ```
 
 ### Public
@@ -164,6 +174,11 @@ GET      /admin/listings
 | `otp_codes` | phone, code, expires_at, used |
 | `notifications` | user_id, business_id, admin (bool), type, title, body, is_read |
 | `media` | user_id, url, filename |
+| `orders` | user_id, business_id, status (bekliyor→onaylandi→hazirlaniyor→hazir→yolda→teslim_edildi/iptal), payment_method (nakit/kart_kapida/eft), delivery_address+lat+lng, contact_phone, subtotal+delivery_fee+total, rating, courier_lat+lng (gelecek için) |
+| `order_items` | order_id, menu_item_id, name (snapshot), price, quantity, subtotal, note |
+| `order_status_history` | order_id, from_status, to_status, changed_by_role, reason — audit log |
+| `user_addresses` | user_id, label, address, district, lat+lng, contact_phone+name, is_default |
+| `business_delivery_settings` | business_id (PK), accepts_orders, delivery_fee, free_delivery_threshold, min_order_amount, delivery_radius_km, estimated_delivery_min, accepts_cash/card_at_door/eft, eft_iban+bank_name+account_holder, open_hour+close_hour |
 
 **DB Temizleme:**
 ```sql
@@ -540,3 +555,73 @@ ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh && bash /opt/gebzem-we
 | usta@test.com | Yıldız Elektrik | usta |
 | emlakci@test.com | Gebze Emlak | emlakci |
 | galerici@test.com | Özkan Oto Galeri | galerici |
+
+
+---
+
+### 2026-04-27 — Yemek Siparişi Sistemi (Frontend + Backend)
+
+**Frontend (push 965d973):**
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | Sepet state — Context + localStorage + 24sa TTL + cross-tab sync | `lib/cart.tsx` |
+| 2 | Order/CartItem tipleri + status/payment helper'ları | `lib/types/order.ts` |
+| 3 | API client'a 13 yeni endpoint (orders + addresses + delivery) | `lib/api.ts` |
+| 4 | Floating sepet butonu + slide-up sheet | `components/CartButton.tsx`, `CartSheet.tsx` |
+| 5 | 5 adım sipariş timeline (sipariş alındı → teslim) | `components/OrderStatusTimeline.tsx` |
+| 6 | İnteraktif menü +/− butonlu | `components/InteractiveOrderMenu.tsx` |
+| 7 | Sipariş sayfası (mevcut menü sayfası bozulmadı) | `app/restoran/[id]/siparis/page.tsx` |
+| 8 | Checkout (adres + ödeme + not + EFT IBAN) | `app/odeme/page.tsx` |
+| 9 | Profil siparişlerim aktif/geçmiş + canlı takip (15sn poll) | `app/profil/siparislerim/page.tsx`, `[id]/page.tsx` |
+| 10 | Adreslerim CRUD + harita pin | `app/profil/adreslerim/page.tsx` |
+| 11 | İşletme siparişler dashboard (sesli bildirim 🔔, 10sn poll) | `app/isletme/siparisler/page.tsx` |
+| 12 | Teslimat ayarları (ücret/min/IBAN/saat) | `app/isletme/teslimat-ayarlari/page.tsx` |
+| 13 | restoran/yemek/kafe/market/magaza tipi → "siparisler" + "teslimat-ayarlari" modülleri | `lib/business-types.ts` |
+| 14 | BusinessActions: bookingLabel="Sipariş Ver" → /siparis route | `components/BusinessActions.tsx` |
+| 15 | AppShell: CartProvider tüm uygulamayı sarar | `components/AppShell.tsx` |
+
+**Backend (SSH /opt/gebzem-api):**
+| # | Yapılan | Dosya |
+|---|---|---|
+| 1 | DB migration — 5 yeni tablo + 4 index | `/tmp/orders_migration.sql` |
+| 2 | Sipariş handlers (user + business) — state machine + audit log | `handlers/orders.go` |
+| 3 | Adres CRUD handlers | `handlers/addresses.go` |
+| 4 | Teslimat ayarları (UPSERT pattern + IBAN doğrulama) | `handlers/delivery.go` |
+| 5 | Routes: 14 yeni endpoint kayıtlı | `routes/routes.go` |
+| 6 | Build + systemctl restart | — |
+
+**Güvenlik:**
+- Sipariş anında **menu_item_id DB'den doğrulanır**, fiyat snapshot olarak alınır (client manipülasyonu önlenir)
+- Auth required (user kendi siparişleri, business kendi alanı)
+- State machine: geçersiz status geçişleri reddedilir
+- Min order, accepts_orders, payment_method server-side kontrol
+- Race condition koruması: `WHERE status = $current` ile concurrent update'i bloke et
+- IBAN doğrulama (TR + 24 hane numerik)
+- Sipariş items: max 50 ürün, qty 1-99, fiyat ≥0 CHECK constraint
+- Tutarlar SERVER-side hesaplanır (subtotal = sum(price × qty))
+- order_status_history audit log her geçişte yazılır
+
+**Ödeme yöntemleri (kredi kartı YOK):**
+- nakit (kapıda), kart_kapida (POS), eft (havale + IBAN gösterimi)
+- Online kart (iyzico) ileride eklenecek
+
+**Snapshot pattern:**
+order_items.name + price = sipariş anındaki menü değerleri.
+Sonradan menü güncellense bile geçmiş siparişler aynı kalır (yasal/vergi gereği).
+
+**Akış:**
+1. /restoran/[id] → "Sipariş Ver" → /restoran/[id]/siparis
+2. Menüden +/− ile sepete ekle → CartSheet
+3. "Onayla" → /odeme → adres + ödeme + not
+4. "Siparişi Onayla" → POST /user/orders → /profil/siparislerim/[id]
+5. Backend'de bekliyor → bildirim işletmeye
+6. İşletme dashboard → Kabul Et → onaylandi
+7. ChefHat → hazirlaniyor → Truck → yolda → Check → teslim_edildi
+8. Kullanıcı 5 yıldız değerlendirme
+
+**Sınırlar (sonra):**
+- WebSocket canlı takip (şimdi 10-15sn polling)
+- Kurye GPS canlı takip (`watchPosition` altyapısı hazır)
+- Push notification (FCM)
+- Online kart ödeme (iyzico/Paratika)
+- Aktarmalı rota (1+ aktarma yok)
