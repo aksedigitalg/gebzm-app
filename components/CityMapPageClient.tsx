@@ -553,31 +553,23 @@ export default function CityMapPageClient() {
     cluster.zoomToShowLayer(marker, () => marker.openPopup());
   }, []);
 
-  // Konum butonu — tek tık = native izin pop-up'ı.
-  // İzin alınamazsa otomatik manuel moda geç (kullanıcıya rehber okutmadan).
+  // Konum butonu — ANINDA manuel modu açar VE arka planda GPS dener.
+  // GPS başarılıysa manuel mod kendi kapanır + koordinat yerleşir.
+  // GPS başarısızsa kullanıcı zaten haritaya tıklayabiliyor — hata mesajı yok.
   const handleLocateClick = useCallback(async () => {
     setConsent("granted");
+    setManualMode(true); // hemen tıklanabilir hale getir
     setLocating(true);
+
     const result = await geo.request();
     setLocating(false);
-    if (!result.coords) {
-      // İzin reddedildi / sistem konum kapalı / GPS yok / timeout —
-      // hepsinde kullanıcının zaman kaybetmemesi için otomatik manuel moda geç.
-      // Manuel mod banner'ı zaten "haritaya tıkla" diye yönlendiriyor.
-      if (
-        result.error?.code === "permission_denied" ||
-        result.error?.code === "position_unavailable" ||
-        result.error?.code === "timeout"
-      ) {
-        setManualMode(true);
-        setError("Konum alınamadı. Haritada olduğun yere tıkla.");
-      } else if (result.error?.code === "unsupported") {
-        setManualMode(true);
-        setError("Tarayıcın konum servisini desteklemiyor. Haritaya tıkla.");
-      } else {
-        setError(result.error?.message || "Konum alınamadı");
-      }
+
+    if (result.coords) {
+      // GPS işe yaradı — manuel modu kapat (coords useEffect marker'ı zaten çiziyor)
+      setManualMode(false);
     }
+    // GPS başarısız: manuel mod açık kaldı, banner'ı görüyor, tıklayıp seçer.
+    // Hiçbir error toast/modal göstermiyoruz — kullanıcı "yapamadım" hissi yaşamaz.
   }, [geo]);
 
   // Manuel mod — tap = açık rıza
