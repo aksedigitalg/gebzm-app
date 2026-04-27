@@ -511,3 +511,178 @@ export const adminEventApi = {
   delete: (id: string, token: string) =>
     request(`/admin/events/${id}`, { method: "DELETE" }, token),
 };
+
+// ─── GEBZEM SOSYAL ─────────────────────────────────────────────────
+export const socialApi = {
+  // Profile
+  getMyProfile: () =>
+    request<Record<string, unknown>>("/social/profile/me", { cache: "no-store" }, getToken()),
+
+  createProfile: (data: { username: string; display_name: string; bio?: string; avatar_url?: string }) =>
+    request<{ message: string; username: string }>(
+      "/social/profile/me",
+      { method: "POST", body: JSON.stringify(data) },
+      getToken()
+    ),
+
+  updateProfile: (data: {
+    display_name?: string;
+    bio?: string;
+    avatar_url?: string;
+    cover_url?: string;
+    is_private?: boolean;
+  }) =>
+    request("/social/profile/me", { method: "PUT", body: JSON.stringify(data) }, getToken()),
+
+  getProfile: (username: string) =>
+    request<Record<string, unknown>>(`/social/profile/${encodeURIComponent(username)}`, { cache: "no-store" }, getToken()),
+
+  getUserPosts: (username: string, offset = 0) =>
+    request<unknown[]>(
+      `/social/profile/${encodeURIComponent(username)}/posts?offset=${offset}`,
+      { cache: "no-store" },
+      getToken()
+    ),
+
+  getFollowers: (username: string) =>
+    request<unknown[]>(`/social/profile/${encodeURIComponent(username)}/followers`, { cache: "no-store" }),
+
+  getFollowing: (username: string) =>
+    request<unknown[]>(`/social/profile/${encodeURIComponent(username)}/following`, { cache: "no-store" }),
+
+  follow: (username: string) =>
+    request<{ status: string }>(
+      `/social/profile/${encodeURIComponent(username)}/follow`,
+      { method: "POST" },
+      getToken()
+    ),
+
+  unfollow: (username: string) =>
+    request(
+      `/social/profile/${encodeURIComponent(username)}/follow`,
+      { method: "DELETE" },
+      getToken()
+    ),
+
+  // Posts
+  createPost: (data: {
+    text?: string;
+    media?: Array<{ type: "image" | "video"; url: string; thumbnail?: string }>;
+    parent_id?: string;
+    repost_of_id?: string;
+    quote_text?: string;
+  }) =>
+    request<{ id: string }>(
+      "/social/posts",
+      { method: "POST", body: JSON.stringify(data) },
+      getToken()
+    ),
+
+  getPost: (id: string) =>
+    request<Record<string, unknown>>(`/social/posts/${id}`, { cache: "no-store" }, getToken()),
+
+  deletePost: (id: string) =>
+    request(`/social/posts/${id}`, { method: "DELETE" }, getToken()),
+
+  getComments: (id: string) =>
+    request<unknown[]>(`/social/posts/${id}/comments`, { cache: "no-store" }, getToken()),
+
+  trackView: (id: string) =>
+    request(`/social/posts/${id}/view`, { method: "POST" }, getToken()),
+
+  react: (id: string, reaction: "like" | "dislike" | "") =>
+    request<{ ok: boolean; reaction: string }>(
+      `/social/posts/${id}/react`,
+      { method: "POST", body: JSON.stringify({ reaction }) },
+      getToken()
+    ),
+
+  bookmark: (id: string) =>
+    request<{ bookmarked: boolean }>(
+      `/social/posts/${id}/bookmark`,
+      { method: "POST" },
+      getToken()
+    ),
+
+  // Feed / Explore / Bookmarks
+  getFeed: (offset = 0) =>
+    request<unknown[]>(`/social/feed?offset=${offset}`, { cache: "no-store" }, getToken()),
+
+  getExplore: () =>
+    request<unknown[]>("/social/explore", { cache: "no-store" }, getToken()),
+
+  getBookmarks: () =>
+    request<unknown[]>("/social/bookmarks", { cache: "no-store" }, getToken()),
+
+  // Follow Requests
+  getFollowRequests: () =>
+    request<unknown[]>("/social/follow/requests", { cache: "no-store" }, getToken()),
+
+  respondFollowRequest: (followerId: string, action: "accept" | "reject") =>
+    request(
+      `/social/follow/requests/${followerId}`,
+      { method: "PUT", body: JSON.stringify({ action }) },
+      getToken()
+    ),
+
+  // Hashtags + Search
+  getTrendingHashtags: () =>
+    request<Array<{ tag: string; posts_count: number }>>("/social/hashtags/trending", { cache: "no-store" }),
+
+  getPostsByHashtag: (tag: string) =>
+    request<unknown[]>(`/social/hashtags/${encodeURIComponent(tag)}/posts`, { cache: "no-store" }, getToken()),
+
+  search: (q: string) =>
+    request<{ users: unknown[]; posts: unknown[] }>(
+      `/social/search?q=${encodeURIComponent(q)}`,
+      { cache: "no-store" },
+      getToken()
+    ),
+
+  // DM
+  getDMConversations: () =>
+    request<unknown[]>("/social/dm", { cache: "no-store" }, getToken()),
+
+  getDMMessages: (conversationId: string) =>
+    request<unknown[]>(`/social/dm/${conversationId}/messages`, { cache: "no-store" }, getToken()),
+
+  sendDM: (targetUserId: string, data: { text?: string; media_url?: string }) =>
+    request<{ id: string; conversation_id: string }>(
+      `/social/dm/${targetUserId}`,
+      { method: "POST", body: JSON.stringify(data) },
+      getToken()
+    ),
+
+  // Reports
+  report: (data: {
+    target_type: "post" | "profile";
+    target_id: string;
+    reason: string;
+    description?: string;
+  }) =>
+    request(
+      "/social/reports",
+      { method: "POST", body: JSON.stringify(data) },
+      getToken()
+    ),
+};
+
+// Admin social moderation
+export const adminSocialApi = {
+  listReports: (status: "pending" | "resolved" | "dismissed", token: string) =>
+    request<unknown[]>(`/admin/social/reports?status=${status}`, { cache: "no-store" }, token),
+
+  resolveReport: (id: string, action: "remove" | "ban" | "warn" | "dismiss", token: string) =>
+    request(
+      `/admin/social/reports/${id}`,
+      { method: "PUT", body: JSON.stringify({ action }) },
+      token
+    ),
+
+  toggleBan: (userId: string, isBanned: boolean, reason: string, token: string) =>
+    request(
+      `/admin/social/users/${userId}/ban`,
+      { method: "PUT", body: JSON.stringify({ is_banned: isBanned, reason }) },
+      token
+    ),
+};

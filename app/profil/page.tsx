@@ -6,7 +6,7 @@ import {
   Pencil, KeyRound, Bell, Moon, Sun, Monitor,
   Shield, HelpCircle, Info, LogOut, ChevronRight,
   MessageSquare, Store, Check, Tag, Calendar,
-  ShoppingBag, MapPin,
+  ShoppingBag, MapPin, Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/components/AuthProvider";
@@ -86,6 +86,16 @@ export default function ProfilPage() {
         <section>
           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Etkileşim</h3>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Link href="/sosyal" className="flex items-center gap-3 border-b border-border bg-gradient-to-r from-fuchsia-500/10 via-violet-500/10 to-primary/10 px-4 py-3.5 transition hover:from-fuchsia-500/20 hover:via-violet-500/20 hover:to-primary/20">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <span className="block text-sm font-bold">GebzemSosyal</span>
+                <span className="block text-[11px] text-muted-foreground">Paylaş, takip et, mesajlaş</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
             <Link href="/profil/siparislerim" className="flex items-center gap-3 border-b border-border px-4 py-3.5 transition hover:bg-muted/60">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <ShoppingBag className="h-4 w-4" />
