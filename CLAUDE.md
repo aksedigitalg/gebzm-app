@@ -153,6 +153,49 @@ POST   /user/events/:id/interest  → { status: "katiliyor"|"ilgileniyor" }
 DELETE /user/events/:id/interest
 ```
 
+### GebzemSosyal (`/social/*`)
+
+**Public:**
+```
+GET /social/explore                              → Popüler postlar (son 7 gün)
+GET /social/hashtags/trending                    → Trend etiketler
+GET /social/hashtags/:tag/posts                  → Etiket postları
+GET /social/profile/:username                    → Profil
+GET /social/profile/:username/posts              → Profilin postları (private kontrolü)
+GET /social/profile/:username/followers          → Takipçiler
+GET /social/profile/:username/following          → Takip ettikleri
+GET /social/posts/:id                            → Tek post
+GET /social/posts/:id/comments                   → Yorumlar
+POST /social/posts/:id/view                      → View (dedup)
+GET /social/search?q=...                         → Kullanıcı + post arama
+```
+
+**User (auth + rate limit):**
+```
+GET/POST/PUT /social/profile/me                  → Profil onboarding/edit
+POST /social/posts                               → Yeni post (30/10dk limit)
+DELETE /social/posts/:id                         → Sil (sahibi)
+POST /social/posts/:id/react                     → like/dislike toggle (120/dk)
+POST /social/posts/:id/bookmark                  → Toggle
+POST /social/profile/:username/follow            → Takip et / istek
+DELETE /social/profile/:username/follow          → Takipten çık
+GET /social/follow/requests                      → Bekleyen istekler
+PUT /social/follow/requests/:followerId          → accept/reject
+GET /social/feed                                 → Anasayfa feed
+GET /social/bookmarks                            → Kayıtlar
+GET /social/dm                                   → Konuşmalar
+GET /social/dm/:cid/messages                     → Mesajlar
+POST /social/dm/:targetUserId                    → Mesaj gönder (60/5dk)
+POST /social/reports                             → Şikayet et
+```
+
+**Admin:**
+```
+GET /admin/social/reports?status=...             → Şikayet listesi
+PUT /admin/social/reports/:id                    → resolve (remove/ban/warn/dismiss)
+PUT /admin/social/users/:userId/ban              → Banla/aç
+```
+
 ### Yorumlar
 ```
 GET    /businesses/:id/reviews                → Public liste (?page=N)
@@ -209,6 +252,17 @@ GET/PUT/DELETE /admin/events/:id
 | `event_categories` | key (PK: konser/tiyatro/sergi/spor/festival/cocuk/egitim/konferans/diger), label, color, sort_order |
 | `event_attendees` | event_id, user_id, status (katiliyor/ilgileniyor) — UNIQUE(event_id,user_id) |
 | `business_reviews` | business_id, user_id, order_id (nullable), rating (1-5 CHECK), comment (1-1000 CHECK), business_reply, business_replied_at, is_hidden — UNIQUE(order_id) WHERE order_id IS NOT NULL + UNIQUE(business_id, user_id) WHERE order_id IS NULL |
+| `social_profiles` | user_id (PK), username (UNIQUE regex `^[a-zA-Z0-9_]{3,30}$`), display_name, bio, avatar_url, cover_url, is_private, is_verified, is_banned, posts/followers/following_count |
+| `social_posts` | author_id, text (≤500), media (jsonb), parent_id (reply), repost_of_id, quote_text, likes/dislikes/comments/reposts/views_count, is_deleted, is_hidden |
+| `social_reactions` | user_id, post_id (PK), reaction (like/dislike CHECK) |
+| `social_bookmarks` | user_id, post_id (PK) |
+| `social_follows` | follower_id, followed_id (PK), status (pending/accepted) — private profil için |
+| `social_hashtags` | tag (UNIQUE regex `^[a-z0-9_]{1,50}$`), posts_count, last_used_at |
+| `social_post_hashtags` | post_id, hashtag_id (junction) |
+| `social_post_views` | post_id, viewer_key, viewed_date (PK — günlük dedup) |
+| `social_dm_conversations` | user1_id, user2_id (canonical: u1<u2 UNIQUE), last_message, user1/user2_unread |
+| `social_dm_messages` | conversation_id, sender_id, text, media_url, is_read |
+| `social_reports` | reporter_id, target_type (post/profile), target_id, reason (7 sebep), status, action_taken — UNIQUE(reporter, target) |
 
 **DB Temizleme:**
 ```sql
@@ -376,7 +430,7 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-27 · Güvenlik Sertleştirme + Market/Mağaza Sipariş + Zenginleştirilmiş Seed
+**Son Güncelleme:** 2026-04-27 · GebzemSosyal — Twitter klonu (11 tablo, 30+ endpoint, 18 sayfa)
 
 ---
 
@@ -586,6 +640,75 @@ ssh -i ~/.ssh/gebzem root@138.68.69.122 "/opt/db-reset.sh && bash /opt/gebzem-we
 | emlakci@test.com | Gebze Emlak | emlakci |
 | galerici@test.com | Özkan Oto Galeri | galerici |
 
+
+---
+
+### 2026-04-27 — GebzemSosyal: Twitter Klonu (Push bc81d52)
+
+**Talep:** Profile'da "GebzemSosyal" girişi, Twitter benzeri tam özellikli sosyal medya. Gönderi/yorum/beğeni/repost/takip/private profil/DM/keşfet/etiket/şikayet/admin moderation. Cloudflare benzeri medya altyapısı (mevcut R2 entegre).
+
+**DB (11 yeni tablo):**
+social_profiles, social_posts, social_reactions, social_bookmarks, social_follows, social_hashtags, social_post_hashtags, social_post_views, social_dm_conversations, social_dm_messages, social_reports
+
+**Backend (Go API — `handlers/social.go` + `handlers/social_dm.go`):**
+- 30+ endpoint (profil/post/feed/keşfet/etiket/arama/follow/DM/şikayet/admin)
+- middleware/auth.go: `OptionalAuth` middleware (public endpoint'lerde viewer state için)
+- Yeni rate limiter'lar: post 30/10dk/user, react 120/dk/user, DM 60/5dk/user
+- Hashtag/mention regex extraction + sanitize
+- ON CONFLICT + transaction pattern (race koruması)
+- View dedup: viewer_key (user_id veya IP) + günlük
+
+**Frontend (18 yeni sayfa):**
+| Path | Açıklama |
+|---|---|
+| `/sosyal` | Anasayfa feed (takip edilenler) + composer |
+| `/sosyal/onboarding` | İlk setup (username + avatar + bio) |
+| `/sosyal/kesfet` | Keşfet — popüler postlar |
+| `/sosyal/[username]` | Profil (cover, follow, edit, report, private kontrol) |
+| `/sosyal/[username]/takipciler` | Takipçi listesi |
+| `/sosyal/[username]/takip-edilenler` | Takip ettikleri |
+| `/sosyal/post/[id]` | Post detay + yorumlar + view tracking |
+| `/sosyal/etiket/[tag]` | Hashtag postları |
+| `/sosyal/ara` | Kullanıcı + post arama (debounced 300ms) |
+| `/sosyal/kayitlar` | Bookmarks |
+| `/sosyal/mesajlar` | DM listesi (15sn poll) |
+| `/sosyal/mesajlar/[id]` | DM thread (5sn poll, Enter to send) |
+| `/sosyal/mesajlar/yeni?to=` | Yeni DM başlat |
+| `/sosyal/istekler` | Takip istekleri (private hesap) |
+| `/sosyal/bildirimler` | Sosyal bildirimler |
+| `/sosyal/ayarlar` | Profil düzenle (cover/avatar upload, private toggle) |
+| `/admin/sosyal` | Admin moderation (şikayet listesi + 4 aksiyon) |
+
+**Components:**
+- `PostCard.tsx`: like/dislike/repost/bookmark/yorum/view, hashtag+mention auto-link, image/video grid, owner sil, başkası şikayet (7 sebep)
+- `PostComposer.tsx`: 500 char + 4 medya, Cloudflare R2 upload (folder=social/posts), realtime char counter
+
+**Profile entry:**
+`/profil` sayfasına gradient "GebzemSosyal" linki eklendi (Sparkles ikonu, fuchsia→violet→primary)
+
+**Güvenlik:**
+- Username regex: `^[a-zA-Z0-9_]{3,30}$` + reserved listesi (admin, gebzem, support vs)
+- Hashtag regex: `^[a-z0-9_]{1,50}$`
+- ON DELETE CASCADE: user silinince profili+postları, post silinince yorumları
+- ON DELETE SET NULL: business_reviews.order_id (geçmiş yorumlar yaşar)
+- Rate limit: post/react/DM ayrı limiter (user_id key)
+- JWT HS256-only + exp required (mevcut)
+- DM canonical pair (u1<u2 UNIQUE)
+- Şikayet UNIQUE(reporter, target) — aynı raporu çoğaltamaz
+- `is_banned` kontrolü her endpoint'te (banlı kullanıcı 404 görünür)
+- Owner check: DELETE post WHERE author_id, REPLY WHERE business_id
+
+**Onboarding akışı:**
+1. /profil → "GebzemSosyal" tıkla → /sosyal
+2. Layout `getMyProfile` çağırır — yoksa 404 + `needs_onboarding`
+3. /sosyal/onboarding'e yönlendirir (username + display_name + avatar)
+4. Profil oluştuktan sonra /sosyal'a döner
+
+**Test sonuçları:**
+- /api/v1/social/hashtags/trending → 200
+- /api/v1/social/explore → 200
+- /api/v1/social/profile/me unauth → 401
+- npm build: ✓ Compiled successfully (18 sosyal sayfa)
 
 ---
 
