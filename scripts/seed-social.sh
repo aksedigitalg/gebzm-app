@@ -176,7 +176,7 @@ SELECT
   END,
   -- doğrulanmış: kerem (haberci)
   CASE iu.email WHEN 'social13@gebzem.app' THEN true ELSE false END,
-  iu.id IS NOT NULL  -- placeholder true; created_at NOW kalsın
+  NOW()
 FROM inserted_users iu;
 
 -- ───────────────────── POSTS ─────────────────────
@@ -276,7 +276,7 @@ CROSS JOIN LATERAL (
 
     -- ozan_muzik: müzik
     ('ozan_muzik', 'Yeni cover yarın yayında: Tarkan - Beni Çok Sev. Akustik gitar ile 🎸 #muzik', '[]'::jsonb),
-    ('ozan_muzik', 'Gitar çalmaya başlamak isteyenler için ipuçları thread'i hazırlıyorum 🎼', '[]'::jsonb),
+    ('ozan_muzik', 'Gitar çalmaya başlamak isteyenler için ipuçları thread hazırlıyorum 🎼', '[]'::jsonb),
     ('ozan_muzik', 'Gebzede sokak müziği yapmak yasal mı? Belediyeden bilen var mı?', '[]'::jsonb),
     ('ozan_muzik', 'Hafta sonu Bayramoğlu sahilde mini konser. Detaylar pinned post 📌', '[]'::jsonb),
     ('ozan_muzik', 'Favori Türkçe şarkı sözü? Benimki: "Gül dudaklı, kara kaşlı" - Ahmet Kaya 💔', '[]'::jsonb),

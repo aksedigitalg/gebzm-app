@@ -33,7 +33,7 @@ import (
 //   - Broadcast yok — sadece açık subscribe edilen kanallara push
 // ─────────────────────────────────────────────────────────────────────────────
 
-type wsClient struct {
+type socialWSClient struct {
 	id       string
 	userID   string
 	conn     *websocket.Conn
@@ -72,29 +72,29 @@ func (tb *tokenBucket) take() bool {
 	return true
 }
 
-func min(a, b int) int { if a < b { return a }; return b }
+// min built-in olarak Go 1.21+ ile geliyor — kendi tanımına gerek yok
 
 type SocialHub struct {
 	mu       sync.RWMutex
-	clients  map[string]*wsClient            // clientID → client
-	channels map[string]map[string]*wsClient // channel → clientID → client
+	clients  map[string]*socialWSClient            // clientID → client
+	channels map[string]map[string]*socialWSClient // channel → clientID → client
 }
 
 var hub = &SocialHub{
-	clients:  make(map[string]*wsClient),
-	channels: make(map[string]map[string]*wsClient),
+	clients:  make(map[string]*socialWSClient),
+	channels: make(map[string]map[string]*socialWSClient),
 }
 
 // HubInstance — diğer handler'lardan push için erişilebilir global
 func HubInstance() *SocialHub { return hub }
 
-func (h *SocialHub) register(c *wsClient) {
+func (h *SocialHub) register(c *socialWSClient) {
 	h.mu.Lock()
 	h.clients[c.id] = c
 	h.mu.Unlock()
 }
 
-func (h *SocialHub) unregister(c *wsClient) {
+func (h *SocialHub) unregister(c *socialWSClient) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.clients, c.id)
@@ -114,17 +114,17 @@ func (h *SocialHub) unregister(c *wsClient) {
 	c.closeMu.Unlock()
 }
 
-func (h *SocialHub) subscribe(c *wsClient, channel string) {
+func (h *SocialHub) subscribe(c *socialWSClient, channel string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.channels[channel] == nil {
-		h.channels[channel] = make(map[string]*wsClient)
+		h.channels[channel] = make(map[string]*socialWSClient)
 	}
 	h.channels[channel][c.id] = c
 	c.channels[channel] = true
 }
 
-func (h *SocialHub) unsubscribe(c *wsClient, channel string) {
+func (h *SocialHub) unsubscribe(c *socialWSClient, channel string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if subs, ok := h.channels[channel]; ok {
@@ -142,7 +142,7 @@ func (h *SocialHub) unsubscribe(c *wsClient, channel string) {
 func (h *SocialHub) PushToChannel(channel string, payload map[string]interface{}, excludeUserID string) {
 	h.mu.RLock()
 	subs := h.channels[channel]
-	clients := make([]*wsClient, 0, len(subs))
+	clients := make([]*socialWSClient, 0, len(subs))
 	for _, c := range subs {
 		if excludeUserID != "" && c.userID == excludeUserID {
 			continue
@@ -214,7 +214,7 @@ func HandleSocialWS(c *websocket.Conn) {
 
 	// Client init
 	clientID := uid + ":" + time.Now().Format("150405.000000")
-	client := &wsClient{
+	client := &socialWSClient{
 		id:       clientID,
 		userID:   uid,
 		conn:     c,
