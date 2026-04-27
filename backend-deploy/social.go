@@ -136,6 +136,16 @@ func GetMySocialProfile(c *fiber.Ctx) error {
 func CreateMySocialProfile(c *fiber.Ctx) error {
 	uid := c.Locals("user_id").(string)
 
+	// Token'daki user_id db'de hâlâ var mı? (DB reset sonrası eski token'lar için)
+	var userExists bool
+	_ = config.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`, uid).Scan(&userExists)
+	if !userExists {
+		return c.Status(401).JSON(fiber.Map{
+			"error":         "Oturum geçersiz, lütfen yeniden giriş yap",
+			"session_lost":  true,
+		})
+	}
+
 	var body struct {
 		Username    string `json:"username"`
 		DisplayName string `json:"display_name"`

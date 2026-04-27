@@ -83,7 +83,15 @@ export default function OnboardingPage() {
       });
       router.replace("/sosyal");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Profil oluşturulamadı");
+      const msg = err instanceof Error ? err.message : "Profil oluşturulamadı";
+      // DB reset sonrası eski token: oturumu temizle
+      if (msg.includes("Oturum geçersiz") || msg.includes("session_lost")) {
+        localStorage.removeItem("gebzem_user");
+        setError("Oturum geçersiz. Yeniden giriş yapman gerekiyor...");
+        setTimeout(() => router.replace("/giris"), 1500);
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
