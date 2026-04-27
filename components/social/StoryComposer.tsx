@@ -68,10 +68,10 @@ export function StoryComposer() {
     setError("");
 
     try {
-      // 1) Medya upload (R2)
+      // 1) Medya upload (R2) — backend upload handler "photo" field bekliyor
       setUploading(true);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("photo", file);
       const upRes = await fetch(`${API_URL}/upload?folder=social/stories`, {
         method: "POST",
         headers: { Authorization: `Bearer ${u.token}` },
