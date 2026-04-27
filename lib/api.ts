@@ -665,6 +665,62 @@ export const socialApi = {
       { method: "POST", body: JSON.stringify(data) },
       getToken()
     ),
+
+  // ─── Stories (FAZ 2) ───
+  getStories: () =>
+    request<unknown[]>("/social/stories", { cache: "no-store" }, getToken()),
+
+  createStory: (data: {
+    media_url: string;
+    media_type: "image" | "video";
+    thumbnail_url?: string;
+    caption?: string;
+    background_color?: string;
+    duration_sec?: number;
+  }) =>
+    request<{ id: string; expires_at: string }>(
+      "/social/stories",
+      { method: "POST", body: JSON.stringify(data) },
+      getToken()
+    ),
+
+  getStory: (id: string) =>
+    request<Record<string, unknown>>(
+      `/social/stories/${id}`,
+      { cache: "no-store" },
+      getToken()
+    ),
+
+  deleteStory: (id: string) =>
+    request(`/social/stories/${id}`, { method: "DELETE" }, getToken()),
+
+  getStoryViewers: (id: string) =>
+    request<unknown[]>(
+      `/social/stories/${id}/viewers`,
+      { cache: "no-store" },
+      getToken()
+    ),
+
+  replyToStory: (id: string, text: string) =>
+    request<{ id: string; conversation_id: string }>(
+      `/social/stories/${id}/reply`,
+      { method: "POST", body: JSON.stringify({ text }) },
+      getToken()
+    ),
+
+  getUserStories: (username: string) =>
+    request<unknown[]>(
+      `/social/profile/${encodeURIComponent(username)}/stories`,
+      { cache: "no-store" },
+      getToken()
+    ),
+
+  // ─── Notifications (sosyal bildirim listesi) ───
+  getNotifications: () =>
+    request<unknown[]>("/user/notifications", { cache: "no-store" }, getToken()),
+
+  markAllNotificationsRead: () =>
+    request("/user/notifications/read-all", { method: "PUT" }, getToken()),
 };
 
 // Admin social moderation

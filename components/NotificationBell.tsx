@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, X, Calendar, MessageSquare, Tag } from "lucide-react";
+import { Bell, X, Calendar, MessageSquare, Tag, Heart, UserPlus, Repeat2, AtSign, Mail, BookOpenCheck } from "lucide-react";
 import Link from "next/link";
+import { useSocialWS, requestBrowserNotifPermission, showBrowserNotif } from "@/lib/social-ws";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://138.68.69.122:8080/api/v1";
 
@@ -13,6 +14,14 @@ interface Notif {
   body: string;
   is_read: boolean;
   created_at: string;
+  target_url?: string;
+  count?: number;
+  actors?: Array<{
+    user_id: string;
+    username: string;
+    display_name: string;
+    avatar_url?: string;
+  }>;
 }
 
 function timeAgo(dt: string) {
@@ -29,14 +38,33 @@ const typeIcon: Record<string, typeof Bell> = {
   reservation: Calendar,
   message: MessageSquare,
   listing: Tag,
+  social_like: Heart,
+  social_comment: MessageSquare,
+  social_repost: Repeat2,
+  social_follow: UserPlus,
+  social_follow_request: UserPlus,
+  social_follow_accepted: UserPlus,
+  social_mention: AtSign,
+  social_dm: Mail,
+  social_reply: MessageSquare,
+  social_story_reply: BookOpenCheck,
 };
 
 function getNotifLink(notif: Notif, endpoint: string): string {
+  // FAZ 2: target_url backend'den geliyorsa kullan
+  if (notif.target_url) return notif.target_url;
   switch (notif.type) {
     case "message": return endpoint === "business" ? "/isletme/mesajlar" : "/profil/mesajlar";
     case "reservation": return endpoint === "business" ? "/isletme/rezervasyonlar" : "/profil/rezervasyonlarim";
     case "listing": return "/ilanlar";
-    default: return "#";
+    case "social_dm": return "/sosyal/mesajlar";
+    case "social_follow":
+    case "social_follow_request":
+    case "social_follow_accepted":
+      return "/sosyal/bildirimler";
+    default:
+      if (notif.type.startsWith("social_")) return "/sosyal/bildirimler";
+      return "#";
   }
 }
 
@@ -49,6 +77,7 @@ export function NotificationBell({ token, endpoint }: Props) {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { subscribe, status } = useSocialWS();
 
   const unread = notifs.filter((n) => !n.is_read).length;
 
@@ -60,6 +89,7 @@ export function NotificationBell({ token, endpoint }: Props) {
         : "/user/notifications";
       const res = await fetch(`${API}${path}`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       if (res.ok) setNotifs(await res.json());
     } catch { /* ignore */ }
@@ -67,9 +97,44 @@ export function NotificationBell({ token, endpoint }: Props) {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 15000);
+    // WS açıkken polling 60sn'ye düşer (yedek), kapalıyken 15sn (eski davranış)
+    const intervalMs = status === "open" ? 60000 : 15000;
+    const interval = setInterval(load, intervalMs);
     return () => clearInterval(interval);
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, status]);
+
+  // WebSocket: yeni bildirim gelince listeyi yenile + browser notification
+  useEffect(() => {
+    if (endpoint !== "user") return;
+    const u = typeof window !== "undefined" ? localStorage.getItem("gebzem_user") : null;
+    if (!u) return;
+    let userID = "";
+    try {
+      userID = JSON.parse(u)?.id || "";
+    } catch {
+      /* */
+    }
+    if (!userID) return;
+    const off = subscribe(`notif:${userID}`, msg => {
+      const p = (msg.payload as Record<string, unknown>) || {};
+      const title = (p.title as string) || "Yeni bildirim";
+      const body = (p.body as string) || "";
+      // List yenile
+      load();
+      // Browser notification
+      showBrowserNotif(title, body, (p.id as string) || undefined);
+    });
+    return off;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint, subscribe]);
+
+  // Permission iste — kullanıcı bell'i ilk açtığında
+  useEffect(() => {
+    if (open && endpoint === "user") {
+      requestBrowserNotifPermission().catch(() => {});
+    }
+  }, [open, endpoint]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -94,7 +159,6 @@ export function NotificationBell({ token, endpoint }: Props) {
         const opening = !open;
         setOpen(opening);
         if (opening) {
-          // Önce read-all yap, sonra yükle (badge geri gelmesin)
           if (unread > 0) {
             await markAllRead();
             setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
@@ -108,6 +172,10 @@ export function NotificationBell({ token, endpoint }: Props) {
           <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
             {unread > 9 ? "9+" : unread}
           </span>
+        )}
+        {/* WS connection indicator (sadece user) */}
+        {endpoint === "user" && status === "open" && (
+          <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500" title="Realtime aktif" />
         )}
       </button>
 
@@ -137,12 +205,22 @@ export function NotificationBell({ token, endpoint }: Props) {
               notifs.map((n) => {
                 const Icon = typeIcon[n.type] || Bell;
                 const link = getNotifLink(n, endpoint);
+                const firstActor = n.actors?.[0];
                 return (
                   <Link key={n.id} href={link} onClick={() => setOpen(false)}
                     className={`flex items-start gap-3 border-b border-border px-4 py-3 transition hover:bg-muted/40 ${!n.is_read ? "bg-primary/5" : ""}`}>
-                    <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${!n.is_read ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
+                    {firstActor?.avatar_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={firstActor.avatar_url}
+                        alt=""
+                        className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${!n.is_read ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold">{n.title}</p>
                       {n.body && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{n.body}</p>}

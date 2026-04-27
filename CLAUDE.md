@@ -430,13 +430,98 @@ lib/api.ts                    # client: NEXT_PUBLIC_API_URL
 
 ---
 
-**Son Güncelleme:** 2026-04-27 · GebzemSosyal — Twitter klonu (11 tablo, 30+ endpoint, 18 sayfa)
+**Son Güncelleme:** 2026-04-27 · GebzemSosyal FAZ 2 — WebSocket realtime + Stories + Bildirim batch + 15 hesap mockup
 
 ---
 
 ## 📅 Günlük Raporlar
 
 ---
+
+### 2026-04-27 — GebzemSosyal FAZ 2 (WebSocket + Stories + Bildirim Batch + Mockup Seed)
+
+**Talep:** Mesajlaşma realtime, sosyal aksiyonlar bildirim üretsin, Stories ekle, 15 hesap+post+yorum mockup seed otomatik yüklensin. Güvenlik sertleştirme.
+
+**Backend (Go API — `backend-deploy/`):**
+
+| # | Dosya | Yapılan |
+|---|---|---|
+| 1 | `ws_social.go` (yeni) | Multiplexed WS hub — `/ws/social?token=JWT` tek endpoint, 5 kanal (notif/feed/dm/post/story). Heartbeat 30sn ping/pong, 70sn read deadline, 60 msg/dk per-conn rate limit, 20 channel/conn cap. CSWSH koruma: origin allowlist. Slow-consumer drop pattern. |
+| 2 | `social_notifications.go` (yeni) | `SocialNotify()` aggregation engine — 60dk window, `aggregation_key = type:target`, actors[] JSONB append, count++, "Ahmet ve 3 kişi gönderini beğendi" formatı. WS push: `notif:<userId>`. `PushPostUpdate`, `PushFeedNewPost`, `PushDM`, `PushStoryView`, `notifyMentions` helpers. |
+| 3 | `social_stories.go` (yeni) | 7 endpoint: GET/POST stories, GET detay (view track), DELETE, viewers list, reply (DM olarak), GetUserStories. Lazy expiry (`expires_at > NOW()`) + saatlik cron `CleanupExpiredStories()`. Hex color regex, media URL validation. |
+| 4 | `social.go` (mod) | CreatePost/ReactToPost/FollowUser/RespondFollowRequest'e SocialNotify trigger'ları. Reply→parent author, like→post author (batch), repost→original author, follow→target. `notifyMentions` çağrısı ile @username extract. `PushPostUpdate` ile live counter, `PushFeedNewPost` ile takipçi feed badge. |
+| 5 | `social_dm.go` (mod) | SendDM'de `CreateNotification` → `SocialNotify` (batch'lemeli) + `PushDM` (alıcı + sender echo). |
+| 6 | `main.go` (mod) | `/ws/social` route — origin allowlist + WSAuth + websocket.New handler. Stories rotaları + rate limiter (10 story/saat, 30 reply/5dk). `StartStoryCleanupCron()` çağrısı. |
+
+**Frontend (Next.js):**
+
+| # | Dosya | Yapılan |
+|---|---|---|
+| 1 | `lib/social-ws.tsx` (yeni) | `SocialWSProvider` context + `useSocialWS()` hook. Auto-connect on mount, exponential backoff reconnect (1→30sn, max 6 attempt), visibility change otomatik reconnect, sub/unsub server'a senkronize. `requestBrowserNotifPermission` + `showBrowserNotif` helpers. |
+| 2 | `lib/types/story.ts` (yeni) | SocialStory, StoryGroup, StoryViewer, SocialNotification (actors/count alanları). |
+| 3 | `lib/api.ts` (mod) | socialApi'ye 7 story endpoint + getNotifications + markAllNotificationsRead. |
+| 4 | `app/sosyal/layout.tsx` (mod) | Tüm /sosyal/* SocialWSProvider ile sarıldı. |
+| 5 | `components/social/StoryTray.tsx` (yeni) | Feed üstü yatay scroll, gradient ring (okunmamış) / gri ring (görüldü). "Senin story'n" en başta + composer'a link. |
+| 6 | `components/social/StoryViewer.tsx` (yeni) | Full-screen modal — progress bar 50ms tick, image 5sn / video duration, long-press pause, swipe down kapat, sahibi: viewer count + delete + viewer listesi sheet, başkası: reply input. |
+| 7 | `components/social/StoryComposer.tsx` (yeni) | Image/video upload (R2 → /upload?folder=social/stories), 50MB cap, MIME check, caption max 200, 10 bg renk seçici. |
+| 8 | `app/sosyal/story/yeni/page.tsx` + `[id]/page.tsx` (yeni) | Story composer ve viewer sayfaları, force-dynamic. |
+| 9 | `components/NotificationBell.tsx` (mod) | WS subscribe `notif:<userId>` → list yenile + Browser Notification (sayfa kapalıyken). 15sn poll → 60sn poll (WS aktifken yedek). 10 social_* için icon mapping + actor avatar göster. |
+| 10 | `app/sosyal/mesajlar/[id]/page.tsx` (mod) | 5sn polling kaldırıldı → WS subscribe `dm:<userId>` (cid filter client'ta). Optimistic send tempId pattern, echo guard. WS kapalıyken fallback 10sn poll. Realtime indicator (Wifi icon). |
+| 11 | `app/sosyal/mesajlar/page.tsx` (mod) | DM list — WS dinleyici (last_message + unread auto-update). |
+| 12 | `app/sosyal/page.tsx` (mod) | StoryTray entegrasyonu, WS feed kanalı dinleyici, "X yeni gönderi" badge (sticky top). |
+| 13 | `app/sosyal/post/[id]/page.tsx` (mod) | `post:<id>` kanalı dinleyici — like/dislike count anlık update, yeni yorum gelince listeyi refresh. |
+| 14 | `app/sosyal/bildirimler/page.tsx` (mod) | WS realtime, type-specific icon + color, actor avatar göster, batch title (X kişi beğendi). |
+
+**DB Migration (`scripts/social-faz2-migration.sql`):**
+- `social_stories`: id, author_id, media_url, media_type, thumbnail_url, caption (max 200), background_color (#hex regex), duration_sec (1-30), views_count, is_deleted, created_at, expires_at (default NOW()+24h). 2 partial index (active_author, active_expires).
+- `social_story_views`: PRIMARY KEY (story_id, viewer_id) — duplicate engelli.
+- `notifications` ALTER: actors JSONB, count INT, aggregation_key TEXT, target_url TEXT, updated_at. Idempotent (DO $$ IF NOT EXISTS).
+- 2 yeni index: agg key + business agg key.
+
+**Seed (`scripts/seed-social.sh`):**
+- 15 user (`social01@gebzem.app` ... `social15@gebzem.app`, şifre 80148014)
+- Username'ler: ahmet_yilmaz, zeynep_kaya, mehmet_dev, ayse_moda, can_seyahat, **selin_kitap (private)**, mert_oyun, **elif_anne (private)**, burak_emlak, pinar_sanat, ozan_muzik, sema_fitness, **kerem_haber (verified)**, derya_kahve, furkan_film
+- Avatar: DiceBear (`api.dicebear.com/7.x/avataaars/svg?seed=...`)
+- ~80 post (Turkish realistic content, hashtag + mention + Unsplash image örnekleri)
+- 30+ yorum (parent_id thread'leri)
+- ~120 reaction (each user 5-15 random like)
+- ~85 follow grafiği (each user 4-8 random follow + 2 pending request to private accounts)
+- 8 DM thread, 4-12 mesaj her birinde (canonical pair u1<u2, last_message + unread)
+- 6 aktif story (3 image + 3 video Unsplash URL)
+- 6 sosyal bildirim ahmet_yilmaz alıcı (like/comment/follow/repost/mention)
+- Hashtag'ler regex extract (gebze, kosu, yemek, gebzelezzet, moda, vb.)
+
+**Deploy script (`scripts/deploy-faz2.sh`):**
+1. DB migration uygula
+2. backend-deploy/*.go → /opt/gebzem-api/handlers/ (+ main.go)
+3. go mod tidy + go build + systemctl restart gebzem-api
+4. npm run build + pm2 restart gebzem-web
+5. seed-social.sh
+
+**Güvenlik (derinlemesine):**
+- WS: JWT HS256-only, exp required, query param token (HTTPS altında, logger token query'sini maskeler), Origin allowlist (CSWSH), 4096 byte read limit, 64-buffer send (slow drop), `canSubscribe` user_id validation (notif/feed/dm/story sadece sahibinin), 20 channel/conn limit, 60 msg/dk per-conn rate limit, heartbeat ping/pong 30sn (zombie disconnect)
+- Stories: media URL http(s):// prefix only, 50MB upload cap, MIME image/video allowlist, caption ≤200 char, hex color regex `^#[0-9a-fA-F]{6}$`, dur 1-30sn, view dedup primary key, sahip kontrolü DELETE/viewers, private profile follow status check, banned user 404, story create rate limit 10/saat, reply 30/5dk
+- Notifications: aggregation prevents spam (60dk window), self-ping engelle, banned user skip
+- Mention extract regex 3-30 ASCII, reserved username allowlist (admin, gebzem, support vs)
+- Origin validation main.go'da ek katman + helmet zaten aktif (HSTS 2yr, X-Frame DENY, CSP)
+- Reuses existing pattern: rate limit, ON CONFLICT race koruması, transaction commit-or-rollback, prepared statement parameter binding
+- Browser Notification API: opt-in (kullanıcı bell açtığında istenir)
+
+**Test:**
+- `npm run build` başarılı (78 route, /sosyal/story/* dahil)
+- WS endpoint yetkilendirme: `canSubscribe` `feed:other_user` reddeder, `feed:self` kabul
+- Story expiry: lazy filter + saatlik cron
+- DM realtime: optimistic + WS push + echo guard
+
+**Sınırlar (FAZ 3'e):**
+- Multi-region scale → Redis Pub/Sub (şu an in-memory)
+- Story highlights (kalıcı kaydet) — şu an sadece 24sa ephemeral
+- Typing indicator (WS event hazır, UI yok)
+- Push notification (FCM) — şu an Browser Notification API
+- Live streaming (Cloudflare Stream entegrasyonu)
+- Group DM (şu an 1-1 only)
+
+
 
 ### 2026-04-25 — İlanlar Sayfası Yeniden Tasarımı + AuthModal
 

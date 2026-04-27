@@ -15,8 +15,17 @@ import {
 import { socialApi } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import type { SocialProfile } from "@/lib/types/social";
+import { SocialWSProvider } from "@/lib/social-ws";
 
 export default function SocialLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SocialWSProvider>
+      <SocialLayoutInner>{children}</SocialLayoutInner>
+    </SocialWSProvider>
+  );
+}
+
+function SocialLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [profile, setProfile] = useState<SocialProfile | null>(null);

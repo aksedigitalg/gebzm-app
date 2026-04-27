@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { socialApi } from "@/lib/api";
 import { PostCard } from "@/components/social/PostCard";
 import { PostComposer } from "@/components/social/PostComposer";
+import { useSocialWS } from "@/lib/social-ws";
 import type { SocialPost, SocialProfile } from "@/lib/types/social";
 
 export default function PostDetailPage() {
@@ -43,6 +44,29 @@ export default function PostDetailPage() {
     if (id) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // WebSocket: post:<id> kanalı — live counter (like, comment, repost)
+  const { subscribe } = useSocialWS();
+  useEffect(() => {
+    if (!id) return;
+    const off = subscribe(`post:${id}`, msg => {
+      const p = (msg.payload as Record<string, unknown>) || {};
+      setPost(prev => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        if (typeof p.likes_count === "number") next.likes_count = p.likes_count as number;
+        if (typeof p.dislikes_count === "number") next.dislikes_count = p.dislikes_count as number;
+        if (typeof p.comments_delta === "number") next.comments_count += p.comments_delta as number;
+        if (typeof p.reposts_delta === "number") next.reposts_count += p.reposts_delta as number;
+        return next;
+      });
+      // Yeni yorum geldiyse listeyi de yenile (post içeriği için)
+      if (typeof p.comments_delta === "number" && (p.comments_delta as number) > 0) {
+        socialApi.getComments(id).then(c => setComments(c as unknown as SocialPost[])).catch(() => {});
+      }
+    });
+    return off;
+  }, [id, subscribe]);
 
   const handlePosted = () => load();
 

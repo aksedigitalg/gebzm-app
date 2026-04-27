@@ -2,31 +2,61 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Mail, User as UserIcon } from "lucide-react";
+import { Loader2, Mail, User as UserIcon, Wifi } from "lucide-react";
 import { socialApi } from "@/lib/api";
+import { useSocialWS } from "@/lib/social-ws";
+import { getUser } from "@/lib/auth";
 import type { DMConversation } from "@/lib/types/social";
 
 export default function DMListPage() {
   const [convs, setConvs] = useState<DMConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const { subscribe, status } = useSocialWS();
+
+  const me = typeof window !== "undefined" ? getUser() : null;
+
+  const load = async () => {
+    try {
+      const list = await socialApi.getDMConversations();
+      setConvs(list as unknown as DMConversation[]);
+    } catch {
+      setConvs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = () =>
-      socialApi
-        .getDMConversations()
-        .then(list => setConvs(list as unknown as DMConversation[]))
-        .catch(() => setConvs([]))
-        .finally(() => setLoading(false));
     load();
+  }, []);
+
+  // WS: yeni DM gelince listeyi yenile (last_message + unread)
+  useEffect(() => {
+    if (!me?.id) return;
+    const off = subscribe(`dm:${me.id}`, () => {
+      load();
+    });
+    return off;
+  }, [me?.id, subscribe]);
+
+  // WS kapalıyken fallback poll
+  useEffect(() => {
+    if (status === "open") return;
     const t = setInterval(load, 15000);
     return () => clearInterval(t);
-  }, []);
+  }, [status]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
         <Mail className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-extrabold">Mesajlar</h1>
+        <h1 className="flex-1 text-lg font-extrabold">Mesajlar</h1>
+        {status === "open" && (
+          <span title="Realtime aktif" className="flex items-center gap-1 text-[10px] font-semibold text-emerald-500">
+            <Wifi className="h-3 w-3" />
+            CANLI
+          </span>
+        )}
       </header>
       {loading && (
         <div className="flex justify-center py-10">

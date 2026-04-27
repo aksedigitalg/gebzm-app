@@ -3,11 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Send, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Loader2, Send, User as UserIcon, Wifi, WifiOff } from "lucide-react";
 import { socialApi } from "@/lib/api";
 import { getUser } from "@/lib/auth";
+import { useSocialWS } from "@/lib/social-ws";
 import type { DMConversation, DMMessage } from "@/lib/types/social";
 
+/**
+ * DM Thread — WebSocket realtime
+ *
+ *  - Initial load: REST GET /social/dm/:id/messages
+ *  - Subscribe: dm:<myUserId> kanalına (server tüm DM'leri buraya pushlar)
+ *  - Aynı conversation_id ise mesajı UI'a ekle
+ *  - WS kapalıysa fallback 10sn polling
+ *  - Optimistic send: tempId ile anında, sonra gerçek id
+ */
 export default function DMThreadPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
@@ -17,6 +27,8 @@ export default function DMThreadPage() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const seenMsgIds = useRef<Set<string>>(new Set());
+  const { subscribe, status } = useSocialWS();
 
   const me = typeof window !== "undefined" ? getUser() : null;
 
@@ -26,14 +38,15 @@ export default function DMThreadPage() {
         socialApi.getDMMessages(id),
         socialApi.getDMConversations(),
       ]);
-      setMessages(list as unknown as DMMessage[]);
+      const msgs = list as unknown as DMMessage[];
+      msgs.forEach(m => seenMsgIds.current.add(m.id));
+      setMessages(msgs);
       const found = (convs as unknown as DMConversation[]).find(c => c.id === id);
       if (found) setConv(found);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
-      // Scroll to bottom
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }, 50);
@@ -43,19 +56,81 @@ export default function DMThreadPage() {
   useEffect(() => {
     if (!id) return;
     load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // WebSocket: dm:<userId> kanalı dinle, aynı conversation'a aitse ekle
+  useEffect(() => {
+    if (!me?.id || !id) return;
+    const off = subscribe(`dm:${me.id}`, msg => {
+      const p = (msg.payload as Record<string, unknown>) || {};
+      const cid = p.conversation_id as string | undefined;
+      const msgID = p.id as string | undefined;
+      if (!cid || cid !== id || !msgID) return;
+      // Echo (kendi gönderdiğim mesaj — zaten optimistic eklendi)
+      if (p.echo === true) {
+        // Sadece tempId'yi gerçek id'ye eşle (optional: zaten skip)
+        return;
+      }
+      // Duplicate guard
+      if (seenMsgIds.current.has(msgID)) return;
+      seenMsgIds.current.add(msgID);
+      const newMsg: DMMessage = {
+        id: msgID,
+        sender_id: (p.sender_id as string) || "",
+        text: (p.text as string) || "",
+        media_url: (p.media_url as string) || "",
+        is_read: false,
+        created_at: (p.created_at as string) || new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, newMsg]);
+      // Read mark — okuyoruz, server tarafına bildir
+      socialApi.getDMMessages(id).catch(() => {});
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+      }, 50);
+    });
+    return off;
+  }, [me?.id, id, subscribe]);
+
+  // WS kapalıyken fallback poll (10sn)
+  useEffect(() => {
+    if (status === "open") return;
+    if (!id) return;
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, id]);
+
   const send = async () => {
-    if (!text.trim() || !conv) return;
+    if (!text.trim() || !conv || sending) return;
     setSending(true);
+    const tempId = "tmp-" + Date.now();
+    const draft = text.trim();
+    // Optimistic
+    setMessages(prev => [
+      ...prev,
+      {
+        id: tempId,
+        sender_id: me?.id || "",
+        text: draft,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    setText("");
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    }, 30);
+
     try {
-      await socialApi.sendDM(conv.other_user_id, { text: text.trim() });
-      setText("");
-      load();
+      const r = await socialApi.sendDM(conv.other_user_id, { text: draft });
+      // Replace tempId with real id
+      seenMsgIds.current.add(r.id);
+      setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, id: r.id } : m)));
     } catch (err) {
+      // Revert
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       alert(err instanceof Error ? err.message : "Gönderilemedi");
     } finally {
       setSending(false);
@@ -73,7 +148,7 @@ export default function DMThreadPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         {conv && (
-          <Link href={`/sosyal/${conv.username}`} className="flex min-w-0 items-center gap-3">
+          <Link href={`/sosyal/${conv.username}`} className="flex min-w-0 flex-1 items-center gap-3">
             {conv.avatar_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={conv.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
@@ -88,6 +163,14 @@ export default function DMThreadPage() {
             </div>
           </Link>
         )}
+        <span
+          title={status === "open" ? "Realtime aktif" : "Bağlanılıyor..."}
+          className={`flex h-7 w-7 items-center justify-center rounded-full ${
+            status === "open" ? "text-emerald-500" : "text-muted-foreground"
+          }`}
+        >
+          {status === "open" ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+        </span>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
@@ -130,6 +213,7 @@ export default function DMThreadPage() {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
+                    {m.id.startsWith("tmp-") && " · gönderiliyor..."}
                   </p>
                 </div>
               </div>
