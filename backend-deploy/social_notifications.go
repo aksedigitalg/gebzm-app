@@ -301,3 +301,32 @@ func PushStoryView(authorID string, payload map[string]interface{}) {
 	payload["type"] = "story_view"
 	hub.PushToUser(authorID, "story", payload)
 }
+
+// PushStoryCreated — yeni story atıldığında author'a + tüm takipçilerine push.
+// Tray bileşeni story:<userId> kanalını dinliyor; bu sinyal gelince load() tetikler.
+func PushStoryCreated(authorID, storyID string) {
+	payload := map[string]interface{}{
+		"type":      "story_created",
+		"story_id":  storyID,
+		"author_id": authorID,
+	}
+	// Author kendi tray'ini güncellesin (kendi story'sini görsün)
+	hub.PushToUser(authorID, "story", payload)
+
+	// Takipçilere de push (accepted)
+	rows, err := config.DB.Query(`
+		SELECT follower_id::text FROM social_follows
+		WHERE followed_id = $1 AND status = 'accepted'
+		LIMIT 5000
+	`, authorID)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var followerID string
+		if err := rows.Scan(&followerID); err == nil {
+			hub.PushToUser(followerID, "story", payload)
+		}
+	}
+}

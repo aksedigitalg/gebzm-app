@@ -142,6 +142,27 @@ func GetDMMessages(c *fiber.Ctx) error {
 	return c.JSON(out)
 }
 
+// POST /social/dm/:conversationId/read — okundu işaretle (WS event sonrası çağrılır)
+// Mesaj listesini tekrar yüklemeden sadece read state'i temizler.
+func MarkDMRead(c *fiber.Ctx) error {
+	uid := c.Locals("user_id").(string)
+	cid := c.Params("conversationId")
+	var u1, u2 string
+	if err := config.DB.QueryRow(`SELECT user1_id::text, user2_id::text FROM social_dm_conversations WHERE id = $1`, cid).Scan(&u1, &u2); err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Konuşma bulunamadı"})
+	}
+	if u1 != uid && u2 != uid {
+		return c.Status(403).JSON(fiber.Map{"error": "Yetkin yok"})
+	}
+	col := "user2_unread"
+	if u1 == uid {
+		col = "user1_unread"
+	}
+	_, _ = config.DB.Exec(`UPDATE social_dm_conversations SET `+col+` = 0 WHERE id = $1`, cid)
+	_, _ = config.DB.Exec(`UPDATE social_dm_messages SET is_read = true WHERE conversation_id = $1 AND sender_id != $2`, cid, uid)
+	return c.JSON(fiber.Map{"ok": true})
+}
+
 // POST /social/dm/:targetUserId — yeni mesaj (konuşma yoksa oluşturur)
 func SendDM(c *fiber.Ctx) error {
 	uid := c.Locals("user_id").(string)

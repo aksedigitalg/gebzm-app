@@ -7,6 +7,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"gebzem-api/config"
 
@@ -514,9 +515,29 @@ func CreatePost(c *fiber.Ctx) error {
 					Aggregate: true,
 				})
 			}
-			// Live counter push to parent post detail
+			// Live counter + full comment payload (frontend tüm listeyi tekrar çekmesin)
+			actor := loadActor(uid)
 			PushPostUpdate(body.ParentID, map[string]interface{}{
 				"comments_delta": 1,
+				"new_comment": map[string]interface{}{
+					"id":             postID,
+					"author_id":      uid,
+					"text":           body.Text,
+					"media":          body.Media,
+					"parent_id":      body.ParentID,
+					"likes_count":    0,
+					"dislikes_count": 0,
+					"comments_count": 0,
+					"reposts_count":  0,
+					"views_count":    0,
+					"created_at":     time.Now().UTC().Format(time.RFC3339),
+					"author": map[string]interface{}{
+						"user_id":      actor.UserID,
+						"username":     actor.Username,
+						"display_name": actor.DisplayName,
+						"avatar_url":   actor.AvatarURL,
+					},
+				},
 			})
 		}
 
@@ -589,7 +610,9 @@ func DeletePost(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Silindi"})
 }
 
-// GET /social/feed — takip edilenlerin postları + kullanıcının kendisi
+// GET /social/feed — takip edilenlerin postları + kullanıcının kendisi.
+// Fallback: takip ettiği kimse yoksa veya feed limit'in altındaysa explore'dan
+// popüler postlarla doldurulur — yeni kullanıcı boş ekran görmez.
 func GetFeed(c *fiber.Ctx) error {
 	uid := c.Locals("user_id").(string)
 
@@ -612,12 +635,47 @@ func GetFeed(c *fiber.Ctx) error {
 	}
 	defer rows.Close()
 	posts := []*SocialPost{}
+	seenIDs := map[string]bool{}
 	for rows.Next() {
 		var p SocialPost
 		if err := scanPost(rows, &p); err == nil {
+			seenIDs[p.ID] = true
 			posts = append(posts, &p)
 		}
 	}
+
+	// Fallback: limit dolmadıysa, explore'dan popüler postlarla tamamla (sadece
+	// ilk sayfada — offset>0 ise pagination mantığını kırma)
+	if len(posts) < limit && offset == 0 {
+		need := limit - len(posts)
+		frows, ferr := config.DB.Query(`SELECT `+postSelectCols+` FROM social_posts p
+			JOIN social_profiles sp ON sp.user_id = p.author_id
+			WHERE p.is_deleted = false AND p.is_hidden = false AND p.parent_id IS NULL
+			  AND sp.is_private = false AND sp.is_banned = false
+			  AND p.author_id != $1
+			  AND p.created_at > NOW() - INTERVAL '14 days'
+			ORDER BY (p.likes_count * 2 + p.reposts_count * 3 + p.comments_count + p.views_count / 10) DESC,
+			         p.created_at DESC
+			LIMIT $2
+		`, uid, need*2) // 2x al, duplicate skip için
+		if ferr == nil {
+			defer frows.Close()
+			for frows.Next() {
+				if len(posts) >= limit {
+					break
+				}
+				var p SocialPost
+				if err := scanPost(frows, &p); err == nil {
+					if seenIDs[p.ID] {
+						continue
+					}
+					seenIDs[p.ID] = true
+					posts = append(posts, &p)
+				}
+			}
+		}
+	}
+
 	hydratePosts(uid, posts)
 	return c.JSON(posts)
 }

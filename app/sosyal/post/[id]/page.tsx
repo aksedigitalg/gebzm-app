@@ -45,7 +45,7 @@ export default function PostDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // WebSocket: post:<id> kanalı — live counter (like, comment, repost)
+  // WebSocket: post:<id> kanalı — live counter (like, comment, repost) + yeni yorum
   const { subscribe } = useSocialWS();
   useEffect(() => {
     if (!id) return;
@@ -60,9 +60,13 @@ export default function PostDetailPage() {
         if (typeof p.reposts_delta === "number") next.reposts_count += p.reposts_delta as number;
         return next;
       });
-      // Yeni yorum geldiyse listeyi de yenile (post içeriği için)
-      if (typeof p.comments_delta === "number" && (p.comments_delta as number) > 0) {
-        socialApi.getComments(id).then(c => setComments(c as unknown as SocialPost[])).catch(() => {});
+      // Yeni yorum payload'ı geldiyse direkt listeye ekle (re-fetch yok)
+      const newComment = p.new_comment as SocialPost | undefined;
+      if (newComment && newComment.id) {
+        setComments(prev => {
+          if (prev.some(c => c.id === newComment.id)) return prev;
+          return [...prev, newComment];
+        });
       }
     });
     return off;

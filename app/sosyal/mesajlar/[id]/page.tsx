@@ -84,8 +84,8 @@ export default function DMThreadPage() {
         created_at: (p.created_at as string) || new Date().toISOString(),
       };
       setMessages(prev => [...prev, newMsg]);
-      // Read mark — okuyoruz, server tarafına bildir
-      socialApi.getDMMessages(id).catch(() => {});
+      // Mesaj listesini tekrar çekmeden okundu işareti at (yenilenme hissini kaldırır)
+      socialApi.markDMRead(id).catch(() => {});
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       }, 50);

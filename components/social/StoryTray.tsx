@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, User as UserIcon } from "lucide-react";
 import { socialApi } from "@/lib/api";
 import { useSocialWS } from "@/lib/social-ws";
@@ -14,13 +14,25 @@ import type { StoryGroup } from "@/lib/types/story";
  *  - "Senin story'n" kart en başta (kendin yoksa "+", varsa avatar+ring)
  *  - Diğerleri: takip ettiklerin (gradient ring = okunmamış, gri ring = tümü okundu)
  *  - Tıklayınca /sosyal/story/[id] (ilk hikaye)
- *  - WS: yeni story bildirimi gelince tray refresh
+ *  - WS: yeni story (story_created) ve view (story_view) sinyalinde tray refresh
+ *  - Kendi user_id'mizi localStorage'dan alıyoruz; profile prop yüklenmeden de eşleşir
  */
 export function StoryTray({ myAvatar, myUsername }: { myAvatar?: string; myUsername?: string }) {
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { subscribe } = useSocialWS();
+
+  // user_id senkron, mount'ta hazır — username prop async yüklendiği için fallback
+  const myUserID = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const u = localStorage.getItem("gebzem_user");
+      return u ? JSON.parse(u)?.id || "" : "";
+    } catch {
+      return "";
+    }
+  }, []);
 
   const load = async () => {
     try {
@@ -37,23 +49,24 @@ export function StoryTray({ myAvatar, myUsername }: { myAvatar?: string; myUsern
     load();
   }, []);
 
-  // WS: yeni post (story dahil değil ama görünür değişikliği için yenile)
+  // WS: story:<userID> kanalından her sinyal tray'i yeniler
+  // (story_created — yeni story atıldı, story_view — birinin viewd ettiği bilgisi)
   useEffect(() => {
-    const u = typeof window !== "undefined" ? localStorage.getItem("gebzem_user") : null;
-    if (!u) return;
-    let userID = "";
-    try {
-      userID = JSON.parse(u)?.id || "";
-    } catch {
-      /* */
-    }
-    if (!userID) return;
-    // Story view'lar geldiğinde tray refresh — yeni story attığımızda da geliyor
-    const off = subscribe(`story:${userID}`, () => {
+    if (!myUserID) return;
+    const off = subscribe(`story:${myUserID}`, () => {
       load();
     });
     return off;
-  }, [subscribe]);
+  }, [myUserID, subscribe]);
+
+  // Sayfa odağa dönünce (composer'dan dönüş, başka tab'tan dönüş) yeniden yükle
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
 
   if (loading) {
     return (
@@ -70,9 +83,9 @@ export function StoryTray({ myAvatar, myUsername }: { myAvatar?: string; myUsern
     );
   }
 
-  // Kendi story'mizi grup olarak ayır
-  const me = groups.find(g => g.username === myUsername);
-  const others = groups.filter(g => g.username !== myUsername);
+  // Kendi story'mizi grup olarak ayır — user_id ile eşle (username prop'u async geliyor)
+  const me = groups.find(g => g.author_id === myUserID || (myUsername && g.username === myUsername));
+  const others = groups.filter(g => g !== me);
 
   return (
     <div className="border-b border-border bg-card">

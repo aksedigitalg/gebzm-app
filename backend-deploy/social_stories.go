@@ -136,6 +136,9 @@ func CreateStory(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Story oluşturulamadı"})
 	}
 
+	// Tray bildirimi: author + takipçilere realtime push (story:<userId>)
+	go PushStoryCreated(uid, storyID)
+
 	return c.Status(201).JSON(fiber.Map{
 		"id":         storyID,
 		"expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339),
@@ -280,25 +283,23 @@ func GetStory(c *fiber.Ctx) error {
 		}
 	}
 
-	// View track (sahibi hariç)
-	if s.AuthorID != uid {
-		res, err := config.DB.Exec(`
-			INSERT INTO social_story_views (story_id, viewer_id) VALUES ($1, $2)
-			ON CONFLICT DO NOTHING
-		`, id, uid)
-		if err == nil {
-			if rows, _ := res.RowsAffected(); rows > 0 {
-				_, _ = config.DB.Exec(`UPDATE social_stories SET views_count = views_count + 1 WHERE id = $1`, id)
-				s.ViewsCount++
-				// WS push to author
-				go PushStoryView(s.AuthorID, map[string]interface{}{
-					"story_id":  s.ID,
-					"viewer":    loadActor(uid),
-				})
-			}
+	// View track. Sahibi de viewed olarak işaretlenir (tray gri ring için), ama
+	// counter sadece başkası bakınca artar (kendine baktığını saymıyoruz).
+	res, err := config.DB.Exec(`
+		INSERT INTO social_story_views (story_id, viewer_id) VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, id, uid)
+	if err == nil {
+		if rows, _ := res.RowsAffected(); rows > 0 && s.AuthorID != uid {
+			_, _ = config.DB.Exec(`UPDATE social_stories SET views_count = views_count + 1 WHERE id = $1`, id)
+			s.ViewsCount++
+			go PushStoryView(s.AuthorID, map[string]interface{}{
+				"story_id": s.ID,
+				"viewer":   loadActor(uid),
+			})
 		}
-		s.HasViewed = true
 	}
+	s.HasViewed = true
 
 	// Author hidrate
 	authorRow := config.DB.QueryRow(`SELECT `+profileSelectCols+` FROM social_profiles WHERE user_id = $1`, s.AuthorID)

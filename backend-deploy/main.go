@@ -207,6 +207,9 @@ func main() {
 	api.Get("/social/stories/:id/viewers", middleware.AuthRequired, handlers.GetStoryViewers)
 	api.Post("/social/stories/:id/reply", middleware.AuthRequired, storyReplyLimit, handlers.ReplyToStory)
 
+	// DM mark-read — WS event sonrası mesaj listesini re-fetch etmeden okundu işareti
+	api.Post("/social/dm/:conversationId/read", middleware.AuthRequired, handlers.MarkDMRead)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

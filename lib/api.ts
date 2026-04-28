@@ -653,6 +653,13 @@ export const socialApi = {
       getToken()
     ),
 
+  markDMRead: (conversationId: string) =>
+    request<{ ok: boolean }>(
+      `/social/dm/${conversationId}/read`,
+      { method: "POST" },
+      getToken()
+    ),
+
   // Reports
   report: (data: {
     target_type: "post" | "profile";
